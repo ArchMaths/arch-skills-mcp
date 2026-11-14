@@ -13,6 +13,9 @@ Python, no Arch run) and reports how far apart they are. Use it before and after
     python3 sheetfit.py check --parts boots --ref 'boot.*R' --view side --box 985,385,1035,407 --align min
     # the same comparison drawn over the sheet, for review
     python3 sheetfit.py check ... --overlay review.png
+    # layers: colour classes (light, black, orange) on the sheet and on the model drawn with hidden parts
+    # removed; overlaps, and with --map n the two class maps as text, one character per n pixels
+    python3 sheetfit.py layers --parts skirt,body --view front --box 735,300,905,372 --map 3
 
 --box is x0,y0,x1,y1 in sheet pixels around the part in that view (keep other parts out of it, and stop a
 row or two above the ground line, which is drawn thick); only the rows inside it are compared, so parts
@@ -30,11 +33,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 U = 10.96 / (409 - 130.5)          # model units per sheet pixel
 GROUND = 409.0
 VIEWS = {
-    # name: (sheet x of the centre line, model coordinate along the sheet's x)
-    'front': (820.0, lambda P: P[:, 0]),      # seen from the front: her right on the left
-    'side': (1010.0, lambda P: P[:, 1]),      # her front on the left
-    'back': (1225.0, lambda P: -P[:, 0]),     # seen from behind: her left on the left
+    # name: (sheet x of the centre line, camera azimuth as in Arch: -90 looks at her face)
+    'front': (820.0, -90.0),      # her right on the left
+    'side': (1010.0, 0.0),        # from her left, her front on the left (the dress there is drawn turned: --az -30)
+    'back': (1225.0, 90.0),       # her left on the left
 }
+AZ = {}                           # per-view azimuth overrides (--az)
+
+
+def view_axes(view):
+    """(right, toward-camera) unit vectors of the orthographic view."""
+    az = math.radians(AZ.get(view, VIEWS[view][1]))
+    return np.array([-math.sin(az), math.cos(az), 0.0]), np.array([math.cos(az), math.sin(az), 0.0])
+
+
+def h_of(view, P):
+    return P @ view_axes(view)[0]
 
 
 # ------------------------------------------------------------------------------------------- sheet
@@ -77,8 +91,9 @@ def _split_top(s):
     return out + [cur]
 
 
-def model_points(parts, ref=None, n=140):
-    """Run generate.py for these parts and sample its surfaces (whose ref matches) with numpy."""
+def model_surfaces(parts, ref=None, skip=None):
+    """Run generate.py for these parts; its surfaces (whose ref matches) as numpy functions:
+    [(ref, colour, f(u, v) -> (X, Y, Z), (u0, u1, v0, v1))]."""
     sys.path.insert(0, HERE)
     argv = sys.argv
     sys.argv = ['generate.py', '-o', os.devnull, '--parts', parts, '--prec', '3']
@@ -91,7 +106,7 @@ def model_points(parts, ref=None, n=140):
     ns = dict(sin=np.sin, cos=np.cos, tan=np.tan, sqrt=np.sqrt, exp=np.exp, abs=np.abs, ln=np.log, log=np.log10,
               sign=np.sign, atan=np.arctan, asin=np.arcsin, acos=np.arccos, floor=np.floor, ceil=np.ceil,
               pi=math.pi, max=np.maximum, min=np.minimum)
-    pts = []
+    surfs = []
     np.seterr(all='ignore')
     for line in g['sc'].out:
         m = re.match(r'^(\w+)\(([^)]*)\)=(.*)$', line)
@@ -103,24 +118,38 @@ def model_points(parts, ref=None, n=140):
             continue
         tup, opts = line.rsplit(' | ', 1)
         r = re.search(r'ref=(\S+)', opts)
-        if ref and not (r and re.fullmatch(ref, r.group(1))):
+        name = r.group(1) if r else ''
+        if (ref and not re.fullmatch(ref, name)) or (skip and re.fullmatch(skip, name)):
             continue
+        col = re.search(r'color=(\S+)', opts)
         X, Y, Z, u, u0, u1, v, v0, v1 = _split_top(tup.strip()[1:-1])
         lim = [float(eval(t.replace('^', '**'), ns)) for t in (u0, u1, v0, v1)]
         f = eval(f"lambda {u},{v}: ({X.replace('^', '**')},{Y.replace('^', '**')},{Z.replace('^', '**')})", ns)
-        A, B = np.meshgrid(np.linspace(lim[0], lim[1], n), np.linspace(lim[2], lim[3], n), indexing='ij')
-        P = np.stack([np.broadcast_to(np.asarray(c, float), A.shape) for c in f(A, B)], -1)
-        for E0, E1 in ((P[1:], P[:-1]), (P[:, 1:], P[:, :-1])):    # the grid's edges, as Arch's mesh draws them
+        surfs.append((name, col.group(1) if col else '#888888', f, lim))
+    if not surfs:
+        sys.exit(f'sheetfit: no surfaces of parts {parts!r} match ref {ref!r}')
+    return surfs
+
+
+def _grid(f, lim, nu, nv):
+    A, B = np.meshgrid(np.linspace(lim[0], lim[1], nu), np.linspace(lim[2], lim[3], nv), indexing='ij')
+    return np.stack([np.broadcast_to(np.asarray(c, float), A.shape) for c in f(A, B)], -1)
+
+
+def model_points(parts, ref=None, n=140):
+    """The edges of a fine grid on each matching surface, as Arch's mesh draws them: (n, 2, 3)."""
+    pts = []
+    for _, _, f, lim in model_surfaces(parts, ref):
+        P = _grid(f, lim, n, n)
+        for E0, E1 in ((P[1:], P[:-1]), (P[:, 1:], P[:, :-1])):
             E = np.stack([E0.reshape(-1, 3), E1.reshape(-1, 3)], 1)
             pts.append(E[np.all(np.isfinite(E), (1, 2))])
-    if not pts:
-        sys.exit(f'sheetfit: no surfaces of parts {parts!r} match ref {ref!r}')
     return np.concatenate(pts)
 
 
 def model_rows(E, view, zs):
     """Per sheet row height: (left, right) where that level cuts the model's mesh edges; NaN if it misses."""
-    h0, h1 = VIEWS[view][1](E[:, 0]), VIEWS[view][1](E[:, 1])
+    h0, h1 = h_of(view, E[:, 0]), h_of(view, E[:, 1])
     z0, z1 = E[:, 0, 2], E[:, 1, 2]
     lo, hi = np.minimum(z0, z1), np.maximum(z0, z1)
     out = []
@@ -134,6 +163,126 @@ def model_rows(E, view, zs):
         h = h0[m] + t * (h1[m] - h0[m])
         out.append((h.min(), h.max()))
     return np.array(out)
+
+
+# ------------------------------------------------------------------------------------------- layers
+CLS = '.ckog-'    # background, light (cream or white), black, orange (fabric, and hair), gold, other (outlines, shading)
+
+
+def classify(rgb):
+    """Colour class of each pixel (rgb floats 0-255, last axis)."""
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    lab = np.full(r.shape, 5, np.int8)
+    lab[(mn >= 165) & ((mx - mn) < 0.25 * mx)] = 1
+    lab[(mn >= 246) & (mx - mn <= 6)] = 0
+    lab[mx < 75] = 2
+    lab[(r > 120) & (r - b > 0.45 * r) & (g < 0.75 * r)] = 3
+    lab[(r > 150) & (g >= 0.75 * r) & (b < 0.55 * r)] = 4
+    return lab
+
+
+def sheet_labels(path, box):
+    import cv2
+    x0, y0, x1, y1 = box
+    return classify(cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)[y0:y1 + 1, x0:x1 + 1].astype(float))
+
+
+def _hex_rgb(h):
+    h = {'black': '000000', 'white': 'ffffff'}.get(h, h).lstrip('#')
+    return np.array([int(h[i:i + 2], 16) for i in (0, 2, 4)], float)
+
+
+def model_labels(surfs, view, box, k=3, max_pts=3_000_000):
+    """Colour class seen at each sheet pixel of the box, the model drawn with hidden parts removed (k x k samples
+    per pixel, majority)."""
+    x0, y0, x1, y1 = box
+    axis = VIEWS[view][0]
+    rv, dv = view_axes(view)
+    W, H = (x1 - x0 + 1) * k, (y1 - y0 + 1) * k
+    zbuf = np.full(W * H, -np.inf)
+    lab = np.zeros(W * H, np.int8)
+
+    def sub(P):
+        return (axis + (P @ rv) / U - (x0 - 0.5)) * k, (GROUND - P[..., 2] / U - (y0 - 0.5)) * k
+
+    for name, col, f, lim in surfs:
+        c = classify(_hex_rgb(col)[None])[0]
+        Pc = _grid(f, lim, 17, 17)
+        px, py = sub(Pc)
+        if not np.isfinite(px).any() or np.nanmax(px) < 0 or np.nanmin(px) > W or np.nanmax(py) < 0 or np.nanmin(py) > H:
+            continue
+        seg_u = np.nanmax(np.hypot(np.diff(px, axis=0), np.diff(py, axis=0)))
+        seg_v = np.nanmax(np.hypot(np.diff(px, axis=1), np.diff(py, axis=1)))
+        nu, nv = int(np.clip(seg_u * 16 * 1.4, 4, 3000)), int(np.clip(seg_v * 16 * 1.4, 4, 3000))
+        if nu * nv > max_pts:
+            s_ = math.sqrt(max_pts / (nu * nv))
+            nu, nv = max(4, int(nu * s_)), max(4, int(nv * s_))
+        P = _grid(f, lim, nu, nv).reshape(-1, 3)
+        P = P[np.all(np.isfinite(P), 1)]
+        px, py = sub(P)
+        ix, iy = np.floor(px).astype(int), np.floor(py).astype(int)
+        m = (ix >= 0) & (iy >= 0) & (ix < W) & (iy < H)
+        idx, dep = iy[m] * W + ix[m], P[m] @ dv
+        if not len(idx):
+            continue
+        o = np.lexsort((-dep, idx))
+        idx, dep = idx[o], dep[o]
+        first = np.r_[True, idx[1:] != idx[:-1]]
+        idx, dep = idx[first], dep[first]
+        win = dep > zbuf[idx]
+        zbuf[idx[win]] = dep[win]
+        lab[idx[win]] = c
+    lab = lab.reshape(H, W).reshape(H // k, k, W // k, k).transpose(0, 2, 1, 3).reshape(H // k, W // k, k * k)
+    counts = np.stack([(lab == c).sum(-1) for c in range(len(CLS))], -1)
+    return counts.argmax(-1).astype(np.int8)
+
+
+def text_map(L, step):
+    """One character per step x step block: the commonest class that is not 'other'."""
+    rows = []
+    for y in range(0, L.shape[0], step):
+        s = ''
+        for x in range(0, L.shape[1], step):
+            b = L[y:y + step, x:x + step].ravel()
+            b = b[b != 5]
+            s += CLS[np.bincount(b, minlength=6).argmax()] if len(b) else '-'
+        rows.append(s)
+    return rows
+
+
+def runs(L, y, box, view, cls=(1, 2, 3)):
+    """Runs of the classes along row y of a label map, in model units."""
+    x0 = box[0]
+    axis = VIEWS[view][0]
+    row = L[y]
+    out = []
+    i = 0
+    while i < len(row):
+        j = i
+        while j < len(row) and row[j] == row[i]:
+            j += 1
+        if row[i] in cls and j - i >= 2:
+            out.append(f"{CLS[row[i]]}[{(x0 + i - 0.5 - axis) * U:.2f},{(x0 + j - 0.5 - axis) * U:.2f}]")
+        i = j
+    return ' '.join(out)
+
+
+def report_layers(view, box, S, M, step, show_map):
+    valid = S != 5
+    print(f"{view}: box {box}, z {(GROUND - box[3]) * U:.2f}..{(GROUND - box[1]) * U:.2f}")
+    if M is not None:
+        so, mo = (S != 0) & valid, (M != 0) & valid
+        print(f"  outline overlap {np.sum(so & mo) / max(1, np.sum(so | mo)):.3f}   pixels agreeing {np.mean((S == M)[valid]):.3f}")
+        for c in (1, 2, 3):
+            a_, b_ = (S == c) & valid, (M == c) & valid
+            print(f"  {CLS[c]}: sheet {a_.sum():5d} px  model {b_.sum():5d} px  overlap {np.sum(a_ & b_) / max(1, np.sum(a_ | b_)):.3f}")
+    if show_map:
+        ts = text_map(S, step)
+        tm = text_map(M, step) if M is not None else [''] * len(ts)
+        for i, (a_, b_) in enumerate(zip(ts, tm)):
+            z = (GROUND - (box[1] + i * step + step / 2 - 0.5)) * U
+            print(f"  {z:5.2f} {a_}  {b_}")
 
 
 # ------------------------------------------------------------------------------------------- reports
@@ -182,7 +331,7 @@ def overlay(g_path, box, view, S, M, out):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('mode', choices=('measure', 'check'))
+    ap.add_argument('mode', choices=('measure', 'check', 'layers'))
     ap.add_argument('--view', choices=tuple(VIEWS), required=True)
     ap.add_argument('--box', required=True, help='x0,y0,x1,y1 in sheet pixels')
     ap.add_argument('--sheet')
@@ -193,8 +342,26 @@ def main():
                     help='shift the model sideways to line up its left edge, right edge or centre with the sheet')
     ap.add_argument('--every', type=int, default=3, help='print every n-th row')
     ap.add_argument('--overlay', help='also draw the comparison over the sheet to this png')
+    ap.add_argument('--az', type=float, help='camera azimuth for this view (the side view of the dress is drawn turned)')
+    ap.add_argument('--skip', help='regex: leave out surfaces whose ref matches (layers)')
+    ap.add_argument('--map', type=int, default=0, help='layers: print the class maps, one character per n pixels')
+    ap.add_argument('--runs', type=int, default=0, help='layers: print the class runs on every n-th row')
     a = ap.parse_args()
     box = tuple(int(v) for v in a.box.split(','))
+    if a.az is not None:
+        AZ[a.view] = a.az
+    if a.mode == 'layers':
+        path = a.sheet or os.environ.get('CLAUDE_CHAN_SHEET')
+        S = sheet_labels(path, box)
+        M = model_labels(model_surfaces(a.parts, a.ref, a.skip), a.view, box) if a.parts != 'none' else None
+        report_layers(a.view, box, S, M, a.map, a.map > 0)
+        if a.runs:
+            for y in range(0, S.shape[0], a.runs):
+                z = (GROUND - box[1] - y) * U
+                print(f"  {z:5.2f} sheet {runs(S, y, box, a.view)}")
+                if M is not None:
+                    print(f"        model {runs(M, y, box, a.view)}")
+        return
     g = load_sheet(a.sheet)
     S = sheet_rows(g, box, a.view, a.thr)
     if a.mode == 'measure':

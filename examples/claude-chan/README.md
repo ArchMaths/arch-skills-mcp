@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script it was built from (439 objects). |
+| `claude-chan-3d.arch` | The scene script (562 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -58,18 +58,23 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   gold trim and chrysanthemum emblems (longer and fuller at the back, as in the side and back views),
   bishop sleeves with lacing and two-tone ruffled cuffs, black corset with gold buttons, piping, chain,
   ring and tassel.
-- **Dress**: modelled from the sheet's three views and its skirt panel (三片式长裙与褶边衬裙). A pleated
-  cream skirt with a frilled petticoat and orange fern embroidery where it shows at the front and back.
-  Seen from the front it is a straight A-line from the corset; seen from the side the front hangs nearly
-  flat and the back is full (the depth is 0.57 of the half-width at the front and 0.75 to 1 at the back).
-  Over it, on each side, a black panel with an orange facing, gold bands and chrysanthemum emblems, and
-  over that a cream overskirt piece lined in orange. Each overskirt piece is caught up by a black bow at
-  the front (37 degrees from the front) and one at the back (149 degrees), each bow with a chrysanthemum,
-  long tails and two gold tassels, so its hem swags from the bows down to just above the black panel's
-  hem behind the side and the lining shows where the hem turns. Black bands run down the overskirt's
-  edges from the waist to the bows; an orange tab hangs on her left of the front and a longer one at the
-  centre back, both cut on a slant. The sheet's side view matches the model turned about 30 degrees
-  toward the front, which is how its bows, front tab and swag appear there.
+- **Dress**: measured layer by layer on the sheet's three views (with `sheetfit.py`) and its skirt panel
+  (三片式长裙与褶边衬裙). A pleated cream skirt with a frilled petticoat and orange fern embroidery where it
+  shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
+  side the front hangs nearly flat and the back is full (the depth is 0.53 to 0.60 of the half-width at the
+  front, measured on the side view, and 0.75 to 1 at the back). Over it, on each side, a black panel from
+  29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems; its front edge is faced in
+  orange, narrowly on her right and wide on her left, where the facing carries the front tab's orange strip
+  on down to the hem. Over that a cream overskirt piece lined in orange, from 34 to 141.5 degrees, caught up
+  by a black bow at each end (their knots 5.55 high at the front and 5.5 at the back), each bow with a
+  chrysanthemum medallion above it, tails and two gold tassels. The overskirt's hem, a spline through
+  points measured on the front and back views, hangs from the front bow down its front edge to 4.3, swags
+  to 2.95 at the side, where the lining shows at the turn, and rises up the back to 4.5. Black bands run
+  down the overskirt's edges from the waist to the bows; an orange tab hangs on her left of the front, to
+  a foot slanting from 5.0 to 4.6, and a longer one at the centre back, to a point at 3.95. On the sheet's
+  side view the outline is a true profile (it fits the model seen from the side within 0.1), but the bows
+  and facings are drawn as if turned about 30 degrees, so the layers were placed from the front and back
+  views; all three views draw the hems as if seen from above, so they curve up at the sides there.
 - **Boots**: cream lace-up ankle boots built from a three-view drawing measured on the sheet's front, side
   and back views and its props panel (米白系带短靴). Each is 1.44 long and 0.585 wide across the ball of the
   foot, with a domed toe cap, an oval shaft 0.455 wide at the rim (1.10 high, under the petticoat frill) and a
@@ -101,8 +106,11 @@ python3 sheetfit.py check --sheet <sheet.jpg> --parts boots --ref 'boot.*R' --vi
 ```
 
 prints the mean and largest edge errors, the overlap and the edges at a few heights; `--overlay out.png`
-draws the same comparison over the sheet. `CLAUDE.md` has the working rules: measure and model each part
-before writing it for Arch.
+draws the same comparison over the sheet. For layered parts, `sheetfit.py layers` sorts the sheet's pixels
+into light, black and orange and compares them with the model drawn with hidden parts removed: how much
+each colour overlaps, and with `--map 3` both maps printed as text. On the dress (front view, below the
+bows) 84% of the pixels agree. `CLAUDE.md` has the working rules: measure and model each part before writing
+it for Arch.
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and
 `--view face` frames the face (`--parts boots --view boots` shows just the boots). The views and parts are
@@ -154,7 +162,9 @@ listed in `generate.py`.
 - **Skirt.** Every layer is written around the same skirt: at height h and angle t from the front it lies at
   half-width `sa(s)` (s from the waist to the hem) times `sin(t)` across and `dk(s,t) cos(t)` deep, so the
   layers stack at small offsets. The overskirt pieces, black panels and tabs are each a strip of that
-  surface between two angles, with a top and hem that vary across the strip (`ozh`, `bzh`). The tabs are
+  surface between two angles, with a top and hem that vary across the strip (`ozh`, `bzh`). The front depth
+  `fk(s)` and the overskirt's hem `ozh(q)` (a natural cubic spline) come from points measured on the sheet;
+  `stp` is a smooth step. The tabs are
   laid out by x across the back or front (`asin(x/a)` gives the angle), so their edges are straight lines as
   drawn.
 - **Boots.** The boot is first described in Python as the drawing: at each height z its front and back come
