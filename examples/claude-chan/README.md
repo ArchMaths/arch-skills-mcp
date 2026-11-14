@@ -8,6 +8,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
 | `claude-chan-3d.arch` | The scene script it was built from (439 objects). |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
+| `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
 Opening the file takes several minutes (it is about 11 MB): it is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
@@ -88,6 +89,20 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 python3 examples/claude-chan/generate.py         # writes claude-chan-3d.arch (needs numpy)
 node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan/claude-chan-3d.txt --timeout 3600
 ```
+
+### Checking against the sheet
+
+`sheetfit.py` reads a part's outline off the sheet's front, side and back views (row by row, in model units)
+and compares it with the same projection of the generator's surfaces, evaluated in Python. For example, the
+boots against the side view, lined up at the toe tip:
+
+```sh
+python3 sheetfit.py check --sheet <sheet.jpg> --parts boots --ref 'boot.*R' --view side --box 985,385,1035,407 --align min
+```
+
+prints the mean and largest edge errors, the overlap and the edges at a few heights; `--overlay out.png`
+draws the same comparison over the sheet. `CLAUDE.md` has the working rules: measure and model each part
+before writing it for Arch.
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and
 `--view face` frames the face (`--parts boots --view boots` shows just the boots). The views and parts are
