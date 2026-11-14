@@ -7,7 +7,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
 | `claude-chan-3d.arch` | The scene script it was built from (439 objects). |
-| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `hair.py` and `scene.py` are its parts. |
+| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 
 Opening the file takes several minutes (it is about 11 MB): it is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
@@ -56,7 +56,7 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 - **Outfit**: high ruffled collar and jabot, black ascot with a chrysanthemum brooch, cream capelet with
   gold trim and chrysanthemum emblems (longer and fuller at the back, as in the side and back views),
   bishop sleeves with lacing and two-tone ruffled cuffs, black corset with gold buttons, piping, chain,
-  ring and tassel, cream lace-up boots.
+  ring and tassel.
 - **Dress**: modelled from the sheet's three views and its skirt panel (三片式长裙与褶边衬裙). A pleated
   cream skirt with a frilled petticoat and orange fern embroidery where it shows at the front and back.
   Seen from the front it is a straight A-line from the corset; seen from the side the front hangs nearly
@@ -69,6 +69,14 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   edges from the waist to the bows; an orange tab hangs on her left of the front and a longer one at the
   centre back, both cut on a slant. The sheet's side view matches the model turned about 30 degrees
   toward the front, which is how its bows, front tab and swag appear there.
+- **Boots**: cream lace-up ankle boots built from a three-view drawing measured on the sheet's front, side
+  and back views and its props panel (米白系带短靴). Each is 1.44 long and 0.585 wide across the ball of the
+  foot, with a domed toe cap, an oval shaft 0.455 wide at the rim (1.10 high, under the petticoat frill) and a
+  heel counter that bulges behind. A dark brown block heel 0.33 high, 0.40 x 0.34 at the top and 0.32 x
+  0.22 on the ground, with its front face upright and its back leaning in. The sole runs flat under the
+  forefoot and rises through the arch to the heel. Seven pairs of gold eyelets with criss-cross laces and a
+  bow with gold-tipped tails; a stitched facing, a toe-cap seam and a back seam; a padded collar with a tan
+  lining; pale stockings above.
 - **Hands**: palm, two-jointed fingers and thumb, half as long as her head and about as wide as the
   cuffs they come out of, as on the sheet. Her right hand hangs relaxed and turned out; her left holds the
   book at her side.
@@ -82,7 +90,8 @@ node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan
 ```
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and
-`--view face` frames the face. The views and parts are listed in `generate.py`.
+`--view face` frames the face (`--parts boots --view boots` shows just the boots). The views and parts are
+listed in `generate.py`.
 
 ## How it is built
 
@@ -133,6 +142,15 @@ node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan
   surface between two angles, with a top and hem that vary across the strip (`ozh`, `bzh`). The tabs are
   laid out by x across the back or front (`asin(x/a)` gives the angle), so their edges are straight lines as
   drawn.
+- **Boots.** The boot is first described in Python as the drawing: at each height z its front and back come
+  from the side view, its width from the front and back views and its plan from a footprint, rounded at both
+  ends and domed over the toe. For Arch, each level of the upper is an oval traced by an angle p,
+  `s = boc(u)-boa(u)*cos(p)` back from the toe and `x = sin(p)*sum bok_k(u)*cos(k*p)` across, at height
+  `boz(u)`; these are cubic splines in one parameter u up the boot, fitted to the drawing within 0.015.
+  Low down a level stops where the sole rises under the arch (`p` up to `bop(u)`), and just above the heel
+  seat the cut runs round the heel cup and the levels close, so the whole upper is one seamless surface; the
+  closing happens inside the sole, whose top is fitted to the upper's bottom edge. The laces follow a fit of
+  the front of the upper, and the seams are traced on the fitted surface.
 - **Braid.** Three strands follow an oval ring on the dome and weave as `sin(tau)` across the ring and
   `sin(2 tau)` in height, a third of a turn apart.
 - Arch lights a surface at half strength where its normal faces away from the camera, so the generator

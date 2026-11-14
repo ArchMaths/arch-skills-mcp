@@ -531,21 +531,7 @@ her left. Both lie on the pleated skirt; x is measured across, so each follows t
 #  BOOTS
 # =====================================================================
 if want('boots'):
-    sc.blank()
-    sc.note('Cream lace-up ankle boots with brown heels')
-    for side, tag in ((1, 'L'), (-1, 'R')):
-        x = 0.38 * side          # the sheet's boots: shafts 0.43 wide, 0.76 apart
-        toe = unit((0.14 * side, -1, 0))
-        fr = (unit(cross(toe, (0, 0, 1))), toe, (0, 0, 1))
-        rbox((x, -0.32, 0.17), (0.21, 0.36, 0.16), fr, '#efe2cf', f'boot{tag}', e=0.55, e2=0.75)
-        capsule((x, -0.1, 0.15), (x, -0.1, 1.5), 0.215, 0.2, '#efe2cf', f'bootShaft{tag}')
-        rbox((x, -0.31, 0.025), (0.225, 0.38, 0.028), fr, BROWN_DK, f'bootSole{tag}', e=0.3, e2=0.7)
-        rbox((x, -0.02, 0.08), (0.15, 0.12, 0.08), fr, BROWN_DK, f'bootHeel{tag}', e=0.25)
-        for k, ph in enumerate((0, 1)):
-            X = f"{fmt(x)}+0.08*asin(sin(pi*(7*t+{ph})))*2/pi"
-            Y = f"-0.322+0.01*t-0.2*max(0,0.3-t)/0.3"
-            Z = f"0.3+1.0*t"
-            sc.curve((X, Y, Z), ('t', 0, 1), '#8a4a2a', f'bootLace{tag}{k + 1}', thickness=2)
+    run('boots.py')       # built from the three-view drawing measured on the sheet
 
 # =====================================================================
 #  DISPLAY BASE

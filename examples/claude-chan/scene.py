@@ -228,7 +228,8 @@ class Scene:
     def surface(self, XYZ, U, V, color, ref=None, orient='closed', opacity=None, hidden=False):
         """XYZ: three Arch expressions; U, V: (name, lo, hi); orient: how to decide the outside.
         'closed' outward from the centroid, ('point', p) away from p, ('dir', d) toward d,
-        ('tube', 'u'|'v') away from the axis of rings at fixed u (or v), None = keep."""
+        ('tube', 'u'|'v') away from the axis of rings at fixed u (or v), ('tube', 'u', 'in') toward it,
+        None = keep."""
         if self.turn:
             XYZ = self._turn(XYZ)
         X, Y, Z = XYZ
@@ -269,6 +270,8 @@ class Scene:
                     rings.setdefault(p[key], []).append(p[2])
                 rc = {k: mul(tuple(map(sum, zip(*ps))), 1 / len(ps)) for k, ps in rings.items()}
                 score = sum(1 if dot(sub(P, rc[(i, j)[key]]), n) < 0 else -1 for i, j, P, n in pts)
+                if len(orient) > 2 and orient[2] == 'in':     # a lining: normals toward the axis
+                    score = -score
             else:
                 raise ValueError(orient)
             swap = score > 0
