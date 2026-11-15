@@ -11,8 +11,7 @@ VF = HDZ * math.pi / 2 / T0              # how fast z falls with t below the dom
 
 _cape = [bezier_eval(CAPE, s) for s in np.linspace(0, 1, 200)]
 _cape_s = list(zip(np.linspace(0, 1, 200), _cape))
-# how far out the arms reach (the sleeve, cuff and hand around the arm's line), by height
-ARM_ENV = [(9.1, 1.5), (8.42, 1.65), (7.6, 1.78), (7.12, 2.0), (6.6, 2.15), (6.1, 2.25), (5.75, 2.1)]
+# ARM_ENV, ARM_PSI (arms.py): how far out the sleeves, cuffs and hands reach by height, and round which angles
 _bk = BOOK[2]
 BOOK_Z = (min(P[2] for P in _bk) - 0.05, max(P[2] for P in _bk) + 0.05)
 BOOK_R = max(math.hypot(P[0], P[1] - 0.03) for P in _bk) + 0.04
@@ -48,7 +47,7 @@ def envelope(psi, z):
         for th_b, z_b in ((OV_B, BOW_ZB), (OV_F, BOW_ZF)):     # the bows, their tails and tassels
             if abs(th - th_b) < 0.4 and z_b - 1.0 < z < z_b + 0.35:
                 r = max(r, (OSR(z_b) + 0.1) * math.hypot(math.sin(th_b), DK(sk_s(z_b), th_b) * math.cos(th_b)) + 0.3)
-    if 1.2 < abs(psi) < 2.0 and ARM_ENV[-1][0] < z < ARM_ENV[0][0]:      # arms and hands below the capelet
+    if ARM_PSI[0] < abs(psi) < ARM_PSI[1] and ARM_ENV[-1][0] < z < ARM_ENV[0][0]:      # arms and hands below the capelet
         r = max(r, float(np.interp(z, [e[0] for e in ARM_ENV[::-1]], [e[1] for e in ARM_ENV[::-1]])))
     if BOOK_PSI[0] < psi < BOOK_PSI[1] and BOOK_Z[0] < z < BOOK_Z[1]:   # the book in her left hand
         r = max(r, BOOK_R)

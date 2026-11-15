@@ -178,84 +178,9 @@ back (cdr) and stands out there (the flare in y).""")
         flower(add(P, mul(n, 0.012)), n, 0.17, f'capeEmblem{tag}', layers=2, colors=(ORANGE, ORANGE_LT, AMBER, GOLD), flat=True)
 
 # =====================================================================
-#  ARMS: bishop sleeves with lacing and two-tone cuffs, hands
+#  ARMS: sleeves and hands, measured on the sheet (arms.py)
 # =====================================================================
-# Measured on the sheet's front view: the elbows at the waist, the cuffs at the hips and the fingertips at
-# mid-thigh, the arms held a little away from the skirt.
-ARMS = {
-    'L': dict(S=(0.82, 0.03, 10.1), E=(1.38, 0.12, 8.42), W=(1.66, -0.02, 7.06)),
-    'R': dict(S=(-0.82, 0.03, 10.1), E=(-1.38, 0.12, 8.42), W=(-1.66, -0.02, 7.06)),
-}
-
-
-HS = 3.0    # hand size: on the sheet a hand is half the head height and as wide as the cuff's opening
-
-
-def hand(W, d, pn, side, tag, curl=(0.35, 0.45), thumb_curl=0.5):
-    d = unit(d)
-    pn = unit(sub(pn, mul(d, dot(pn, d))))
-    across = unit(cross(pn, d))  # toward the thumb for the left hand
-    ts = 1 if side > 0 else -1
-    Pc = add(W, mul(d, 0.13 * HS))
-    ellipsoid(Pc, (0.068 * HS, 0.032 * HS, 0.088 * HS), SKIN, f'palm{tag}', fr=(across, pn, d))
-    offs = [0.046, 0.016, -0.015, -0.044]
-    lens = [0.12, 0.14, 0.13, 0.105]
-    for k, (o, ln) in enumerate(zip(offs, lens)):
-        o, ln = o * HS, ln * HS
-        base = add(add(Pc, mul(d, 0.07 * HS)), mul(across, -o * ts))
-        c1 = curl[0] + 0.05 * k
-        d1 = unit(add(mul(d, math.cos(c1)), mul(pn, math.sin(c1))))
-        m = add(base, mul(d1, ln * 0.55))
-        c2 = c1 + curl[1]
-        d2 = unit(add(mul(d, math.cos(c2)), mul(pn, math.sin(c2))))
-        tip = add(m, mul(d2, ln * 0.45))
-        capsule(add(base, mul(d1, -0.01 * HS)), add(m, mul(d1, 0.012 * HS)), 0.02 * HS, 0.018 * HS, SKIN, f'finger{tag}{k + 1}a')
-        capsule(m, tip, 0.018 * HS, 0.015 * HS, SKIN, f'finger{tag}{k + 1}b')
-    tb = add(add(Pc, mul(across, 0.06 * ts * HS)), add(mul(d, -0.03 * HS), mul(pn, 0.02 * HS)))
-    dt = unit(add(add(mul(d, 0.75), mul(pn, thumb_curl)), mul(across, 0.15 * ts)))
-    capsule(tb, add(tb, mul(dt, 0.11 * HS)), 0.022 * HS, 0.017 * HS, SKIN, f'thumb{tag}')
-
-
-HAND_L = (0.22, -0.05, -1)
-HAND_AT = 0.2           # the hand starts this far past the wrist, inside the cuff
-
-
-if want('arms'):
-    for tag, A in ARMS.items():
-        side = 1 if tag == 'L' else -1
-        S, E, W = A['S'], A['E'], A['W']
-        sc.blank()
-        sc.note(f"{'Left' if side > 0 else 'Right'} arm: bishop sleeve, lacing, ruffled cuff, hand")
-        puff(S, E, 0.21, 0.2, 0.13, CREAM, f'sleeveUpper{tag}', gather=0.035, ng=9)
-        ellipsoid(E, (0.21, 0.21, 0.21), CREAM, f'elbow{tag}')
-        d = sub(W, E)
-        L = norm(d)
-        M = add(E, mul(d, 0.42))
-        puff(add(E, mul(d, -0.08)), M, 0.21, 0.17, 0.07, CREAM, f'sleeveMid{tag}', gather=0.04, ng=10)
-        fr = frame(d)
-        sc.surface(place(("cr(u,0.165,0.145)*cos(w)", "cr(u,0.165,0.145)*sin(w)", f"{fmt(L * 0.66)}*cf(u)"), add(E, mul(d, 0.38)), fr),
-                   ('u', 0, 'pi'), ('w', 0, '2*pi'), CREAM, f'sleeveLower{tag}', ('tube', 'u'))
-        # lacing on the outer side of the forearm: two zigzags crossing
-        outward = unit(sub((side, -0.35, 0), mul(unit(d), dot((side, -0.35, 0), unit(d)))))
-        lat = unit(cross(unit(d), outward))
-        for k, ph in enumerate((0, 1)):
-            parts = []
-            for i in range(3):
-                parts.append(f"{fmt(E[i])}+{fmt(unit(d)[i])}*{fmt(L)}*(0.5+0.42*t)+{fmt(outward[i])}*(0.163-0.012*t)+{fmt(lat[i])}*0.05*asin(sin(pi*(6*t+{ph})))*2/pi")
-            sc.curve(tuple(parts), ('t', 0, 1), LACE, f'lacing{tag}{k + 1}', thickness=2)
-        # cuff: cream frill outside, black frill inside
-        du = unit(d)
-        for k, (r0, r1, ln, col, nm) in enumerate([(0.15, 0.32, 0.3, CREAM, 'cuff'), (0.13, 0.27, 0.37, BLACK, 'cuffInner')]):
-            Wc = add(W, mul(du, -0.05))
-            R = f"({fmt(r0)}+{fmt(r1 - r0)}*s^0.8+0.028*s*sin(9*w))"
-            Lc = (f"{R}*cos(w)", f"{R}*sin(w)", f"{fmt(ln)}*s+0.03*s*cos(9*w)")
-            sc.surface(place(Lc, Wc, frame(du)), ('s', 0, 1), ('w', 0, '2*pi'), col, f'{nm}{tag}', ('tube', 'u'))
-        # hand: palm faces the body, fingers curl forward a little
-        pn = unit((-side, -0.25, 0)) if tag == 'R' else unit((side, -0.3, 0))      # her left palm faces the book
-        if tag == 'L':
-            hand(add(W, mul(du, HAND_AT)), HAND_L, pn, side, tag, curl=(0.55, 0.9), thumb_curl=0.2)
-        else:
-            hand(add(W, mul(du, HAND_AT)), (-0.4, -0.06, -1), pn, side, tag, curl=(0.25, 0.3))     # relaxed and turned out, as on the sheet
+run('arms.py')        # always: the book and the hair use the arms' geometry; draws them if want('arms')
 
 # =====================================================================
 #  BOOK (held in her left hand)
@@ -263,13 +188,12 @@ if want('arms'):
 def place_book():
     # The book hangs on the outside of her left hand, its cover facing out and forward and leaning out with
     # the skirt, pushed out until it clears the skirt.
-    Wl, El = ARMS['L']['W'], ARMS['L']['E']
-    palm = add(add(Wl, mul(unit(sub(Wl, El)), HAND_AT)), mul(unit(HAND_L), 0.13 * HS))
+    palm = HAND_PALM['L']
     o = unit((0.88, -0.48, 0))
     up = unit(add((0, 0, 1), mul(o, -0.42)))
     cover_n = unit(add(o, (0, 0, 0.42)))
     across = unit(cross(up, cover_n))       # along the book width, toward the spine side first
-    Bc = add(add(palm, mul(cover_n, 0.032 * HS + 0.1)), mul(up, -0.36))
+    Bc = add(add(palm, mul(cover_n, hand_reach('L', cover_n) + 0.095)), mul(up, -0.36))   # back cover against the hand
 
     def clear(P):
         s = sk_s(P[2])

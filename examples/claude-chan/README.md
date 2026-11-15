@@ -6,8 +6,8 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (562 objects); the save file is built from it. |
-| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
+| `claude-chan-3d.arch` | The scene script (560 objects); the save file is built from it. |
+| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
 Opening the file takes several minutes (it is about 11 MB): it is saved with `implicitPrecision=10`, so
@@ -19,7 +19,7 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 
 - **Proportions**: measured on the sheet's full-body front view (正面). Her head, crown to chin, is 1/7.9
   of her height; the elbows are at the waist, the cuffs at the hips and the fingertips at mid-thigh, with
-  the arms held a little away from the skirt. The skirt flares from the corset in a straight A-line, as
+  the forearms and hands angled forward and out, clear of the skirt. The skirt flares from the corset in a straight A-line, as
   wide as the sheet's at every height, and ends high enough to show the lace-up boots.
 - **Head**: sculpted from parts, tilted toward her right shoulder and turned a little to her right, which
   gives her a lively pose. The tilt is 7 degrees at the eyes, between the sheet's calm portraits (7 to 9
@@ -56,8 +56,16 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   ear; gold tassel earrings.
 - **Outfit**: high ruffled collar and jabot, black ascot with a chrysanthemum brooch, cream capelet with
   gold trim and chrysanthemum emblems (longer and fuller at the back, as in the side and back views),
-  bishop sleeves with lacing and two-tone ruffled cuffs, black corset with gold buttons, piping, chain,
-  ring and tassel.
+  black corset with gold buttons, piping, chain, ring and tassel.
+- **Sleeves and arms** (`arms.py`): measured on arm outlines traced over the sheet's front, side and back
+  views, where the hair hides much of them. A balloon puff from under the capelet to the elbow (0.86 across
+  and as deep, widest at z 8.47, its inner side straight), gathered into a small frilled band at 8.3-8.15; a
+  fitted forearm sleeve (0.46 across) that runs 25 degrees forward and out to the wrist, crossed six times by
+  brown lacing on its outer front; a frill cuff sewn on square to the forearm whose hem hangs nearly level at
+  6.74, its inner side falling straight and its outer side flaring to 0.83 across. Each sleeve is one
+  surface of horizontal sections whose centre and half-widths are splines in the height, fitted within 0.024
+  of the measured table. The views disagree on some heights (the side view draws the forearm about 0.25
+  longer than the front view), so each landmark is the mean over the five drawn arms.
 - **Dress**: measured layer by layer on the sheet's three views (with `sheetfit.py`) and its skirt panel
   (三片式长裙与褶边衬裙). A pleated cream skirt with a frilled petticoat and orange fern embroidery where it
   shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
@@ -83,9 +91,10 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   forefoot and rises through the arch to the heel. Seven pairs of gold eyelets with criss-cross laces and a
   bow with gold-tipped tails; a stitched facing, a toe-cap seam and a back seam; a padded collar with a tan
   lining; pale stockings above.
-- **Hands**: palm, two-jointed fingers and thumb, half as long as her head and about as wide as the
-  cuffs they come out of, as on the sheet. Her right hand hangs relaxed and turned out; her left holds the
-  book at her side.
+- **Hands**: palm, two-jointed fingers and thumb, 0.36 across in both the front and side views, hanging 0.1
+  out from the forearm's line (the wrist bends a little), the back of the hand toward the front and out and
+  the fingers together and a little curled, fingertips at 5.94. The book hangs against the back of her
+  left hand.
 - **Props**: a leather book with gold corners, a chrysanthemum emblem and a ribbon bookmark; a display base.
 
 ## Rebuilding
@@ -109,11 +118,14 @@ prints the mean and largest edge errors, the overlap and the edges at a few heig
 draws the same comparison over the sheet. For layered parts, `sheetfit.py layers` sorts the sheet's pixels
 into light, black and orange and compares them with the model drawn with hidden parts removed: how much
 each colour overlaps, and with `--map 3` both maps printed as text. On the dress (front view, below the
-bows) 84% of the pixels agree. `CLAUDE.md` has the working rules: measure and model each part before writing
-it for Arch.
+bows) 84% of the pixels agree. The arms are mostly hidden by hair on the sheet, so they were measured on
+outlines traced over it by hand; against those the model's edges are off by 0.03 to 0.05 on average in the
+front and side views (puff 0.01 to 0.02, forearm under 0.04, cuff and hand 0.03 to 0.08), while the back
+view draws the arms 0.1 to 0.2 closer to the body. `CLAUDE.md` has the working rules: measure and model
+each part before writing it for Arch.
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and
-`--view face` frames the face (`--parts boots --view boots` shows just the boots). The views and parts are
+`--view face` frames the face (`--parts boots --view boots` shows just the boots, `--view arms` the sleeves). The views and parts are
 listed in `generate.py`.
 
 ## How it is built

@@ -39,3 +39,16 @@ the side view's outline is a true profile (azimuth 0), but its bows and facings 
 (they curve up at the sides), so compare above the frills; the back view draws the skirt about 5% narrower
 than the front view (the model follows the front); hair is the same orange as the fabric to the colour
 classes, so keep the boxes below it.
+
+The arms: the side view draws them turned about 30 degrees too (read at azimuth -30 the puff is centred
+beside the shoulder; at 0 it would hang behind her back); it draws the forearm about 0.25 longer than the
+front view, so `arms.py` takes each landmark height as the mean over the five drawn arms; the back view
+draws the arms 0.1 to 0.2 closer to the body; the lacing is drawn facing whichever view it is in.
+
+## When the outline is hidden
+
+Where hair covers a part (the arms), automatic edge tracking drifts onto the hair. Ask the user to trace the
+part's outline in black over an overlay picture, then read the strokes as numbers: register the marked-up
+picture onto the overlay (`cv2.findTransformECC`, affine), keep pixels that are near-black, neutral and much
+darker than the overlay at the same place, map them back to sheet pixels and then to model units, and take
+each row's outermost strokes as the edges.

@@ -251,6 +251,7 @@ views = {
     'feet': '@view 3d azimuth=-70 elevation=12 unit=110 center=0,-0.6,0.8',
     'dress': '@view 3d azimuth=-58 elevation=6 unit=58 center=0,0,5.0',
     'boots': '@view 3d azimuth=-58 elevation=14 unit=300 center=0,-0.4,0.62',
+    'arms': '@view 3d azimuth=-62 elevation=6 unit=75 center=0,0,7.6',
 }
 sc.raw(views.get(args.view, args.view))
 st = '@set showAxes=false gridStyle=hidden'
