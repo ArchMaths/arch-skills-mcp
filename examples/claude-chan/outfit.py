@@ -1,5 +1,6 @@
 # Run inside generate.py (shares its names): body, outfit and props.
 import numpy as np
+from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_fills, facing_curves, _emb_len, EMB_CENTRE, EMB_DOT
 
 # ---------------- extra helpers ----------------
 sc.blank()
@@ -95,46 +96,103 @@ def torso_ab(z):
     return _tz[i][1], _tz[i][2]
 
 
-def bust(z):
-    return 0.085 * math.exp(-((z - 9.5) / 0.32) ** 2)
+BUST_D, BUST_Z, BUST_X, BUST_W = 0.24, 9.47, 0.28, 0.25      # depth, height and half-spacing of the breasts, their width
+
+
+def bust(z, x=BUST_X):
+    """How far the blouse stands out over the bust: two soft mounds with the cloth bridging between them,
+    falling away gently above and rounding in more quickly underneath."""
+    sg = 0.3 + 0.07 * math.atan((z - BUST_Z) / 0.1)
+    return BUST_D * math.exp(-((z - BUST_Z) / sg) ** 2) * (0.45 + 0.55 * math.exp(-((abs(x) - BUST_X) / BUST_W) ** 2))
+
+
+BUST_EXPR = (f"{fmt(BUST_D)}*exp(-(((zq)-{fmt(BUST_Z)})/(0.3+0.07*atan(((zq)-{fmt(BUST_Z)})/0.1)))^2)"
+             f"*(0.45+0.55*exp(-((abs(xq)-{fmt(BUST_X)})/{fmt(BUST_W)})^2))")
 
 
 def chest_y(x, z):
     a, b = torso_ab(z)
-    return -(b * math.sqrt(max(0.0, 1 - (x / a) ** 2)) + bust(z))
+    c = math.sqrt(max(0.0, 1 - (x / a) ** 2))
+    return -(b * c + bust(z, x) * c)
 
+
+# The hanging line of the chest's front (see chg below)
+_hz = np.linspace(10.6, 8.9, 171)
+_hf = np.maximum.accumulate([max(-chest_y(x, z) for x in np.linspace(-0.45, 0.45, 31)) for z in _hz])
+CHG_FIT = np.polyfit(_hz - 9.7, _hf, 7)[::-1]
+
+
+def CHG(z):
+    return float(sum(c * (z - 9.7) ** i for i, c in enumerate(CHG_FIT)))
+
+
+TUCK = '#d6c8b0'                # the blouse's tucks
+JABOT_X = -0.06                 # the cascade hangs a little toward her right, as the ascot does
+# jabot tiers: top, height, half-width, stand-off, ruffle depth, folds
+JABOT_TIERS = ((9.84, 0.32, 0.42, 0.03, 0.035, 13), (9.58, 0.28, 0.38, 0.05, 0.05, 12), (9.36, 0.27, 0.31, 0.045, 0.05, 11))
+# ascot tails: name, top (x left, x right, z), outer corner, point, inner corner (x, z), stand-off, pleats
+ASCOT_TAILS = (('Front', (-0.155, 0.02, 10.38), (-0.52, 9.72), (-0.11, 9.43), (-0.03, 9.56), 0.18, 2.5),
+               ('Back', (0.17, 0.0, 10.38), (0.3, 9.72), (0.0, 9.47), (-0.06, 9.55), 0.13, 2.0))
 
 if want('body'):
     sc.blank()
     sc.note('Blouse: body, high ruffled collar and jabot')
     tz, ta, tb = bezier_poly(TORSO)
     Z = horner(tz, 's')
-    sc.surface((f"({horner(ta, 's')})*cos(w)", f"({horner(tb, 's')})*sin(w)-0.085*exp(-(({Z}-9.5)/0.32)^2)*max(0,-sin(w))^2", Z),
+    sc.func('tsa(s)', horner(ta, 's'))
+    sc.func('tsb(s)', horner(tb, 's'))
+    sc.func('tsz(s)', Z)
+    sc.func('bst(xq,zq)', BUST_EXPR)
+    sc.comment("The body under the blouse, with the bust (bst): two soft mounds, the cloth bridging between them.")
+    sc.surface(("tsa(s)*cos(w)", "tsb(s)*sin(w)-bst(tsa(s)*cos(w),tsz(s))*max(0,-sin(w))", "tsz(s)"),
                ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'blouse', ('tube', 'u'))
     sc.comment("High collar with a ruffle on top.")
     sc.surface(("(0.235+0.012*s)*cos(w)", "0.02+(0.235+0.012*s)*sin(w)", "10.42+0.46*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collar', ('tube', 'u'))
     sc.surface(("(0.25+0.12*s+0.03*s*sin(16*w))*cos(w)", "0.02+(0.25+0.12*s+0.03*s*sin(16*w))*sin(w)", "10.86+0.11*s+0.035*s*cos(16*w)"),
                ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffle', ('point', (0, 0.02, 10.5)))
-    sc.comment("Jabot: four ruffled tiers cascading down the front.")
-    for i, zt in enumerate([10.4, 10.12, 9.85, 9.58]):
-        size = 1 - 0.07 * i
-        yf = chest_y(0, zt - 0.15) - 0.03
-        X = f"(0.04+{fmt(0.36 * size)}*s)*(1+0.12*s*sin(11*p))*sin(p)"
-        Y = f"{fmt(yf)}-0.03*s-(0.04+{fmt(0.36 * size)}*s)*cos(p)*0.4-0.045*s*cos(11*p)"
-        Zs = f"{fmt(zt)}-{fmt(0.32 * size)}*s*(0.45+0.55*cos(p))"
-        sc.surface((X, Y, Zs), ('s', 0, 1), ('p', -1.3, 1.3), CREAM if i % 2 == 0 else '#f7f0e4', f'jabot{i + 1}', ('dir', (0, -1, 0.2)))
+    # Fine tucks down the blouse over the bust (the close-up's thin vertical lines)
+    s_of = lambda z: float(np.linspace(0, 1, 400)[int(np.argmin([abs(p[0] - z) for p in _tz]))])
+    for sd, tag in ((1, 'L'), (-1, 'R')):
+        for i in range(5):
+            x = 0.3 + 0.06 * i
+            c = f"sqrt(max(0,1-({fmt(x)}/tsa(s))^2))"
+            sc.curve((fmt(sd * x), f"-(tsb(s)+bst({fmt(x)},tsz(s)))*{c}-0.006", "tsz(s)"), ('s', s_of(9.14), s_of(9.95 - 0.05 * i)), TUCK, f'blouseTuck{tag}{i + 1}', thickness=1)
+
+    # What hangs in front of the chest hangs from its fullest point: chg(z) is how far forward a cloth hanging down
+    # the front lies at height z (the chest's front above the bust, straight down below it).
+    sc.func('chg(zq)', horner(list(CHG_FIT), '((zq)-9.7)'))
+    sc.comment("""Jabot (rebuilt from a close-up): three ruffled tiers cascading from under the ascot down to the corset. Each tier's folds deepen toward its lower edge.""")
+    sc.func('jtr(q)', "(2/pi)*asin(0.96*sin(q))")       # a soft zigzag
+    for i, (zt, h, w, off, dep, n) in enumerate(JABOT_TIERS):
+        Zj = f"({fmt(zt)}-{fmt(h)}*s*(1-0.3*p*p)*(1+0.06*jtr({n}*p)))"
+        Xj = f"({fmt(JABOT_X)}+{fmt(w)}*p*(0.6+0.4*s)+0.02*s*jtr({n}*p+1.57))"
+        sc.surface((Xj, f"-(chg({Zj})+{fmt(off)}+s*({fmt(dep * 0.6)}+{fmt(dep)}*jtr({n}*p)))", Zj), ('p', -1, 1), ('s', 0, 1),
+                   CREAM if i % 2 == 0 else '#f7f0e4', f'jabot{i + 1}', ('dir', (0, -1, 0.2)))
 
     sc.blank()
-    sc.note('Black ascot bow with a chrysanthemum brooch')
-    K = (0, -0.33, 10.6)
-    fr = ((1, 0, 0), (0, 0, 1), (0, -1, 0))
-    bow(K, fr, (0.3, 0.13, 0.06), 'ascot', loops=((1, -0.18), (-1, -0.18)))
-    flower(add(K, (0, -0.075, 0.0)), unit((0, -1, 0.15)), 0.12, 'brooch')
-    yl = chest_y(0.12, 9.6) - 0.2
-    ribbon([add(K, (0.04, -0.02, -0.06)), (0.13, chest_y(0.12, 10.0) - 0.2, 10.0), (0.16, yl, 9.3)], 0.07, BLACK, 'ascotTailL', unit((0.1, -1, 0.25)), rim=GOLD)
-    ribbon([add(K, (-0.04, -0.02, -0.06)), (-0.1, chest_y(0.1, 10.05) - 0.2, 10.05), (-0.11, yl + 0.01, 9.4)], 0.07, BLACK, 'ascotTailR', unit((-0.05, -1, 0.25)), rim=GOLD)
-    flat_flower((0.16, yl - 0.012, 9.5), unit((0.05, -1, 0.25)), 0.045, 'ascotTailFlowerL', n=10, center=None)
-    flat_flower((-0.11, yl - 0.002, 9.6), unit((0, -1, 0.25)), 0.045, 'ascotTailFlowerR', n=10, center=None)
+    sc.note('Black ascot with a chrysanthemum brooch')
+    sc.comment("""Ascot (rebuilt from a close-up): two black tails hang from under the brooch, pleated in a fan from the
+knot. The front one swings toward her right and ends in a point; the other shows beside it on her left.
+Each has a double gold line inside its edges and the front one a small sprig at its point.""")
+    K = (0, -(CHG(10.5) + 0.07), 10.5)
+    ellipsoid(add(K, (0, 0.03, -0.08)), (0.1, 0.06, 0.09), BLACK, 'ascotKnot')
+    flower(add(K, (0, -0.03, 0.0)), unit((0, -1, 0.12)), 0.19, 'brooch')
+    for nm_, (xl, xr, zt), (xA, zA), (xT, zT), (xI, zI), off, npl in ASCOT_TAILS:
+        uT = (xT - xA) / (xI - xA)
+
+        def tail(u, v, lift='0', xl=xl, xr=xr, zt=zt, xA=xA, zA=zA, zT=zT, xI=xI, zI=zI, off=off, npl=npl, uT=uT):
+            zb = f"({fmt(zT)}+{fmt((zA - zT) / uT)}*max(0,{fmt(uT)}-{u})+{fmt((zI - zT) / (1 - uT))}*max(0,{u}-{fmt(uT)}))"
+            Zt = f"({fmt(zt)}+({zb}-{fmt(zt)})*{v})"
+            Xt = f"({fmt(xl)}+{fmt(xr - xl)}*{u}+({fmt(xA - xl)}+{fmt(xI - xA - xr + xl)}*{u})*{v})"
+            return (Xt, f"-(chg({Zt})+{fmt(off * 0.45)}+{fmt(off * 0.55)}*{v}+0.022*{v}*cos({fmt(2 * math.pi * npl)}*{u})+{lift})", Zt)
+        sc.surface(tail('u', 'v'), ('u', 0, 1), ('v', 0, 1), BLACK, f'ascot{nm_}', ('dir', (0, -1, 0.2)))
+        for j, vv in enumerate((0.93, 0.885)):
+            sc.curve(tail('t', fmt(vv), '0.006'), ('t', 0.05 + 0.03 * j, 0.95 - 0.03 * j), GOLD, f'ascot{nm_}Hem{j + 1}', thickness=1)
+            for e_, uu in (('A', 0.05 + 0.03 * j), ('B', 0.95 - 0.03 * j)):
+                sc.curve(tail(fmt(uu), 't', '0.006'), ('t', 0.3, vv), GOLD, f'ascot{nm_}Side{e_}{j + 1}', thickness=1)
+    nm_, _, _, (xT, zT), _, off, _ = ASCOT_TAILS[0]
+    Xs, Hs = sprig_xy(fmt(xT), fmt(zT + 0.1))
+    sc.curve((Xs, f"-(chg({Hs})+{fmt(off + 0.035)})", Hs), ('t', 0, 2.999), GOLD, 'ascotSprig', thickness=2)
 
 # =====================================================================
 #  CAPELET: measured on the sheet (cape.py)
@@ -272,7 +330,6 @@ BORDER_CREAM, FERN = '#d9caa9', '#c45c36'     # the cream border woven into the 
 
 # The skirt's fern and the orange cloth's sprig are in motifs.py, measured on close-up photos (python3 motifs.py
 # draws the fern in 2D over its photo).
-from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_fills, facing_curves, _emb_len, EMB_CENTRE, EMB_DOT
 PANEL_GOLD, PANEL_LINE, PANEL_PALE = '#a8855d', '#bfa982', '#bca377'     # the black panels' emblem and border lines (1/1.2 of the sheet's)
 PLEAT_SHADE = '#9c8a72'         # the drawn line in each pleat
 N_PLEAT = 40

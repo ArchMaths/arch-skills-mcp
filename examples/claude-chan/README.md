@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (817 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script ( objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -54,7 +54,9 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   A three-strand braid crown around the back of the head.
 - **Accessories**: a chrysanthemum on a black bow with cream ribbons and a gold tassel above her left
   ear; gold tassel earrings.
-- **Outfit**: high ruffled collar and jabot, black ascot with a chrysanthemum brooch, black corset with
+- **Outfit**: a blouse shaped over the bust with fine tucks, high ruffled collar, a jabot of three ruffled tiers,
+  a black ascot of two fan-pleated tails with gold lines under a large chrysanthemum brooch (rebuilt from a
+  close-up of the chest), a frill along the capelet's turned-back facing, black corset with
   gold buttons, piping, chain, ring and tassel.
 - **Capelet** (`cape.py`): measured on outlines traced over the sheet's three views, with the collar,
   lining, trim, folds and emblem colour from its detail panel (披肩). A short bell over the shoulders, open in

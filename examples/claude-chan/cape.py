@@ -279,6 +279,10 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
         pf = f"({cp})" if side > 0 else f"(2*pi-({cp}))"
         sc.curve((f"kpx(({cu}),{pf},1.006)", f"kpy(({cu}),{pf},1.006)", f"kpz(({cu}),{pf})"), ('t', -1, 1), GOLD,
                  f'capeFacingLine{tag}', thickness=2)
+        # a frill hangs from the fold line (close-up of the chest): 0.12 deep, ruffled
+        sf = "(1.012+0.03*v*(1+0.8*sin(40*t)))"
+        sc.surface((f"kpx(({cu}),{pf},{sf})", f"kpy(({cu}),{pf},{sf})", f"kpz(({cu}),{pf})-0.12*v*(1+0.12*cos(40*t))"), ('t', -1, 1), ('v', 0, 1), CP_LACE,
+                   f'capeFacingFrill{tag}', ('dir', (0, -1, 0.3)))
     # standing collar, open at the front, gold along its top and front edges
     z0, hgt, rc, gap = CP_COLLAR
     g = np.radians(gap)
