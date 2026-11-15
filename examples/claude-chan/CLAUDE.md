@@ -115,5 +115,12 @@ template matching (`cv2.matchTemplate` over a range of scales) to learn which vi
 pixel before measuring it. The side view draws the orange facing twice as wide as the front view; the model
 keeps the front view's width and takes proportions from the side view's close-up.
 
+Arch expands a curve's functions into one expression before compiling it: a curve whose parameter runs through a
+chain of them (the capelet's `kpx` -> `kpr` -> `kpw` -> `kpe`, each used several times) or through a lookup
+table fails with "compile error: Unexpected token (2:1)" even though every definition is short. Give drawn lines
+their own short versions (`kcx`, `kcy`, `kcz` in `cape.py` take the fold value instead of computing it) and
+write scattered values as a formula (`sin(2.39*k+0.7)`), not a table. Many lines drawn as one stroke (up a line
+and back down, then along an edge that hides or suits the run to the next) keep the object count down.
+
 In generated expressions never write a minus before a negative number (`a--2` is a decrement to Arch and fails
 with "Assigning to rvalue"): parenthesise it.

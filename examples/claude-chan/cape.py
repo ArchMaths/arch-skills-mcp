@@ -45,9 +45,11 @@ FACING = [(0.92, 10.31), (0.87, 10.25), (0.83, 10.19), (0.79, 10.13), (0.75, 10.
           (0.64, 9.85), (0.585, 9.80), (0.53, 9.77)]
 # emblems: the circled places; the front pair on the front view, the back pair on the back view (|x|, z)
 EMB_FRONT, EMB_BACK, EMB_R = (1.10, 9.67), (1.23, 9.66), 0.17
-# folds fanning out from the shoulders: how many across the cloth (front edge to front edge, so they fan with the
-# front edges), how deep at the hem, how far the hem rises on each crest
-FOLD_N, FOLD_A, FOLD_Z = 16, 0.045, 0.0
+# Folds fanning out from the shoulders into deep flutes at the hem (the capelet's close-up): how many across the cloth
+# (front edge to front edge, so they fan with the front edges), how deep at the hem (growing as u^3), how far the hem
+# rises on each crest. They fade out over FOLD_E of the cloth at each front edge, which keeps the measured outline;
+# a crest runs where each emblem is (the emblems are moved onto it, about 0.08 sideways).
+FOLD_N, FOLD_A, FOLD_Z, FOLD_E = 8, 0.1, 0.04, 0.04
 FOLD_LINE = '#b8ac9a'        # the drawn fold lines: a soft grey-beige
 CP_P = 1.6                   # u spacing: the shoulder slope (wide, little drop) gets more of u
 CP_COLLAR = (10.58, 0.26, 0.305, 24)   # standing collar: bottom, height, radius, half-gap at the front (degrees)
@@ -116,15 +118,17 @@ def kp_point(u, p, fold=True, s=1.0, dz=0.0):
     s scales the section (the lining), dz lowers it."""
     u, p = np.asarray(u, float), np.asarray(p, float)
     w = kp_w(u, p) if fold else 0.0
-    r = 1 + FOLD_A * u ** 2 * w
+    r = 1 + FOLD_A * u ** 3 * w
     B = kp_f(u) + (kp_b(u) - kp_f(u)) * (1 - np.cos(p)) / 2
     return (s * kp_a(u) * np.sin(p) * r, CP_Y0 - s * B * np.cos(p) * r, _zb(u) - u ** 4 * kp_h(p) + FOLD_Z * u ** 8 * w - dz)
 
 
 def kp_w(u, p):
-    """The folds: 1 on a crest, -1 in a hollow; FOLD_N of them across the cloth from front edge to front edge."""
+    """The folds: 1 on a crest, -1 in a hollow; FOLD_N of them across the cloth from front edge to front edge, a
+    hollow at each edge, crests at q = (m + 1/2) / FOLD_N; faded out at the edges."""
     e = kp_e(u)
-    return np.cos(2 * np.pi * FOLD_N * (p - e) / (2 * np.pi - 2 * e))
+    q = (p - e) / (2 * np.pi - 2 * e)
+    return -np.cos(2 * np.pi * FOLD_N * q) * np.minimum(1, np.minimum(q, 1 - q) / FOLD_E)
 
 
 def fold_lines():
@@ -132,8 +136,8 @@ def fold_lines():
     each hollow; with a few deep ones a line runs down each hollow and a shorter one down each crest between."""
     h = lambda k: (np.sin(2.39 * k + 0.7) + 1) / 2          # a fixed scatter, so the lines start at varied heights
     if FOLD_N >= 12:
-        return [((j + 0.5) / FOLD_N, 0.12 + 0.3 * h(j)) for j in range(FOLD_N)]
-    return [((k + 1) / (2 * FOLD_N), (0.12 + 0.3 * h(k)) if k % 2 == 0 else (0.5 + 0.2 * h(k))) for k in range(2 * FOLD_N - 1)]
+        return [((j + 1) / FOLD_N, 0.12 + 0.3 * h(j)) for j in range(FOLD_N - 1)]
+    return [((k + 1) / (2 * FOLD_N), (0.12 + 0.3 * h(k)) if k % 2 == 1 else (0.5 + 0.2 * h(k))) for k in range(2 * FOLD_N - 1)]
 
 
 def _front_edge():
@@ -192,6 +196,10 @@ EMBLEMS = {}
 for _side, _t in ((1, 'L'), (-1, 'R')):
     for _back, _w in ((False, 'F'), (True, 'B')):
         _u, _p = _place(*(EMB_BACK if _back else EMB_FRONT), _back, _side)
+        _e = kp_e(_u)                          # onto the nearest crest
+        _q = (_p - _e) / (2 * np.pi - 2 * _e)
+        _q = (np.floor(FOLD_N * _q) + 0.5) / FOLD_N
+        _p = _e + _q * (2 * np.pi - 2 * _e)
         EMBLEMS[_w + _t] = _normal(_u, _p)
 
 # facing line on the surface: (u, p) of each traced point
@@ -262,11 +270,20 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     sc.func('kph(c)', '+'.join(f"{fmt(v)}*c^{len(HEM_C) - 1 - i}" for i, v in enumerate(HEM_C)).replace('+-', '-').replace('*c^0', ''))
     sc.func('kpe(u)', _uarch(FE_C))
     sc.func('kpp(u,q)', 'kpe(u)+q*(2*pi-2*kpe(u))')
-    sc.func('kpw(u,p)', f"cos({fmt(2 * np.pi * FOLD_N)}*(p-kpe(u))/(2*pi-2*kpe(u)))")
-    sc.func('kpr(u,p)', f"1+{fmt(FOLD_A)}*u^2*kpw(u,p)")
-    sc.func('kpx(u,p,s)', 's*kpa(u)*sin(p)*kpr(u,p)')
-    sc.func('kpy(u,p,s)', f"{fmt(CP_Y0)}-s*(kpf(u)+(kpb(u)-kpf(u))*(1-cos(p))/2)*cos(p)*kpr(u,p)")
-    sc.func('kpz(u,p)', f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))" + (f"+{fmt(FOLD_Z)}*u^8*kpw(u,p)" if FOLD_Z else ""))
+    sc.func('kpq(u,p)', "(p-kpe(u))/(2*pi-2*kpe(u))")
+    sc.func('kpw(u,p)', f"-cos({fmt(2 * np.pi * FOLD_N)}*kpq(u,p))*min(1,min(kpq(u,p),1-kpq(u,p))/{fmt(FOLD_E)})")
+    sc.func('kpr(u,p)', f"1+{fmt(FOLD_A)}*u^3*kpw(u,p)")
+    KX, KY = 's*kpa(u)*sin(p)*kpr(u,p)', f"{fmt(CP_Y0)}-s*(kpf(u)+(kpb(u)-kpf(u))*(1-cos(p))/2)*cos(p)*kpr(u,p)"
+    KZ = f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))" + (f"+{fmt(FOLD_Z)}*u^8*kpw(u,p)" if FOLD_Z else "")
+    sc.func('kpx(u,p,s)', KX)
+    sc.func('kpy(u,p,s)', KY)
+    sc.func('kpz(u,p)', KZ)
+    # The same, given the fold value w, for the drawn lines: along a line w is simple, and through kpw Arch's
+    # expansion of a curve's formulas grows too long to compile.
+    wr = lambda e: e.replace('kpr(u,p)', f"(1+{fmt(FOLD_A)}*u^3*w)").replace('kpw(u,p)', 'w')
+    sc.func('kcx(u,p,w,s)', wr(KX))
+    sc.func('kcy(u,p,w,s)', wr(KY))
+    sc.func('kcz(u,p,w)', wr(KZ))
 
     def S(X, Y, Z, U, V, col, ref, orient):
         sc.surface((X, Y, Z), U, V, col, ref, orient)
@@ -308,10 +325,12 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     FL = fold_lines()
     q0, dq = FL[0][0], FL[1][0] - FL[0][0]
     hk = "(sin(2.39*k+0.7)+1)"          # fold_lines' scatter, 2 h(k); a table of the starts is too long for Arch here
-    sc.func('kfa(k)', f"0.12+0.15*{hk}" if FOLD_N >= 12 else f"(1+cos(pi*k))/2*(0.12+0.15*{hk})+(1-cos(pi*k))/2*(0.5+0.1*{hk})")
+    sc.func('kfa(k)', f"0.12+0.15*{hk}" if FOLD_N >= 12 else f"(1-cos(pi*k))/2*(0.12+0.15*{hk})+(1+cos(pi*k))/2*(0.5+0.1*{hk})")
     sc.func('kfu(t)', "1-(1-kfa(floor(t)))*max(0,1-abs(t-floor(t)-0.4)/0.4)")
     sc.func('kfq(t)', f"{fmt(q0)}+{fmt(dq)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
-    sc.curve(("kpx(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpy(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpz(kfu(t),kpp(kfu(t),kfq(t)))"),
+    W = f"(-cos({fmt(2 * np.pi * FOLD_N)}*kfq(t)))"         # the lines keep clear of the edges' fade
+    P = "kpp(kfu(t),kfq(t))"
+    sc.curve((f"kcx(kfu(t),{P},{W},1.006)", f"kcy(kfu(t),{P},{W},1.006)", f"kcz(kfu(t),{P},{W})"),
              ('t', 0, len(FL) - 0.2), FOLD_LINE, 'capeFoldLines', thickness=1)
     # Gathers where the front meets the collar: four short lines fanning down and out from the collar's corner, in one
     # stroke out along each and back.
@@ -320,7 +339,9 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     sc.func('kgq(t)', "0.008+(" + '+'.join(f"{fmt(q_ - 0.008)}*max(0,1-abs(floor(t)-{i}))" for i, (_, q_) in enumerate(G)) + ")*max(0,1-abs(t-floor(t)-0.5)/0.5)")
     for side, tag in ((1, 'L'), (-1, 'R')):
         Q = "kgq(t)" if side > 0 else "(1-kgq(t))"
-        sc.curve((f"kpx(kgu(t),kpp(kgu(t),{Q}),1.008)", f"kpy(kgu(t),kpp(kgu(t),{Q}),1.008)", f"kpz(kgu(t),kpp(kgu(t),{Q}))"),
+        W = f"(-cos({fmt(2 * np.pi * FOLD_N)}*kgq(t))*min(1,kgq(t)/{fmt(FOLD_E)}))"
+        P = f"kpp(kgu(t),{Q})"
+        sc.curve((f"kcx(kgu(t),{P},{W},1.008)", f"kcy(kgu(t),{P},{W},1.008)", f"kcz(kgu(t),{P},{W})"),
                  ('t', 0, len(G)), FOLD_LINE, f'capeGathers{tag}', thickness=1)
     # standing collar, open at the front, gold along its top and front edges
     z0, hgt, rc, gap = CP_COLLAR

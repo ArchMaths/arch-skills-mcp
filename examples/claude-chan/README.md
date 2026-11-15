@@ -56,7 +56,8 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   ear; gold tassel earrings.
 - **Outfit**: a blouse shaped over the bust with fine tucks, high ruffled collar, a jabot of three ruffled tiers,
   a black ascot of two fan-pleated tails with gold lines under a large chrysanthemum brooch (rebuilt from a
-  close-up of the chest), a frill along the capelet's turned-back facing, black corset with
+  close-up of the chest), a frill along the capelet's turned-back facing, drawn pleat lines down the blouse
+  front and fold lines on the sleeves' puffs (soft grey-beige), black corset with
   gold buttons, piping, chain, ring and tassel.
 - **Capelet** (`cape.py`): measured on outlines traced over the sheet's three views, with the collar,
   lining, trim, folds and emblem colour from its detail panel (披肩). A short bell over the shoulders, open in
@@ -64,7 +65,9 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   round to an outer corner at the side (1.44, 9.12), with a turned-back facing marked by a gold fold line
   along its upper part. It reaches 1.58 out at the sides and stands 1.25 out at the back; its hem is highest
   at the back corners (9.28) and lowest at the centre back (9.09), where a lace frill hangs to 8.84. Double
-  gold lines follow the front edges and the hem, 18 soft folds fan out from the shoulders, a beige lining
+  gold lines follow the front edges and the hem, 8 folds fan out from the shoulders across the cloth into deep flutes at the hem (the hem lifting a
+  little on each crest; the folds fade out at the front edges, and a crest runs under each emblem), drawn fold
+  lines in soft grey-beige run down the hollows and crests, short lines gather into the collar's front corners, a beige lining
   shows at the edges, and a standing collar, open at the front, rises round the neck. Four embroidered
   chrysanthemums sit where the sheet circles them: two on the front panels (x ±1.10, z 9.67), two at the
   back (x ±1.23, z 9.66). Its sections are ovals whose half-width, front depth and back depth are splines
