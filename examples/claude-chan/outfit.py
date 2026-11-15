@@ -267,6 +267,52 @@ def skirt_normal(h, th):
 # 1/1.2 of the sheet's (#d3633a for the cloth), so their folds shade.
 RUST, RUST_DK, RUST_LT = '#b65632', '#863a21', '#c9713f'   # the dress's orange cloth, its creases, its turned-back side
 SKIRT_CREAM = '#ddd3c2'
+BORDER_CREAM, FERN = '#d9caa9', '#c45c36'     # the cream border woven into the orange cloth; the fern's thread
+
+
+def leaf_xy(cx, cy, ang, L, W, w):
+    """Outline of a leaf (an ellipse L long, W wide, centred at (cx, cy), its length at angle ang from +x) as w
+    runs 0..1, starting and ending at its tip. Every argument may be an Arch expression."""
+    c, s_ = f"cos(2*pi*({w}))", f"sin(2*pi*({w}))"
+    return (f"({cx}+({L})/2*{c}*cos({ang})-({W})/2*{s_}*sin({ang}))", f"({cy}+({L})/2*{c}*sin({ang})+({W})/2*{s_}*cos({ang}))")
+
+
+def quad3(a, b, c, m):
+    """Expression equal to a, b, c at m = 0, 1, 2."""
+    return f"({fmt(a)}+{fmt(-1.5 * a + 2 * b - 0.5 * c)}*{m}+{fmt(0.5 * a - b + 0.5 * c)}*{m}^2)"
+
+
+# The skirt's fern, measured on a close-up photo of one (leaf centres, lengths, widths and angles from ellipses
+# fitted to the orange thread; 0.00232 units a pixel, the fern 0.95 tall): a stem to 0.79 with a leaf 0.145 x
+# 0.062 on top; three pairs of leaves 0.105 x 0.06 at 0.72, 0.58 and 0.44, 43 degrees off the stem, a little
+# larger lower down; a twig on each side with three leaves 0.093 x 0.055 around (0.15, 0.35); a diamond at
+# 0.16 where the twigs leave the stem and a leaf on each side at the foot. x across, h up from its foot.
+def fern_curves():
+    out = []
+    X, H = leaf_xy('0', '0.862', 'pi/2', '0.145', '0.062', 'max(0,t-1)+0.5')
+    out.append(('Stem', (f"({X})", f"(0.79*min(1,t)+{H}-0.7895)"), (0, 2)))
+    j, k = 'floor(t/2)', 'floor(t)'
+    sg = f"(1-2*({k}-2*{j}))"
+    out.append(('Pairs', leaf_xy(f"{sg}*0.055*(1+0.1*{j})", f"(0.77-0.142*{j})", f"(pi/2-{sg}*0.75)", f"0.105*(1+0.06*{j})", '0.06', f"t-{k}+0.5"), (0, 5.999)))
+    g = 'floor(t/3)'
+    m = f"({k}-3*{g})"
+    sg = f"(2*{g}-1)"
+    out.append(('Twigs', leaf_xy(f"{sg}*{quad3(0.172, 0.12, 0.165, m)}", quad3(0.406, 0.35, 0.297, m), f"(pi/2-{sg}*{quad3(0.26, 0.26, 1.4, m)})", '0.093', '0.055', f"t-{k}+0.5"), (0, 5.999)))
+    out.append(('TwigStems', ('t', '(0.17+0.96*abs(t))'), (-0.135, 0.135)))
+    out.append(('Diamond', ('0.036*sqc(t,2)', '(0.16+0.045*sqs(t,2))'), (0, '2*pi')))
+    sg = f"(2*{k}-1)"
+    out.append(('Foot', leaf_xy(f"{sg}*0.15", '0.08', f"(pi/2-{sg}*0.63)", '0.115', '0.06', f"t-{k}+0.5"), (0, 1.999)))
+    return out
+
+
+# The orange cloth's border, from a close-up photo of the front tab's fold (372 pixels a unit): a cream stripe
+# 0.05 wide, 0.027 in from the edge, and above it every 0.39 a sprig of three petals (0.07 x 0.026 between two
+# of 0.05, fanned 34 degrees) with its foot 0.1 from the stripe, a dot between sprigs.
+def sprig_xy(x0, h0):
+    k = 'floor(t)'
+    a = f"((1-{k})*0.6)"
+    Lk = f"(0.07-0.02*abs({k}-1))"
+    return leaf_xy(f"({x0}+(0.012+{Lk}/2)*sin({a}))", f"({h0}+(0.012+{Lk}/2)*cos({a}))", f"(pi/2-{a})", Lk, '0.026', f"t-{k}+0.5")
 PLEAT_SHADE = '#9c8a72'         # the drawn line in each pleat
 N_PLEAT = 40
 OV_F, OV_B = 0.6, 2.47          # the overskirt pieces run from 34 degrees (front bows) to 141.5 (back bows)
@@ -345,18 +391,18 @@ sz(h) is s at height h.""")
         Rk = f"sa(1)*({fmt(r0)}+{fmt(r1 - r0)}*s+0.022*s*sin({nw}*t))"
         sc.surface((f"{Rk}*sin(t)", f"-{Rk}*dk(1,t)*cos(t)", f"{fmt(z0)}-{fmt(z0 - z1)}*s+0.03*s*cos({nw}*t)"),
                    ('s', 0, 1), ('t', '-pi', 'pi'), col, f'petticoat{k + 1}', ('tube', 'u'))
-    sc.comment("Embroidery where the pleated skirt shows, at the front and the back: hem lines and fern sprigs in orange thread.")
+    sc.comment("Embroidery where the pleated skirt shows, at the front and the back: hem lines and a row of ferns in orange thread.")
     for side, nm, c0, hw in (('Front', 'F', 0.0, 0.36), ('Back', 'B', math.pi, 0.4)):
         sc.curve(on_skirt("0.955", f"({fmt(c0)}+t)"), ('t', -hw, hw), GOLD, f'hemLine{nm}1', thickness=2)
-        sc.curve(on_skirt("0.94", f"({fmt(c0)}+t)"), ('t', -hw, hw), ORANGE, f'hemLine{nm}2', thickness=2)
-        sc.curve(on_skirt("0.875+0.022*sin(30*t)", f"({fmt(c0)}+t+0.012*cos(30*t))"), ('t', -hw, hw), ORANGE, f'vine{nm}', thickness=2)
-        n_sp = 5 if nm == 'F' else 4
-        for i in range(n_sp):
-            tc = c0 + hw * 0.85 * (2 * i / (n_sp - 1) - 1)
-            for k, sg in enumerate((1, -1)):
-                sx = "(0.93-0.13*t)"
-                tx = f"({fmt(tc)}+{fmt(sg)}*0.024*abs(sin(5*pi*t))*(1-t)/sa({sx}))"
-                sc.curve(on_skirt(sx, tx), ('t', 0, 1), ORANGE_LT, f'sprig{nm}{i + 1}{"ab"[k]}', thickness=2)
+        sc.curve(on_skirt("0.94", f"({fmt(c0)}+t)"), ('t', -hw, hw), FERN, f'hemLine{nm}2', thickness=2)
+        # ferns side by side along the hem, their feet on the upper hem line
+        s_f = 0.935
+        wid = SA(s_f - 0.06) * 2 * hw
+        n_f = max(1, int(wid / 0.43))
+        for i in range(n_f):
+            tc = c0 + (hw - 0.215 / SA(s_f - 0.06)) * ((2 * i / (n_f - 1) - 1) if n_f > 1 else 0)
+            for part, (X, H), T in fern_curves():
+                sc.curve(on_skirt(f"({fmt(s_f)}-{H}/{fmt(SK_L)})", f"({fmt(tc)}+{X}/{fmt(SA(s_f - 0.06))})"), ('t',) + T, FERN, f'fern{nm}{i + 1}{part}', thickness=2)
 
     sc.blank()
     sc.note('Skirt: black side panels with orange facings, gold bands and chrysanthemum emblems')
@@ -382,6 +428,17 @@ its front edge, p down it.""")
         R = f"(sa(sz({H}))+0.105+0.045*{FB.format('q', 'p')}+{fmt(0.03 if wide else 0)}*p^3*sin(3*pi*q))"
         sc.surface((f"{fmt(sd)}*{R}*sin({TF})", f"-{R}*dk(sz({H}),{TF})*cos({TF})", H), ('q', 0, 1), ('p', 0, 1), RUST, f'sideFacing{tag}', ('point', (0, 0, 4)))
         if wide:
+            Hs = "bph(0,0.935+0.016*p)"
+            Rs = f"(sa(sz({Hs}))+0.113+0.045*{FB.format('q', '0.94')}+0.026*sin(3*pi*q))"
+            TS = f"({fmt(F0)}+{fmt(TB0 - F0)}*q)"
+            sc.surface((f"{fmt(sd)}*{Rs}*sin({TS})", f"-{Rs}*dk(sz({Hs}),{TS})*cos({TS})", Hs), ('q', 0, 1), ('p', 0, 1), BORDER_CREAM, f'sideFacingBorder{tag}', ('point', (0, 0, 4)))
+            for i_, (qq, dh) in enumerate(((0.27, 0.17), (0.73, 0.17), (0.5, 0.52))):
+                tq = F0 + (TB0 - F0) * qq
+                hb = 1.95 + (5.45 - 1.95) * 0.06 + dh
+                Xl, Hl = sprig_xy('0', fmt(hb))
+                Rl = f"(sa(sz({Hl}))+0.118+0.045*{fmt(0.5 - 0.5 * math.cos(4 * math.pi * qq))}+{fmt(max(0, 0.03 * math.sin(3 * math.pi * qq)))})"
+                Tl = f"({fmt(tq)}+{Xl}/{fmt(SA(sk_s(hb)))})"
+                sc.curve((f"{fmt(sd)}*{Rl}*sin({Tl})", f"-{Rl}*dk(sz({Hl}),{Tl})*cos({Tl})", Hl), ('t', 0, 2.999), BORDER_CREAM, f'sideFacingSprig{tag}{i_ + 1}', thickness=2)
             for nm_, q_, col_, lift_ in (('Crease', 0.5, RUST_DK, 0.108), ('TrimB', 0.97, GOLD, 0.112)):
                 tq = F0 - 0.01 + (TB0 - F0 + 0.02) * q_
                 Rc = f"(sa(sz(bph(0,t)))+{fmt(lift_)})"
@@ -474,6 +531,19 @@ narrowing to a point at 3.85 on her left. v runs across a tab, p down a part."""
         H = f"({fold}(v)-({fold}(v)-{foot}(v))*p)"
         sc.surface(on_tab(f"{xflap}(v,{H})", H, "0.082+tbf(v,1-0.6*p)", back), ('v', 0, 1), ('p', 0, 1), RUST_LT, nm + 'Flap',
                    ('dir', (0, 1 if back else -1, 0.2)))
+        # the woven border: a cream stripe above the fold and above the flap's foot, sprigs and dots above each
+        for part, edge, xe, off_, v0 in (('', fold, xf, "0.078+tbf(v,1)", 0.0), ('Flap', foot, xflap, "0.09+tbf(v,0.4)", 0.12)):
+            H = f"({edge}(v)+0.04+0.07*p)"
+            sc.surface(on_tab(f"{xe}(v,{H})", H, off_, back), ('v', v0, 1), ('p', 0, 1), BORDER_CREAM, f'{nm}{part}Border', ('dir', (0, 1 if back else -1, 0.2)))
+            vs = (0.2, 0.55, 0.87) if not part else (0.5, 0.82)
+            for i_, vv in enumerate(vs):
+                h0 = f"({edge}({vv})+0.19)"
+                Xl, Hl = sprig_xy(f"{xe}({vv},{h0})", h0)
+                sc.curve(on_tab(Xl, Hl, off_.replace('(v,', f'({vv},').replace('0.078', '0.083').replace('0.09', '0.095'), back), ('t', 0, 2.999), BORDER_CREAM, f'{nm}{part}Sprig{i_ + 1}', thickness=2)
+            for i_, vv in enumerate([(a_ + b_) / 2 for a_, b_ in zip(vs[:-1], vs[1:])]):
+                h0 = f"({edge}({fmt(vv)})+0.17)"
+                sc.curve(on_tab(f"({xe}({fmt(vv)},{h0})+0.012*cos(t))", f"({h0}+0.012*sin(t))", off_.replace('(v,', f'({fmt(vv)},').replace('0.078', '0.083').replace('0.09', '0.095'), back),
+                         ('t', 0, '2*pi'), BORDER_CREAM, f'{nm}{part}Dot{i_ + 1}', thickness=2)
         for k, (X, Hc) in enumerate(((f"{xf}(0,{fmt(top)}-({fmt(top)}-{fold}(0))*t)", f"({fmt(top)}-({fmt(top)}-{fold}(0))*t)"),
                                      (f"{xf}(1,{fmt(top)}-({fmt(top)}-{fold}(1))*t)", f"({fmt(top)}-({fmt(top)}-{fold}(1))*t)"),
                                      (f"{xflap}(t,{fold}(t))", f"{fold}(t)"),

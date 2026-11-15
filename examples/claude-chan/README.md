@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (607 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (677 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -79,7 +79,8 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 - **Dress**: measured layer by layer on the sheet's three views (with `sheetfit.py`) and its skirt panel
   (三片式长裙与褶边衬裙), then refined on outlines traced over the three views. A cream skirt in 40 knife pleats
   (9 degrees apart, as traced; cut up to 5% of the radius deep, built in ten sectors because Arch meshes a
-  surface with at most 60 steps a side, with a thin line drawn in each pleat at the front and back) with a frilled petticoat and orange fern embroidery where it
+  surface with at most 60 steps a side, with a thin line drawn in each pleat at the front and back) with a frilled petticoat and a row of orange ferns along the hem (each a stem, a top leaf, three leaf pairs, two
+  three-leaved twigs and a diamond, measured with Python on a close-up photo of one) where it
   shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
   side the front hangs nearly flat and the back is full (the depth is 0.53 to 0.60 of the half-width at the
   front, measured on the side view, and 0.75 to 1 at the back). Over it, on each side, a black panel from

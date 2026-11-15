@@ -83,3 +83,12 @@ of the strokes alone and register it onto the extracted ink (ECC on the blurred 
 borders with a whole layered model, draw the model as a surface-id map (z-buffered, hidden parts removed),
 take its borders where the visible surface changes, and match each stroke pixel to its nearest border
 (`cv2.distanceTransformWithLabels`): the distance per border pair shows which part is off.
+
+## Patterns from close-up photos
+
+Embroidery and woven borders are measured on the user's close-ups with Python: threshold the thread's colour,
+split the mask into blobs (opening, then distance-transform peaks), fit an ellipse to each (centre, length,
+width, angle) and scale by a known size. Draw them as curves (they keep their own resolution): one curve can
+trace several leaves by taking the leaf's index as floor(t) (`leaf_xy`, `fern_curves`, `sprig_xy` in
+`outfit.py`). Lay them on the cloth through the same mapping as the surface (`on_skirt`, `on_tab`) so they
+follow its pleats and folds.
