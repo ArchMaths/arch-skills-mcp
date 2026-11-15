@@ -53,7 +53,7 @@ SK_L = SK_TOP - SK_HEM
 SA_EXPR = '0.43+0.079*ln(1+exp((s-0.057)/0.02))-6.5*max(0,s-0.62)^2'
 DK_EXPR = '(fk(s)+gk(s))/2-(gk(s)-fk(s))/2*cos(t)'
 FK_EXPR = '0.57-0.04*stp((s-0.5)/0.15)+0.07*stp((s-0.78)/0.14)'     # front: measured on the side view
-GK_EXPR = '0.75+0.25*s'                                             # back
+GK_EXPR = '0.75+0.25*s-0.07*stp((s-0.86)/0.12)'                       # back: full, but hanging at the hem
 
 
 def SA(s):
@@ -71,9 +71,10 @@ def _stp(q):
 def DK(s, th):
     """Depth of the skirt over its half-width at angle th from the front. Measured on the sheet's side view:
     the front hangs nearly flat, 0.57 of the half-width at the waist, 0.53 at mid-thigh and 0.60 toward the
-    hem; the back is full, 0.75 at the waist to 1 at the hem."""
+    hem; the back is full, 0.75 at the waist to 0.96 at knee height, easing to 0.93 at the hem
+    where the cloth hangs instead of standing out."""
     f = 0.57 - 0.04 * _stp((s - 0.5) / 0.15) + 0.07 * _stp((s - 0.78) / 0.14)
-    g = 0.75 + 0.25 * s
+    g = 0.75 + 0.25 * s - 0.07 * _stp((s - 0.86) / 0.12)
     return (f + g) / 2 - (g - f) / 2 * math.cos(th)
 
 
@@ -311,7 +312,7 @@ def ozh(q):
 
 def OSR(h):
     """Radius of the overskirt at height h (before its folds)."""
-    return SA(sk_s(h)) + 0.17 * min(1, max(0, OV_TOP - h) / 0.3)
+    return SA(sk_s(h)) + 0.13 * min(1, max(0, OV_TOP - h) / 0.3)
 
 
 if want('skirt'):
@@ -347,8 +348,8 @@ sz(h) is s at height h.""")
         tk = (math.acos(0.7) + 2 * math.pi * k) / N_PLEAT
         if abs(tk) < SEC_F or abs(tk) > SEC_B:
             sc.curve(on_skirt("t", fmt(tk), 1.01), ('t', 0.04, 1), PLEAT_SHADE, f'pleat{k + N_PLEAT // 2 + 1}', thickness=1)
-    for k, (z0, z1, r0, r1, nw, col) in enumerate([(1.66, 1.32, 0.99, 1.05, 30, CREAM), (1.4, 1.14, 1.0, 1.07, 38, '#f8f2e8')]):
-        Rk = f"sa(1)*({fmt(r0)}+{fmt(r1 - r0)}*s+0.022*s*sin({nw}*t))"
+    for k, (z0, z1, r0, r1, nw, col) in enumerate([(1.66, 1.32, 0.985, 0.975, 30, CREAM), (1.4, 1.14, 0.968, 0.955, 38, '#f8f2e8')]):
+        Rk = f"sa(1)*({fmt(r0)}+{fmt(r1 - r0)}*s+0.018*s*sin({nw}*t))"
         sc.surface((f"{Rk}*sin(t)", f"-{Rk}*dk(1,t)*cos(t)", f"{fmt(z0)}-{fmt(z0 - z1)}*s+0.03*s*cos({nw}*t)"),
                    ('s', 0, 1), ('t', '-pi', 'pi'), col, f'petticoat{k + 1}', ('tube', 'u'))
     sc.comment("Embroidery where the pleated skirt shows, at the front and the back: hem lines and a row of ferns in orange thread.")
@@ -379,7 +380,7 @@ sz(h) is s at height h.""")
     sc.note('Skirt: black side panels with orange facings, gold bands and chrysanthemum emblems')
     sc.comment("""Black side panels under the overskirt, from 29-31 degrees to 152 on each side (measured on the front
 and back views; the pleated skirt shows between them at the front and the back), from just under the bows
-down to a hem near 2; their lower corners flare a little. The front edge is faced in orange: a thin edge on
+down to a hem near 2, lying on the skirt (the cloth hangs: nothing holds it out). The front edge is faced in orange: a thin edge on
 her right (as traced, one line at the panel's edge), 9 degrees on her left, a wide strip below the front tab. q runs across a panel from
 its front edge, p down it.""")
     sc.func('bzh(q)', '1.95+0.1*sin(pi*q)')
@@ -389,7 +390,7 @@ its front edge, p down it.""")
         F0, TB0 = {1: (0.38, 0.54), -1: (0.48, 0.50)}[sd]     # facing from F0, black from TB0
         TH = f"({fmt(TB0)}+{fmt(TB1 - TB0)}*q)"
         H = "bph(q,p)"
-        R = f"(sa(sz({H}))+0.09+0.12*p^4*sin(pi*q)^2)"
+        R = f"(sa(sz({H}))+0.09)"
         sc.surface((f"{fmt(sd)}*{R}*sin({TH})", f"-{R}*dk(sz({H}),{TH})*cos({TH})", H), ('q', 0, 1), ('p', 0, 1), BLACK, f'sidePanel{tag}', ('point', (0, 0, 4)))
         # the front edge turned back: an orange facing, edged in gold
         TF = f"({fmt(F0 - 0.01)}+{fmt(TB0 - F0 + 0.02)}*q)"
@@ -419,7 +420,7 @@ its front edge, p down it.""")
                  ('t', 0, 1), GOLD, f'sideFacingTrim{tag}', thickness=2)
         for k, pp in enumerate((0.94, 0.985)):
             Hq = f"bph(t,{pp})"
-            Rq = f"(sa(sz({Hq}))+0.105+0.12*{fmt(pp ** 4)}*sin(pi*t)^2)"
+            Rq = f"(sa(sz({Hq}))+0.105)"
             TQ = f"({fmt(F0)}+{fmt(TB1 - F0)}*t)"
             sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), GOLD, f'sideBand{tag}{k + 1}', thickness=2)
         # chrysanthemums where the sheet's circles are: the front pair on the front view, the back pair on the back
@@ -436,10 +437,10 @@ views) hangs straight down the front edge from the bow to 4.3, swags to 2.95 at 
 back to 4.5 under the back bow; the cloth falls in folds that deepen toward the hem. q runs across a piece from
 the front bow to the back bow, p down from the waist to the hem. Lined in orange, with the hem turned
 back over the side (oft) so the lining shows there, as drawn on the sheet.""")
-    sc.func('osr(h)', f"sa(sz(h))+0.17*min(1,max(0,{fmt(OV_TOP)}-h)/0.3)")
+    sc.func('osr(h)', f"sa(sz(h))+0.13*min(1,max(0,{fmt(OV_TOP)}-h)/0.3)")
     sc.func('ozh(q)', '+'.join([fmt(OZH_C[0]), f"{fmt(OZH_C[1])}*q"] + [f"{fmt(c)}*max(0,q-{fmt(k)})^3" for c, k in zip(OZH_C[2:], _OZK)]))
     sc.func('oph(q,p)', f"{fmt(OV_TOP)}-({fmt(OV_TOP)}-ozh(q))*p")
-    sc.func('ofd(q,p)', '0.1*p^1.2*(0.5+0.5*sin(10*pi*q))')
+    sc.func('ofd(q,p)', '0.07*p^1.2*(0.5+0.5*sin(10*pi*q))')
     sc.func('oft(q)', '0.26*sin(pi*q)^3')
     TH = f"({fmt(OV_F)}+{fmt(OV_B - OV_F)}*q)"
     for sd, tag in ((1, 'L'), (-1, 'R')):
@@ -448,7 +449,7 @@ back over the side (oft) so the lining shows there, as drawn on the sheet.""")
             R = f"(osr({H})+ofd(q,p)+{fmt(dr)})"
             sc.surface((f"{fmt(sd)}*{R}*sin({TH})", f"-{R}*dk(sz({H}),{TH})*cos({TH})", H), ('q', 0, 1), ('p', p0, 1), col, f'{nm}{tag}', ('point', (0, 0, 4)))
         H = "(ozh(q)+oft(q)*v)"
-        R = f"(osr(ozh(q))+ofd(q,1)+0.02+0.035*v)"
+        R = f"(osr(ozh(q))+ofd(q,1)+0.012+0.02*v)"
         sc.surface((f"{fmt(sd)}*{R}*sin({TH})", f"-{R}*dk(sz(ozh(q)),{TH})*cos({TH})", H), ('q', 0, 1), ('v', 0, 1), RUST, f'overskirtTurn{tag}', ('point', (0, 0, 4)))
         TT = TH.replace('q', 't')
         R = "(osr(ozh(t))+ofd(t,1)+0.012)"

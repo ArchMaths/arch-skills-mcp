@@ -83,7 +83,12 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   three-leaved twigs and a diamond, measured with Python on a close-up photo of one) where it
   shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
   side the front hangs nearly flat and the back is full (the depth is 0.53 to 0.60 of the half-width at the
-  front, measured on the side view, and 0.75 to 1 at the back). Over it, on each side, a black panel from
+  front, measured on the side view, and 0.75 at the waist to 0.96 at knee height and 0.93 at the hem at the
+  back). The dress is cloth hanging in a wind from the front, with nothing inside to hold it out: the side
+  outline spreads to a half-width of 3.33 at z 3.3 and then falls straight to the hem, every layer lies on the
+  one beneath (panels 0.09 off the skirt with no flare, overskirt 0.13 off with folds 0.07 deep), and the frill
+  hangs straight from the hem, drawing in to 0.955 of its radius. Front outline within 0.03 of the sheet from
+  z 4.7 to 2.1; the hem is level, where the sheet draws it as if seen from above. Over it, on each side, a black panel from
   29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems where the sheet circles
   them (x ±2.14 at 2.75 on the front view, ±1.84 at 2.84 on the back); its front edge is faced in orange, a
   thin edge on her right and wide on her left, where the facing carries the front tab's orange strip on

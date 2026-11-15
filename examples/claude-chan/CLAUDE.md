@@ -70,6 +70,12 @@ above" effect (about 29 degrees here), so only its centre is compared. The overs
 wavy line that curls to show the orange lining; a second traced line at the same angle is a curl, not a
 second hem.
 
+The dress is hanging cloth: a wind from the front presses it to the legs and trails it behind, and nothing
+inside holds it out. Layers lie on the layer beneath and never flare or stand off on their own; the outline
+below z 3.3 is vertical. Below z 2 the sheet's outline rounds inward in every view: that is the level hem seen
+from above, not cloth curling under (the user's decision: keep the hem level, and add no wind effect beyond
+what the sheet's side view shows).
+
 ## When the outline is hidden
 
 Where hair covers a part (the arms), automatic edge tracking drifts onto the hair. Ask the user to trace the
