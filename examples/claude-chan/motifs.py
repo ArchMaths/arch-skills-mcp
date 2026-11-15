@@ -105,16 +105,24 @@ EMB_TWIGS = (((-2.0, -2.9), (-5.2, -5.1), (-2.1, -3.5)), ((2.6, -3.5), (4.9, -4.
 def _emb_len(k):
     """Length of the petal in place k (counted counter-clockwise from the top one), in model units."""
     R, n = EMB_CENTRE, EMB_N
-    pk = lambda j: f"max(0,cos(2*pi*(({k})-({j}))/{n}))^200"
+    # 1 at place j, below 1e-6 at every other whole place (written without max: Arch pastes max's argument twice)
+    pk = lambda j: f"((1+cos(2*pi*(({k})-({j}))/{n}))/2)^400"
     return (f"({_f(EMB_LEN[0] * R)}+{_f((EMB_LEN[1] - EMB_LEN[0]) * R)}*({pk(2)}+{pk(-2)})"
             f"+{_f((EMB_LEN[2] - EMB_LEN[0]) * R)}*{pk(0)}+{_f((EMB_LEN[3] - EMB_LEN[0]) * R)}*{pk(8)})")
 
 
-def _emb_petal(k, phi):
+def emb_len(k):
+    """Length of the petal in place k (as _emb_len, in Python)."""
+    k, R = int(k) % EMB_N, EMB_CENTRE
+    return R * {2: EMB_LEN[1], EMB_N - 2: EMB_LEN[1], 0: EMB_LEN[2], EMB_N // 2: EMB_LEN[3]}.get(k, EMB_LEN[0])
+
+
+def _emb_petal(k, phi, L=None):
     """Inner and outer radius of petal k at angle phi off its axis, and whether phi is on the petal. The sides
-    are rounded: both radii move to the widest point's radius as (phi / half-angle)^1.5."""
+    are rounded: both radii move to the widest point's radius as (phi / half-angle)^1.5. L: the petal's length
+    as an expression (eml(k) by default)."""
     a, h = EMB_FOOT * EMB_CENTRE, EMB_W * EMB_CENTRE / 2
-    L = f"eml({k})"
+    L = L or f"eml({k})"
     m = f"({_f(a / 2)}+0.5*{L})"
     ps = f"atan({_f(h)}/{m})"
     on = f"(0.5+0.5*sign({ps}-{phi}))"
@@ -122,14 +130,25 @@ def _emb_petal(k, phi):
     return f"({_f(a)}+({m}-{_f(a)})*{f_})", f"({L}-({L}-{m})*{f_})", on, m
 
 
-def emblem_radii(w='w'):
+def emblem_radii(w='w', sector=False):
     """The petals as a ring for a surface: (inner, outer) radius at angle w (from +x). Between two petals both
-    are the radius of the petals' widest point, so the surface closes to nothing there."""
+    are the radius of the petals' widest point, so the surface closes to nothing there. sector: for a surface
+    over one sector of three petal places kz, kz+1, kz+2, whose lengths are passed as la, lb, lc (the functions
+    take (w,kz,la,lb,lc), see emblem_sector): the lengths through an exact quadratic in k, without eml's sharp
+    peaks, which Arch pastes in as max(...) twice over at every use."""
     x = f"((({w})-pi/2)*{EMB_N}/(2*pi))"
     k = f"floor({x}+0.5)"
     phi = f"(abs({x}-{k})*{_f(2 * math.pi / EMB_N)})"
-    ri, ro, on, m = _emb_petal(k, phi)
+    d = f"({k}-kz)"
+    ri, ro, on, m = _emb_petal(k, phi, f"(la+{d}*(lb-la)+{d}*({d}-1)/2*(lc-2*lb+la))" if sector else None)
     return f"({m}+({ri}-{m})*{on})", f"({m}+({ro}-{m})*{on})"
+
+
+def emblem_sector(j, n=8):
+    """Sector j of n for the petal surfaces: (w from, w to, k0, the three petal lengths)."""
+    w0 = math.pi / 2 + j * 2 * math.pi / n
+    k0 = j * EMB_N // n
+    return w0, w0 + 2 * math.pi / n, k0, [emb_len(k0 + i) for i in range(3)]
 
 
 def _lens(x0, h0, tilt, r0, r1, W):

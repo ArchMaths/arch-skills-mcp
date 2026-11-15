@@ -27,7 +27,7 @@ Work in numbers, not screenshots: each image read is expensive, a table of edges
 ## Limits
 
 - Never render at high precision: it takes hours. Use `--prec 3` for every Arch check.
-- Do not build the full `.txt` save file without the user's approval; it is slow.
+- Do not build the full `.txt` save file without the user's approval; it is slow. Build it with `--lean`.
 - `node src/cli.js --check` renders the file it checks: never run it on `claude-chan-3d.arch` itself (precision
   10), only on a `--prec 3` copy.
 - Ask the user for a tracing or a close-up whenever a part's detail is unclear; it is quicker than guessing.
@@ -115,12 +115,26 @@ template matching (`cv2.matchTemplate` over a range of scales) to learn which vi
 pixel before measuring it. The side view draws the orange facing twice as wide as the front view; the model
 keeps the front view's width and takes proportions from the side view's close-up.
 
-Arch expands a curve's functions into one expression before compiling it: a curve whose parameter runs through a
-chain of them (the capelet's `kpx` -> `kpr` -> `kpw` -> `kpe`, each used several times) or through a lookup
-table fails with "compile error: Unexpected token (2:1)" even though every definition is short. Give drawn lines
-their own short versions (`kcx`, `kcy`, `kcz` in `cape.py` take the fold value instead of computing it) and
-write scattered values as a formula (`sin(2.39*k+0.7)`), not a table. Many lines drawn as one stroke (up a line
-and back down, then along an edge that hides or suits the run to the next) keep the object count down.
+## Keep Arch's expanded formulas small
+
+Arch pastes every custom function's body in at each use, each argument as often as the body uses it, and
+evaluates that expansion at every point of every object; it also saves it in the file (left out by `--lean`).
+`max(a,b)` and `min(a,b)` become `0.5*((a)+(b)+-abs((a)-(b)))`, each argument twice, so nested ones double at
+each level, and `a^b` becomes a function call. `generate.py` prints the total expansion
+(`expansion.py`, within a few percent of Arch's); `--expansion 20` lists the worst objects. Cut it by:
+
+- passing what a body uses several times as an argument computed once outside (the capelet's `kpx(u,p,w,s)` take
+  the angle and the fold value; `kpp(u,q)` uses the front edge `kpe` once);
+- writing fitted curves as polynomials in a variable scaled to [-1, 1], in Horner form, rather than splines of
+  `max(0,u-k)^3` terms when a curve's parameter is pasted into them (`_xpoly` in `cape.py`, the sleeve's `SL_PUFF`);
+- smooth forms instead of `min`/`max` (`tanh` fades and ramps; `((1+cos x)/2)^400` for a peak at whole numbers);
+- passing a sector's own numbers as arguments instead of a lookup over all of them (the emblem's `emi(w,kz,la,lb,lc)`);
+- exact rewrites (the hair's `hdw`: one summed spline instead of `min` of two).
+
+A curve whose expansion grows too long fails to compile ("compile error: Unexpected token (2:1)") even though
+every definition is short. Write scattered values as a formula (`sin(2.39*k+0.7)`), not a table. Many lines drawn
+as one stroke (up a line and back down, then along an edge that hides or suits the run to the next) keep the
+object count down.
 
 In generated expressions never write a minus before a negative number (`a--2` is a decrement to Arch and fails
 with "Assigning to rvalue"): parenthesise it.

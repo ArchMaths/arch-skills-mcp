@@ -21,6 +21,7 @@ ap.add_argument('-o', default=os.path.join(HERE, 'claude-chan-3d.arch'))
 ap.add_argument('--parts', default='all')
 ap.add_argument('--view', default='full')
 ap.add_argument('--prec', type=float, default=10, help='implicitPrecision saved in the file (Arch default 4)')
+ap.add_argument('--expansion', type=int, default=0, metavar='N', help="list the N objects whose formulas Arch expands most (expansion.py)")
 args = ap.parse_args()
 PARTS = set(args.parts.split(','))
 def want(p): return 'all' in PARTS or p in PARTS
@@ -259,4 +260,6 @@ if args.prec:
     st += f' implicitPrecision={fmt(args.prec)}'
 sc.raw(st)
 open(args.o, 'w').write(sc.text())
+import expansion
+expansion.report(sc.text(), args.expansion)
 print(f"{sc.count} objects; flipped {len(sc.flipped)}: {' '.join(sc.flipped)}", file=sys.stderr)

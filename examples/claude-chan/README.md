@@ -9,6 +9,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `claude-chan-3d.arch` | The scene script (830 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
+| `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
 
 Opening the file takes several minutes (it is about 27 MB): it is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's

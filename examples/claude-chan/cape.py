@@ -1,5 +1,6 @@
 # Capelet, measured on outlines traced over the sheet's front, side and back views and its detail panel
 # (run inside generate.py).
+import sys
 import numpy as np
 
 # A short bell over the shoulders, open at the front in a wide V: each front edge runs from the collar down
@@ -47,7 +48,7 @@ FACING = [(0.92, 10.31), (0.87, 10.25), (0.83, 10.19), (0.79, 10.13), (0.75, 10.
 EMB_FRONT, EMB_BACK, EMB_R = (1.10, 9.67), (1.23, 9.66), 0.17
 # Folds fanning out from the shoulders into deep flutes at the hem (the capelet's close-up): how many across the cloth
 # (front edge to front edge, so they fan with the front edges), how deep at the hem (growing as u^3), how far the hem
-# rises on each crest. They fade out over FOLD_E of the cloth at each front edge, which keeps the measured outline;
+# rises on each crest. They fade out over about FOLD_E of the cloth at each front edge, which keeps the measured outline;
 # a crest runs where each emblem is (the emblems are moved onto it, about 0.08 sideways).
 FOLD_N, FOLD_A, FOLD_Z, FOLD_E = 8, 0.1, 0.04, 0.04
 FOLD_LINE = '#b8ac9a'        # the drawn fold lines: a soft grey-beige
@@ -107,9 +108,21 @@ HEM_C = np.polyfit(np.cos(np.radians(HEM_PHI)), CP_H0 - np.array(HEM_Z), 4)
 HEM_ERR = float(np.max(np.abs(np.polyval(HEM_C, np.cos(np.radians(HEM_PHI))) - (CP_H0 - np.array(HEM_Z)))))
 
 
-def kp_a(u): return _uev(CP_FIT['kpa'], u)
-def kp_b(u): return _uev(CP_FIT['kpb'], u)
-def kp_f(u): return _uev(CP_FIT['kpf'], u)
+def _xpoly(fit, deg):
+    """The spline fit as one polynomial in x = 2u - 1 (coefficients lowest first) and its largest error. In Arch
+    a spline's max(0, u - k) terms paste u twice each, and a curve pastes its whole u expression into every use."""
+    u = np.linspace(0, 1, 1001)
+    c = np.polynomial.chebyshev.Chebyshev.fit(2 * u - 1, _uev(fit, u), deg).convert(kind=np.polynomial.Polynomial).coef
+    return c, float(np.max(np.abs(np.polynomial.polynomial.polyval(2 * u - 1, c) - _uev(fit, u))))
+
+
+CP_POLY = {k: _xpoly(f, d) for (k, f), d in zip(CP_FIT.items(), (12, 12, 6))}
+
+
+def _xev(c, u): return np.polynomial.polynomial.polyval(2 * np.asarray(u, float) - 1, c)
+def kp_a(u): return _xev(CP_POLY['kpa'][0], u)
+def kp_b(u): return _xev(CP_POLY['kpb'][0], u)
+def kp_f(u): return _xev(CP_POLY['kpf'][0], u)
 def kp_h(p): return np.polyval(HEM_C, np.cos(p))
 
 
@@ -127,8 +140,13 @@ def kp_w(u, p):
     """The folds: 1 on a crest, -1 in a hollow; FOLD_N of them across the cloth from front edge to front edge, a
     hollow at each edge, crests at q = (m + 1/2) / FOLD_N; faded out at the edges."""
     e = kp_e(u)
-    q = (p - e) / (2 * np.pi - 2 * e)
-    return -np.cos(2 * np.pi * FOLD_N * q) * np.minimum(1, np.minimum(q, 1 - q) / FOLD_E)
+    return kp_wq((p - e) / (2 * np.pi - 2 * e))
+
+
+def kp_wq(q):
+    """The folds by cloth position q; the fade is smooth (tanh, not min: Arch pastes min's arguments twice)."""
+    q = np.asarray(q, float)
+    return -np.cos(2 * np.pi * FOLD_N * q) * np.tanh(np.sin(np.pi * q) / (np.pi * FOLD_E))
 
 
 def fold_lines():
@@ -159,7 +177,8 @@ def _front_edge():
 FE_C, FE_ERR = _front_edge()
 
 
-def kp_e(u): return _uev(FE_C, u)
+FE_POLY = _xpoly(FE_C, 14)
+def kp_e(u): return _xev(FE_POLY[0], u)
 
 
 def kp_q(u, q):
@@ -210,6 +229,29 @@ for _x, _z in FACING:
 FAC_T = np.linspace(-1, 1, len(_fac))
 FAC_CU = np.polyfit(FAC_T, [f[0] for f in _fac], 3)
 FAC_CP = np.polyfit(FAC_T, [f[1] for f in _fac], 3)
+# the same line as a cloth position q (0 at her left front edge), which the Arch functions take
+_ft = np.linspace(-1, 1, 200)
+_fu = np.polyval(FAC_CU, _ft)
+FAC_CQ = np.polyfit(_ft, (np.polyval(FAC_CP, _ft) - kp_e(_fu)) / (2 * np.pi - 2 * kp_e(_fu)), 5)
+FAC_CQ_ERR = float(np.max(np.abs(np.polyval(FAC_CQ, _ft) - (np.polyval(FAC_CP, _ft) - kp_e(_fu)) / (2 * np.pi - 2 * kp_e(_fu)))))
+print('  capelet polynomials, max error: ' + ', '.join(f"{k} {e:.4f}" for k, (_, e) in list(CP_POLY.items()) + [('kpe', FE_POLY)])
+      + f", facing line's q {FAC_CQ_ERR:.4f}", file=sys.stderr)
+
+
+def _inset_fit(d):
+    """Cloth position of the line d in from the front edge, along each section, as a polynomial in u."""
+    u = np.linspace(0.02, 1, 200)
+    e = kp_e(u)
+    rad = np.sqrt((kp_a(u) * np.cos(e)) ** 2 + (kp_f(u) * np.sin(e)) ** 2 + 0.01)
+    return np.polyfit(u, d / rad / (2 * np.pi - 2 * e), 6)
+
+
+def _poly_arch(c, var):
+    """numpy polyfit coefficients (highest first) as Arch text, in Horner form (each use of var costs Arch a copy)."""
+    s = fmt(c[0])
+    for v in c[1:]:
+        s = f"({s})*{var}+{fmt(v)}"
+    return s.replace('+-', '-')
 
 
 # the capelet's reach for the hair: largest distance from the axis (0, 0.03) by angle from the back and height
@@ -265,60 +307,55 @@ def _emit_cape():
     sc.comment(f"""Capelet sections at each level u (0 at the neckline, 1 at the hem; measured on the sheet's front, side
 and back views): half-width kpa, depth kpf in front of the centre line and kpb behind it; kph the hem below
 {fmt(CP_H0)} by angle; kpe the front edge's angle; kpp the angle of point q round from her left front edge.""")
-    for k, c in CP_FIT.items():
-        sc.func(f'{k}(u)', _uarch(c))
+    for k, (c, err) in CP_POLY.items():
+        sc.func(f'{k}(u)', horner(list(c), '(2*u-1)'))
     sc.func('kph(c)', '+'.join(f"{fmt(v)}*c^{len(HEM_C) - 1 - i}" for i, v in enumerate(HEM_C)).replace('+-', '-').replace('*c^0', ''))
-    sc.func('kpe(u)', _uarch(FE_C))
-    sc.func('kpp(u,q)', 'kpe(u)+q*(2*pi-2*kpe(u))')
-    sc.func('kpq(u,p)', "(p-kpe(u))/(2*pi-2*kpe(u))")
-    sc.func('kpw(u,p)', f"-cos({fmt(2 * np.pi * FOLD_N)}*kpq(u,p))*min(1,min(kpq(u,p),1-kpq(u,p))/{fmt(FOLD_E)})")
-    sc.func('kpr(u,p)', f"1+{fmt(FOLD_A)}*u^3*kpw(u,p)")
-    KX, KY = 's*kpa(u)*sin(p)*kpr(u,p)', f"{fmt(CP_Y0)}-s*(kpf(u)+(kpb(u)-kpf(u))*(1-cos(p))/2)*cos(p)*kpr(u,p)"
-    KZ = f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))" + (f"+{fmt(FOLD_Z)}*u^8*kpw(u,p)" if FOLD_Z else "")
-    sc.func('kpx(u,p,s)', KX)
-    sc.func('kpy(u,p,s)', KY)
-    sc.func('kpz(u,p)', KZ)
-    # The same, given the fold value w, for the drawn lines: along a line w is simple, and through kpw Arch's
-    # expansion of a curve's formulas grows too long to compile.
-    wr = lambda e: e.replace('kpr(u,p)', f"(1+{fmt(FOLD_A)}*u^3*w)").replace('kpw(u,p)', 'w')
-    sc.func('kcx(u,p,w,s)', wr(KX))
-    sc.func('kcy(u,p,w,s)', wr(KY))
-    sc.func('kcz(u,p,w)', wr(KZ))
+    sc.func('kpe(u)', horner(list(FE_POLY[0]), '(2*u-1)'))
+    # Arch pastes each function's body in at every use, its arguments as often as the body uses them, so the
+    # functions below take the cloth position q and the fold value w as arguments rather than working them out
+    # from an angle: the front edge kpe is then evaluated once per angle instead of about 26 times a point.
+    sc.func('kpp(u,q)', 'kpe(u)*(1-2*q)+2*pi*q')
+    sc.func('kpw(q)', f"-cos({fmt(2 * np.pi * FOLD_N)}*q)*tanh(sin(pi*q)/{fmt(np.pi * FOLD_E)})")
+    sc.func('kpx(u,p,w,s)', f"s*kpa(u)*sin(p)*(1+{fmt(FOLD_A)}*u^3*w)")
+    sc.func('kpy(u,p,w,s)', f"{fmt(CP_Y0)}-s*(kpf(u)+(kpb(u)-kpf(u))*(1-cos(p))/2)*cos(p)*(1+{fmt(FOLD_A)}*u^3*w)")
+    sc.func('kpz(u,p,w)', f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))" + (f"+{fmt(FOLD_Z)}*u^8*w" if FOLD_Z else ""))
+
+    def at(U, Q, s='1', dz=''):
+        """The capelet's point at level U and cloth position Q (expressions), s scaling the section."""
+        P, W = f"kpp({U},{Q})", f"kpw({Q})"
+        return (f"kpx({U},{P},{W},{s})", f"kpy({U},{P},{W},{s})", f"kpz({U},{P},{W}){dz}")
 
     def S(X, Y, Z, U, V, col, ref, orient):
         sc.surface((X, Y, Z), U, V, col, ref, orient)
 
-    P = "(kpp(u,q))"
-    S(f"kpx(u,{P},1)", f"kpy(u,{P},1)", f"kpz(u,{P})", ('u', 0, 1), ('q', 0, 1), CREAM, 'cape', ('tube', 'u'))
-    S(f"kpx(u,{P},0.988)", f"kpy(u,{P},0.988)", f"kpz(u,{P})-0.004", ('u', 0.02, 1), ('q', 0, 1), CP_LINING, 'capeLining',
-      ('tube', 'u', 'in'))
+    S(*at('u', 'q'), ('u', 0, 1), ('q', 0, 1), CREAM, 'cape', ('tube', 'u'))
+    S(*at('u', 'q', '0.988', '-0.004'), ('u', 0.02, 1), ('q', 0, 1), CP_LINING, 'capeLining', ('tube', 'u', 'in'))
     # lace frill below the hem at the back, flaring a little, scalloped
     p0 = np.radians(LACE_PHI0)
     Pl = f"({fmt(p0)}+q*{fmt(2 * np.pi - 2 * p0)})"
     dep = f"(0.15+0.1*max(0,-cos({Pl}))^6)*min(1,3*sin(pi*q))"
-    sc.surface((f"kpx(1,{Pl},1+0.04*v)", f"kpy(1,{Pl},1+0.04*v)", f"kpz(1,{Pl})-v*{dep}*(1-0.06*(1+cos({LACE_N}*{Pl})))"),
+    e1 = kp_e(1.0)
+    Wl = f"kpw({fmt((p0 - e1) / (2 * np.pi - 2 * e1))}+{fmt((2 * np.pi - 2 * p0) / (2 * np.pi - 2 * e1))}*q)"     # the folds at the hem
+    sc.surface((f"kpx(1,{Pl},{Wl},1+0.04*v)", f"kpy(1,{Pl},{Wl},1+0.04*v)", f"kpz(1,{Pl},{Wl})-v*{dep}*(1-0.06*(1+cos({LACE_N}*{Pl})))"),
                ('q', 0, 1), ('v', 0, 1), CP_LACE, 'capeLace', ('point', (0, CP_Y0, 9.6)))
     # double gold lines along the front edges and the hem, just off the surface
     for j, d in enumerate((0.035, 0.075)):
         for side, tag in ((1, 'L'), (-1, 'R')):
-            # an inset of d along the section: the angle step d over the section's local radius at the edge
-            rad = f"sqrt((kpa(u)*cos(kpe(u)))^2+(kpf(u)*sin(kpe(u)))^2+0.01)"
-            pe = f"(kpe(u)+{fmt(d)}/{rad})" if side > 0 else f"(2*pi-kpe(u)-{fmt(d)}/{rad})"
-            sc.curve((f"kpx(u,{pe},1.006)", f"kpy(u,{pe},1.006)", f"kpz(u,{pe})"), ('u', 0.03, 1 - d / 2.2), GOLD,
+            # an inset of d along the section (the angle step d over the section's local radius at the edge), as a
+            # cloth position: a short polynomial in u fitted here
+            Qd = _poly_arch(_inset_fit(d), 'u')
+            sc.curve(at('u', f"({Qd})" if side > 0 else f"(1-({Qd}))", '1.006'), ('u', 0.03, 1 - d / 2.2), GOLD,
                      f'capeEdgeTrim{tag}{j + 1}', thickness=2)
-        uh = fmt(1 - d / 2.25)
-        sc.curve((f"kpx({uh},(kpp({uh},q)),1.006)", f"kpy({uh},(kpp({uh},q)),1.006)", f"kpz({uh},(kpp({uh},q)))"),
-                 ('q', 0, 1), GOLD, f'capeHemTrim{j + 1}', thickness=2)
+        sc.curve(at(fmt(1 - d / 2.25), 'q', '1.006'), ('q', 0, 1), GOLD, f'capeHemTrim{j + 1}', thickness=2)
     # the facing's fold line, from the shoulder corner to the front edge
-    cu = '+'.join(f"{fmt(v)}*t^{len(FAC_CU) - 1 - i}" for i, v in enumerate(FAC_CU)).replace('+-', '-').replace('*t^0', '')
-    cp = '+'.join(f"{fmt(v)}*t^{len(FAC_CP) - 1 - i}" for i, v in enumerate(FAC_CP)).replace('+-', '-').replace('*t^0', '')
+    cu = f"({_poly_arch(FAC_CU, 't')})"
+    cq = _poly_arch(FAC_CQ, 't')                    # the fold line's cloth position, fitted from its angle
     for side, tag in ((1, 'L'), (-1, 'R')):
-        pf = f"({cp})" if side > 0 else f"(2*pi-({cp}))"
-        sc.curve((f"kpx(({cu}),{pf},1.006)", f"kpy(({cu}),{pf},1.006)", f"kpz(({cu}),{pf})"), ('t', -1, 1), GOLD,
-                 f'capeFacingLine{tag}', thickness=2)
+        qf = f"({cq})" if side > 0 else f"(1-({cq}))"
+        sc.curve(at(cu, qf, '1.006'), ('t', -1, 1), GOLD, f'capeFacingLine{tag}', thickness=2)
         # a frill hangs from the fold line (close-up of the chest): 0.12 deep, ruffled
         sf = "(1.012+0.03*v*(1+0.8*sin(40*t)))"
-        sc.surface((f"kpx(({cu}),{pf},{sf})", f"kpy(({cu}),{pf},{sf})", f"kpz(({cu}),{pf})-0.12*v*(1+0.12*cos(40*t))"), ('t', -1, 1), ('v', 0, 1), CP_LACE,
+        sc.surface(at(cu, qf, sf, "-0.12*v*(1+0.12*cos(40*t))"), ('t', -1, 1), ('v', 0, 1), CP_LACE,
                    f'capeFacingFrill{tag}', ('dir', (0, -1, 0.3)))
     # Drawn fold lines (soft grey-beige), all in one stroke: up each line from the hem to where it starts and back
     # down, then along the hem to the next line. kfa(k) is where line k starts.
@@ -328,21 +365,15 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     sc.func('kfa(k)', f"0.12+0.15*{hk}" if FOLD_N >= 12 else f"(1-cos(pi*k))/2*(0.12+0.15*{hk})+(1+cos(pi*k))/2*(0.5+0.1*{hk})")
     sc.func('kfu(t)', "1-(1-kfa(floor(t)))*max(0,1-abs(t-floor(t)-0.4)/0.4)")
     sc.func('kfq(t)', f"{fmt(q0)}+{fmt(dq)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
-    W = f"(-cos({fmt(2 * np.pi * FOLD_N)}*kfq(t)))"         # the lines keep clear of the edges' fade
-    P = "kpp(kfu(t),kfq(t))"
-    sc.curve((f"kcx(kfu(t),{P},{W},1.006)", f"kcy(kfu(t),{P},{W},1.006)", f"kcz(kfu(t),{P},{W})"),
-             ('t', 0, len(FL) - 0.2), FOLD_LINE, 'capeFoldLines', thickness=1)
+    sc.curve(at('kfu(t)', 'kfq(t)', '1.006'), ('t', 0, len(FL) - 0.2), FOLD_LINE, 'capeFoldLines', thickness=1)
     # Gathers where the front meets the collar: four short lines fanning down and out from the collar's corner, in one
     # stroke out along each and back.
-    G = ((0.2, 0.022), (0.27, 0.038), (0.31, 0.055), (0.25, 0.072))
-    sc.func('kgu(t)', "0.035+(" + '+'.join(f"{fmt(u_ - 0.035)}*max(0,1-abs(floor(t)-{i}))" for i, (u_, _) in enumerate(G)) + ")*max(0,1-abs(t-floor(t)-0.5)/0.5)")
-    sc.func('kgq(t)', "0.008+(" + '+'.join(f"{fmt(q_ - 0.008)}*max(0,1-abs(floor(t)-{i}))" for i, (_, q_) in enumerate(G)) + ")*max(0,1-abs(t-floor(t)-0.5)/0.5)")
+    # line k ends at u = 0.2 + 0.085 k - 0.0225 k^2, q = 0.022 + 0.0167 k (formulas, not tables: see kfa)
+    G = 4
+    sc.func('kgu(t)', "0.035+(0.165+floor(t)*(0.085-0.0225*floor(t)))*(1-abs(2*(t-floor(t))-1))")
+    sc.func('kgq(t)', "0.008+(0.014+0.0167*floor(t))*(1-abs(2*(t-floor(t))-1))")
     for side, tag in ((1, 'L'), (-1, 'R')):
-        Q = "kgq(t)" if side > 0 else "(1-kgq(t))"
-        W = f"(-cos({fmt(2 * np.pi * FOLD_N)}*kgq(t))*min(1,kgq(t)/{fmt(FOLD_E)}))"
-        P = f"kpp(kgu(t),{Q})"
-        sc.curve((f"kcx(kgu(t),{P},{W},1.008)", f"kcy(kgu(t),{P},{W},1.008)", f"kcz(kgu(t),{P},{W})"),
-                 ('t', 0, len(G)), FOLD_LINE, f'capeGathers{tag}', thickness=1)
+        sc.curve(at('kgu(t)', "kgq(t)" if side > 0 else "(1-kgq(t))", '1.008'), ('t', 0, G), FOLD_LINE, f'capeGathers{tag}', thickness=1)
     # standing collar, open at the front, gold along its top and front edges
     z0, hgt, rc, gap = CP_COLLAR
     g = np.radians(gap)

@@ -112,7 +112,7 @@ class Scene:
     def __init__(self, title):
         self.title = title
         self.out = []
-        self.ns = {k: getattr(math, k) for k in ('sin', 'cos', 'tan', 'sqrt', 'exp', 'floor', 'atan', 'asin', 'acos', 'ceil')}
+        self.ns = {k: getattr(math, k) for k in ('sin', 'cos', 'tan', 'sqrt', 'exp', 'floor', 'atan', 'asin', 'acos', 'ceil', 'tanh', 'sinh', 'cosh')}
         self.ns.update(pi=math.pi, abs=abs, ln=math.log, sign=lambda v: (v > 0) - (v < 0),
                        max=max, min=min, _pow=_pow)
         self.count = 0

@@ -1,6 +1,6 @@
 # Run inside generate.py (shares its names): body, outfit and props.
 import numpy as np
-from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_fills, facing_curves, _emb_len, EMB_CENTRE, EMB_DOT
+from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_sector, emblem_fills, facing_curves, _emb_len, EMB_CENTRE, EMB_DOT
 
 # ---------------- extra helpers ----------------
 sc.blank()
@@ -469,8 +469,8 @@ her right (as traced, one line at the panel's edge), 9 degrees on her left, a wi
 its front edge, p down it.""")
     sc.func('bzh(q)', '1.95+0.1*sin(pi*q)')
     sc.func('eml(k)', _emb_len('k'))
-    sc.func('emi(w)', emblem_radii('w')[0])
-    sc.func('emo(w)', emblem_radii('w')[1])
+    sc.func('emi(w,kz,la,lb,lc)', emblem_radii('w', sector=True)[0])
+    sc.func('emo(w,kz,la,lb,lc)', emblem_radii('w', sector=True)[1])
     sc.func('bph(q,p)', '5.45-0.1*q-(5.45-0.1*q-bzh(q))*p')
     # The big fold (measured on a close-up of the side view): a line from under the front bow to the hem, 0.41 in
     # front of the emblem at the emblem's height and leaning 0.2 per unit of height. The cloth really folds there:
@@ -589,8 +589,10 @@ its front edge, p down it.""")
                 e_bk = mul(e_bk, -1)
             fr = (e_bk, e_up, n_)
             for j in range(8):
-                L = ("(emi(w)+(emo(w)-emi(w))*r)*cos(w)", "(emi(w)+(emo(w)-emi(w))*r)*sin(w)", "0")
-                sc.surface(place(L, C, fr), ('r', 0, 1), ('w', math.pi / 2 + j * math.pi / 4, math.pi / 2 + (j + 1) * math.pi / 4), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
+                w0, w1, kz, ls = emblem_sector(j)
+                ea = ','.join(['w', str(kz)] + [fmt(v) for v in ls])
+                rr = f"(emi({ea})*(1-r)+emo({ea})*r)"
+                sc.surface(place((f"{rr}*cos(w)", f"{rr}*sin(w)", "0"), C, fr), ('r', 0, 1), ('w', w0, w1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
             for nm_, rad, lift, col in (('Mid', EMB_CENTRE, 0.004, PANEL_GOLD), ('Dot', EMB_DOT, 0.008, PANEL_PALE)):
                 sc.surface(place((f"{fmt(rad)}*r*cos(w)", f"{fmt(rad)}*r*sin(w)", fmt(lift)), C, fr), ('r', 0, 1), ('w', 0, '2*pi'), col, f'sideEmblem{tag}{k + 1}{nm_}', ('dir', n_))
             for nm_, (X, H) in emblem_fills():

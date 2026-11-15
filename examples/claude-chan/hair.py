@@ -100,7 +100,7 @@ def fit_profile(req, base):
             break
         target = target + np.maximum(deficit, 0) * 1.5
     margin = float(np.min((fit - (req - base))[US > 0.05]))
-    return ''.join(f"+{fmt(c)}*max(0,t-{fmt(T0 + k)})^2" for c, k in zip(coef, KNOTS)), margin
+    return ''.join(f"+{fmt(c)}*max(0,t-{fmt(T0 + k)})^2" for c, k in zip(coef, KNOTS)), margin, coef
 
 
 FRONT_BLADES = []      # the locks in front of the face, for the brows drawn over them
@@ -115,15 +115,19 @@ crown), below that it falls. hzz(t) is the height, hrx(t) and hry(t) are the hal
 hair lies on at that height: they follow the dome, then keep clear of the shoulders, capelet, arms, book
 and skirt and flare out toward the ends (fitted by the generator). hu(t) is 0 on the dome and grows to 1
 down the fall. hdw keeps a lock's width steady as the hair spreads.""")
-    gx, m1 = fit_profile(side_req, HDX)
-    gy, m2 = fit_profile(back_req, HDY)
+    gx, m1, cx_ = fit_profile(side_req, HDX)
+    gy, m2, cy_ = fit_profile(back_req, HDY)
+    # hdw = min(1, 1.54 / (hrx + hry)), exactly: on the dome hrx + hry = 1.54 sin(ha) and the profiles' knot terms
+    # are 0; on the fall sin(ha) = 1. So hdw = 1.54 / (1.54 + both profiles' knot terms), one spline (their
+    # coefficients summed, the knots are shared) instead of min(...), which Arch writes with both profiles twice.
+    gs = ''.join(f"+{fmt(a + b)}*max(0,t-{fmt(T0 + k)})^2" for a, b, k in zip(cx_, cy_, KNOTS))
     print(f'  hair clearance margins: side {m1:.3f}, back {m2:.3f}', file=sys.stderr)
     sc.func('ha(t)', f"1.5708*min(1,t/{fmt(T0)})")
     sc.func('hu(t)', f"max(0,t-{fmt(T0)})/{fmt(1 - T0)}")
     sc.func('hzz(t)', f"{fmt(ZHC)}+{fmt(HDZ)}*cos(ha(t))-{fmt(VF)}*max(0,t-{fmt(T0)})")
     sc.func('hrx(t)', f"{fmt(HDX)}*sin(ha(t)){gx}")
     sc.func('hry(t)', f"{fmt(HDY)}*sin(ha(t)){gy}")
-    sc.func('hdw(t)', 'min(1,1.54/(hrx(t)+hry(t)))')
+    sc.func('hdw(t)', f"1.54/(1.54{gs})")
     sc.comment(f"""Her head is tilted and turned (see the generator); a lock turns with it where it lies on the head and
 hangs straight below. hb(t) is 1 on the head and eases to 0 by t = {fmt(T0 + TB)}; hs and hk are the sine and
 one minus the cosine of the head's turn times hb, and hm scales the lock with the head where it lies on it.""")

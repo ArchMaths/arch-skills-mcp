@@ -1,4 +1,5 @@
 # Arms and sleeves, built from outlines traced over the sheet's five views of them (run inside generate.py).
+import sys
 import numpy as np
 
 # The sleeve: a balloon puff from under the capelet to the elbow, gathered into a small frilled band; a fitted
@@ -83,6 +84,16 @@ SL_FIT = {k: _sfit(v) for k, v in (('slx', SL_CX), ('sly', SL_CY), ('sla', SL_A)
 SL_ERR = {k: float(np.max(np.abs(_sev(c, SL_Z) - v))) for (k, c), v in zip(SL_FIT.items(), (SL_CX, SL_CY, SL_A, SL_B))}
 
 
+# The puff alone (where the fold lines run, 8.22 to 9.35), as polynomials in x = (q - 8.825) / 0.625: the lines paste their
+# height expression into every use of q, and the splines' max(0, q - k) terms use it twice each.
+_PQ = np.linspace(8.2, 9.45, 400)
+SL_PUFF = {k: np.polynomial.chebyshev.Chebyshev.fit((_PQ - 8.825) / 0.625, _sev(c, _PQ), 12).convert(kind=np.polynomial.Polynomial).coef
+           for k, c in SL_FIT.items()}
+SL_PUFF_ERR = max(float(np.max(np.abs(np.polynomial.polynomial.polyval((_PQ - 8.825) / 0.625, SL_PUFF[k]) - _sev(c, _PQ))))
+                  for k, c in SL_FIT.items())
+print(f'  sleeve puff polynomials (for the fold lines): max error {SL_PUFF_ERR:.4f}', file=sys.stderr)
+
+
 def slx_(q): return _sev(SL_FIT['slx'], q)
 def sly_(q): return _sev(SL_FIT['sly'], q)
 def sla_(q): return _sev(SL_FIT['sla'], q)
@@ -92,10 +103,12 @@ def slb_(q): return _sev(SL_FIT['slb'], q)
 def slg_(q):
     """Gathers: deep at the elbow band, light folds over the puff, none on the forearm."""
     q = np.asarray(q, float)
-    return 0.035 * np.exp(-((q - 8.27) / 0.09) ** 2) + 0.014 * np.clip((q - 8.3) / 0.2, 0, 1)
+    return 0.035 * np.exp(-((q - 8.27) / 0.09) ** 2) + 0.007 * (1 + np.tanh((q - 8.4) / 0.07))
 
 
-SLG_EXPR = '0.035*exp(-((q-8.27)/0.09)^2)+0.014*min(1,max(0,(q-8.3)/0.2))'
+# (a smooth ramp onto the puff's folds: Arch pastes min's and max's arguments twice, and the fold lines paste their
+# whole height expression into this)
+SLG_EXPR = '0.035*exp(-((q-8.27)/0.09)^2)+0.007*(1+tanh((q-8.4)/0.07))'
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -234,11 +247,13 @@ slx, sly and half-widths sla across, slb front to back; slg the gathers at the e
         # scattered height under the capelet and a short one up each crest, where the gathers bunch above the band;
         # between lines the stroke runs round the sleeve under the band.
         if side > 0:
-            sc.func('sfa(k)', '+'.join(f"{fmt(SL_FOLD_TOP[i])}*max(0,1-abs(k-{i}))" for i in range(32)))
+            sc.func('sfa(k)', "(1+cos(pi*k))/2*(8.45+0.03*(sin(1.7*k)+1))+(1-cos(pi*k))/2*(8.95+0.2*(sin(2.39*k+0.7)+1))")   # SL_FOLD_TOP
+            for k_, c_ in SL_PUFF.items():
+                sc.func(f'{k_}p(q)', horner(list(c_), '((q-8.825)/0.625)'))
             sc.func('sfq(t)', "8.22+(sfa(floor(t))-8.22)*max(0,1-abs(t-floor(t)-0.4)/0.4)")
             sc.func('sft(t)', f"{fmt(math.pi / 16)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
         G_ = "(1.012+slg(sfq(t))*cos(16*sft(t)))"
-        sc.curve((f"{S}*(slx(sfq(t))+sla(sfq(t))*cos(sft(t))*{G_})", f"sly(sfq(t))+slb(sfq(t))*sin(sft(t))*{G_}", "sfq(t)"),
+        sc.curve((f"{S}*(slxp(sfq(t))+slap(sfq(t))*cos(sft(t))*{G_})", f"slyp(sfq(t))+slbp(sfq(t))*sin(sft(t))*{G_}", "sfq(t)"),
                  ('t', 0, 31.8), FOLD_LINE, f'sleeveFoldLines{tag}', thickness=1)
         # elbow band: a short frill below the puff's gathers, flaring a little, with 14 waves
         z0, z1 = BAND_Z
