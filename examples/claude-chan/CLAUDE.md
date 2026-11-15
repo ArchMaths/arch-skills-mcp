@@ -28,6 +28,18 @@ Work in numbers, not screenshots: each image read is expensive, a table of edges
 
 - Never render at high precision: it takes hours. Use `--prec 3` for every Arch check.
 - Do not build the full `.txt` save file without the user's approval; it is slow.
+- `node src/cli.js --check` renders the file it checks: never run it on `claude-chan-3d.arch` itself (precision
+  10), only on a `--prec 3` copy.
+- Ask the user for a tracing or a close-up whenever a part's detail is unclear; it is quicker than guessing.
+
+## How Arch draws
+
+- A surface is meshed with floor(3.125 x precision) steps a side, 60 at most. Fine repeated detail (the skirt's
+  40 pleats) needs the surface split into sectors of a few repeats each, plus drawn lines (curves keep their
+  own resolution).
+- A surface facing the viewer is lit to about 1.2 times its colour. Colours above about 210 clip to flat white
+  or flat orange and lose their shading, which makes cloth look like rubber: give folded cloth a colour 1/1.2
+  of the sheet's (`RUST`, `SKIRT_CREAM` in `outfit.py`) and real folds to shade.
 
 ## The sheet
 
