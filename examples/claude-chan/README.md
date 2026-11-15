@@ -139,7 +139,7 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 
 ```sh
 python3 examples/claude-chan/generate.py         # writes claude-chan-3d.arch (needs numpy)
-node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan/claude-chan-3d.txt --timeout 3600
+node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan/claude-chan-3d.txt --lean --timeout 3600
 ```
 
 ### Checking against the sheet

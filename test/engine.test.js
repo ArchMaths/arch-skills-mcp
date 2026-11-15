@@ -188,6 +188,26 @@ test('parametric curves and surfaces with their own parameters (Arch 12201+)', a
     assert.match(again, /@view 3d .*center=0,0,1\.5/);
 });
 
+test('lean builds leave out the expanded formulas of objects that call functions, and Arch rebuilds them', async () => {
+    const source = [
+        'g(u)=1+0.3*cos(3*u)',
+        'h(u,v)=g(u)*g(v)',
+        'surface(h(u,v)*sin(u)*cos(v),h(u,v)*sin(u)*sin(v),h(u,v)*cos(u),u,0,pi,v,0,2*pi) | ref=lumpy',
+        '(cos(t),sin(t),t,0,2*pi) | ref=plain',
+        '@view 3d'
+    ].join('\n');
+    const full = await engine.run(source, {screenshot: false});
+    const lean = await engine.run(source, {screenshot: false, lean: true});
+    assert.deepEqual(lean.errors, []);
+    assert.ok(lean.ok);
+    assert.equal(lean.lean.stripped, 1);
+    const entry = (state, expr) => JSON.parse(state).entries.find(e => e.expr && e.expr.startsWith(expr));
+    assert.ok(entry(full.json, 'surface(').processedExprX.length > entry(lean.json, 'surface(').expr.length);
+    assert.equal(entry(lean.json, 'surface(').processedExprX, undefined);
+    assert.ok(entry(lean.json, '(cos(t)').processedExprX, 'an object that calls no custom function keeps its expanded formula');
+    assert.ok(lean.json.length < full.json.length);
+});
+
 test('implicitPrecision reaches the save file and decompiles back', async () => {
     const result = await engine.run('surface(sin(u)*cos(v),sin(u)*sin(v),cos(u),u,0,pi,v,0,2*pi) | ref=ball\n@view 3d\n@set implicitPrecision=10', {screenshot: false});
     assert.deepEqual(result.errors, []);

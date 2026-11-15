@@ -36,6 +36,7 @@ export function formatReport(result, {written, screenshot, scriptScreenshot, bri
     } else {
         out.push(`FAILED: ${result.errors.length} error(s)${written === undefined ? '' : ', no file written'}`);
     }
+    if (result.lean) out.push(`Lean: left out the expanded formulas of ${result.lean.stripped} object(s), ${(result.lean.bytesBefore / 1e6).toFixed(2)} MB -> ${(result.lean.bytesAfter / 1e6).toFixed(2)} MB`);
     if (screenshot) out.push(`Screenshot: ${screenshot}`);
     if (scriptScreenshot) out.push(`Screenshot after running @script: ${scriptScreenshot}`);
     const where = item => item.line ? `line ${item.line}` : 'file';

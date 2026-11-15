@@ -9,7 +9,7 @@ import {readGuide, readGuideTopics, topicList} from './guide.js';
 const USAGE = (`Build Arch graphing-calculator save files from a scene script.
 
 Usage:
-  arch-build <scene.arch> [-o out.txt] [--png shot.png] [--brief] [--no-verify]
+  arch-build <scene.arch> [-o out.txt] [--png shot.png] [--brief] [--no-verify] [--lean]
   arch-build --check <scene.arch> [--png shot.png [--png-scale 0.5]]
   arch-build --decompile <save.txt> [-o scene.arch]
   arch-build --guide [topic,...]  print the scene-script and Arch syntax guide,
@@ -23,6 +23,10 @@ Options:
   --png-scale <s>    render the screenshot at this scale, 0.1 to 1 (0.5 gives
                      640x400 instead of 1280x800)
   --brief            report only the status, errors and warnings (no object list)
+  --lean             leave out the formulas Arch saves expanded (each custom function's body
+                     pasted in at every use) for objects that call custom functions: Arch
+                     rebuilds them when it opens the file, which the reload check confirms.
+                     Makes large scenes built from functions many times smaller
   --no-verify        skip reloading the saved file to confirm it round-trips
                      (this also skips the @script preview)
   --no-script-preview  store @script without test-running it
@@ -64,6 +68,7 @@ function parseArgs(argv) {
         else if (a === '--brief') args.brief = true;
         else if (a === '--html') args.html = value();
         else if (a === '--no-verify') args.verify = false;
+        else if (a === '--lean') args.lean = true;
         else if (a === '--no-script-preview') args.scriptPreview = false;
         else if (a === '--json') args.json = true;
         else if (a.startsWith('-') && a !== '-') throw new Error(`Unknown option ${a}`);
@@ -113,7 +118,7 @@ async function main() {
 
     const engine = new ArchEngine(args.html ? {htmlPath: args.html} : {});
     try {
-        const result = await engine.run(readInput(args.input), {screenshot: Boolean(args.png), screenshotScale: args.pngScale ?? 1, verify: args.verify, scriptPreview: args.scriptPreview, timeoutMs: args.timeoutMs});
+        const result = await engine.run(readInput(args.input), {screenshot: Boolean(args.png), screenshotScale: args.pngScale ?? 1, verify: args.verify, scriptPreview: args.scriptPreview, timeoutMs: args.timeoutMs, lean: Boolean(args.lean)});
         if (args.png && result.png) writeFileSync(resolve(args.png), result.png);
         const scriptPng = args.png && result.scriptPng ? args.png.replace(/(\.png)?$/i, '-script.png') : undefined;
         if (scriptPng) writeFileSync(resolve(scriptPng), result.scriptPng);

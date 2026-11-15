@@ -170,7 +170,9 @@ export class ArchEngine {
     // Runs a scene script. Returns {ok, errors, warnings, objects, view, json, png, scriptPng, ...}.
     // ok is false when any line failed, the saved file does not reload identically, or the
     // @script preview raised an error.
-    async run(source, {screenshot = true, screenshotScale = 1, verify = true, scriptPreview = true, timeoutMs = RUN_TIMEOUT} = {}) {
+    // lean: leave out the expanded formulas of objects that call custom functions (see stripExpanded); the reload
+    // check then also confirms that Arch rebuilds each of them exactly.
+    async run(source, {screenshot = true, screenshotScale = 1, verify = true, scriptPreview = true, timeoutMs = RUN_TIMEOUT, lean = false} = {}) {
         let parsed;
         try {
             parsed = parseScript(source);
@@ -212,6 +214,12 @@ export class ArchEngine {
             await slot.context.close().catch(() => {});
         }
 
+        let fullJson = result.json;
+        if (lean && result.errors.length === 0) {
+            const stripped = stripExpanded(result.json);
+            result.json = stripped.json;
+            result.lean = {stripped: stripped.count, bytesBefore: fullJson.length, bytesAfter: stripped.json.length};
+        }
         if (verifySlot && result.errors.length === 0) {
             // Reload the exported file exactly as a user would open it; the screenshot shows that view.
             const check = await verifySlot;
@@ -219,7 +227,8 @@ export class ArchEngine {
                 const reloaded = await guard(check.page.evaluate(loadAndDescribe, result.json), timeoutMs, 'Reloading the saved file');
                 for (const message of reloaded.errors) result.errors.push({message: `Reloading the saved file failed: ${message}`});
                 result.errors.push(...compareReload(result.objects, reloaded.objects));
-                result.errors.push(...compareSaved(JSON.parse(result.json), JSON.parse(reloaded.json)));
+                result.errors.push(...compareSaved(JSON.parse(fullJson), JSON.parse(reloaded.json)));
+                if (result.lean) result.errors.push(...compareExpanded(JSON.parse(fullJson), JSON.parse(reloaded.json)));
                 if (screenshot) png = await shoot(check.page, 'Drawing the reloaded file');
                 else await guard(check.page.evaluate(settle, 100), timeoutMs, 'Drawing the reloaded file');
                 if (parsed.script && scriptPreview && result.errors.length === 0) {
@@ -279,6 +288,36 @@ function compareReload(built, reloaded) {
 }
 
 // Document-level parts the object list does not cover: frames, text boxes, operators, the script.
+// Arch saves each object's formulas a second time with every custom function's body pasted in at each use
+// (processedExpr*), and rebuilds that copy from the object's own formula when it opens a file whenever the object
+// calls a custom function. In a large scene built from functions the copies are most of the file (25 of 27 MB in
+// examples/claude-chan). Objects that call no custom function keep theirs: Arch does not rebuild them.
+const EXPANDED = ['processedExpr', 'processedExprX', 'processedExprY', 'processedExprZ'];
+
+export function stripExpanded(json) {
+    const state = JSON.parse(json);
+    const names = (state.entries || []).filter(e => e && e.type === 'custom_function_definition').map(e => e.name).filter(Boolean);
+    if (!names.length) return {json, count: 0};
+    const calls = new RegExp(`(^|[^A-Za-z0-9_])(${names.map(n => n.replace(/[^A-Za-z0-9_]/g, '\\$&')).join('|')})\\s*\\(`);
+    let count = 0;
+    for (const entry of state.entries) {
+        if (!entry || entry.type === 'custom_function_definition' || !EXPANDED.some(k => k in entry)) continue;
+        if (!calls.test(entry.originalExprWithPoints || entry.expr || '')) continue;
+        for (const k of EXPANDED) delete entry[k];
+        count++;
+    }
+    return {json: JSON.stringify(state), count};
+}
+
+function compareExpanded(full, reloaded) {
+    const diffs = [];
+    (full.entries || []).forEach((entry, i) => {
+        const other = (reloaded.entries || [])[i] || {};
+        if (EXPANDED.some(k => (entry[k] || '') !== (other[k] || ''))) diffs.push(entry.expr);
+    });
+    return diffs.map(d => ({message: `Saved file reloads differently: ${d}: its expanded formula (built with --lean)`}));
+}
+
 function compareSaved(a, b) {
     // A fresh page leaves some fields undefined that a reload restores as "" (e.g. frameExpr).
     const norm = v => (v === undefined || v === null || v === '') ? null : v;
