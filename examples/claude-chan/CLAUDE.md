@@ -105,8 +105,8 @@ along a stem and leaves no stray stroke. Draw the motif in 2D over its photo fir
 (about 6000 characters a coordinate failed, 2000 worked): put the motif in functions, split long strokes, and
 keep the mapping from repeating them.
 
-The black panels' emblem is too small on the sheet to read (14 x 20 pixels). Its design (,
-,  in ) is the one the user chose among several candidates: do not
+The black panels' emblem is too small on the sheet to read (14 x 20 pixels). Its design (`emblem_radii`,
+`emblem_curves`, `emblem_leaf` in `motifs.py`) is the one the user chose among several candidates: do not
 redesign it. A flat motif on a curved panel must stand off by more than its sagitta (0.03 for the emblem), or
 its tips sink into the cloth.
 
