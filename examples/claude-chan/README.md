@@ -6,8 +6,8 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (560 objects); the save file is built from it. |
-| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
+| `claude-chan-3d.arch` | The scene script (570 objects); the save file is built from it. |
+| `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
 Opening the file takes several minutes (it is about 11 MB): it is saved with `implicitPrecision=10`, so
@@ -54,9 +54,19 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   A three-strand braid crown around the back of the head.
 - **Accessories**: a chrysanthemum on a black bow with cream ribbons and a gold tassel above her left
   ear; gold tassel earrings.
-- **Outfit**: high ruffled collar and jabot, black ascot with a chrysanthemum brooch, cream capelet with
-  gold trim and chrysanthemum emblems (longer and fuller at the back, as in the side and back views),
-  black corset with gold buttons, piping, chain, ring and tassel.
+- **Outfit**: high ruffled collar and jabot, black ascot with a chrysanthemum brooch, black corset with
+  gold buttons, piping, chain, ring and tassel.
+- **Capelet** (`cape.py`): measured on outlines traced over the sheet's three views, with the collar,
+  lining, trim, folds and emblem colour from its detail panel (披肩). A short bell over the shoulders, open in
+  a wide V at the front: each front edge runs from the collar down across the bust (x 0.6 at z 9.7) and
+  round to an outer corner at the side (1.44, 9.12), with a turned-back facing marked by a gold fold line
+  along its upper part. It reaches 1.58 out at the sides and stands 1.25 out at the back; its hem is highest
+  at the back corners (9.28) and lowest at the centre back (9.09), where a lace frill hangs to 8.84. Double
+  gold lines follow the front edges and the hem, 18 soft folds fan out from the shoulders, a beige lining
+  shows at the edges, and a standing collar, open at the front, rises round the neck. Four embroidered
+  chrysanthemums sit where the sheet circles them: two on the front panels (x ±1.10, z 9.67), two at the
+  back (x ±1.23, z 9.66). Its sections are ovals whose half-width, front depth and back depth are splines
+  in the level, fitted within 0.024 of the measured tables.
 - **Sleeves and arms** (`arms.py`): measured on arm outlines traced over the sheet's front, side and back
   views, where the hair hides much of them. A balloon puff from under the capelet to the elbow (0.86 across
   and as deep, widest at z 8.47, its inner side straight), gathered into a small frilled band at 8.3-8.15; a
@@ -121,7 +131,9 @@ each colour overlaps, and with `--map 3` both maps printed as text. On the dress
 bows) 84% of the pixels agree. The arms are mostly hidden by hair on the sheet, so they were measured on
 outlines traced over it by hand; against those the model's edges are off by 0.03 to 0.05 on average in the
 front and side views (puff 0.01 to 0.02, forearm under 0.04, cuff and hand 0.03 to 0.08), while the back
-view draws the arms 0.1 to 0.2 closer to the body. `CLAUDE.md` has the working rules: measure and model
+view draws the arms 0.1 to 0.2 closer to the body. The capelet was measured the same way: its outline is within 0.03 of the
+front and back views' average (the two traced sides differ by up to 0.12), its front edge within 0.015,
+its back edge on the side view within 0.014, and its hem and lace heights within 0.03. `CLAUDE.md` has the working rules: measure and model
 each part before writing it for Arch.
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and

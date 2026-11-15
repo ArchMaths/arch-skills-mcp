@@ -137,45 +137,9 @@ if want('body'):
     flat_flower((-0.11, yl - 0.002, 9.6), unit((0, -1, 0.25)), 0.045, 'ascotTailFlowerR', n=10, center=None)
 
 # =====================================================================
-#  CAPELET
+#  CAPELET: measured on the sheet (cape.py)
 # =====================================================================
-CAPE = [(10.7, 0.3, 0.28), (10.52, 0.6, 0.43), (10.3, 1.18, 0.64), (9.8, 1.48, 0.82), (9.3, 1.62, 0.92), (9.12, 1.66, 0.94)]
-CAPE_DROP, CAPE_FLARE = 0.95, 0.24     # the sheet's capelet is longer at the back (hem near the elbows) and stands out there
-
-
-def cape_drop(th):
-    """How far the capelet's hem hangs lower at angle th from the front (0 at the sides, CAPE_DROP at the back)."""
-    return CAPE_DROP * max(0.0, -math.cos(th)) ** 1.5
-if want('cape'):
-    sc.blank()
-    sc.note('Capelet: cream with gold trim, beige lining and chrysanthemum emblems')
-    cz_, ca_, cb_ = bezier_poly(CAPE)
-    Zc, Ac, Bc = horner(cz_, 's'), horner(ca_, 's'), horner(cb_, 's')
-    sc.comment("""Capelet: s from the collar to the hem; q around from her left front edge, over the back, to her right
-front edge (cth is the angle from the front). As on the sheet's side and back views it hangs lower at the
-back (cdr) and stands out there (the flare in y).""")
-    sc.func('cth(s,q)', '(0.3+0.32*s)+(2*pi-2*(0.3+0.32*s))*q')
-    sc.func('cdr(s,q)', f"{fmt(CAPE_DROP)}*s^2*max(0,-cos(cth(s,q)))^1.5")
-    def cape(scale, qr, sr, color, ref, dz=0.0):
-        X = f"{fmt(scale)}*({Ac})*sin(cth(s,q))"
-        Y = f"0.03-{fmt(scale)}*({Bc}+{fmt(CAPE_FLARE)}*s^2*max(0,-cos(cth(s,q))))*cos(cth(s,q))"
-        Z = f"{Zc}-cdr(s,q)+{fmt(dz)}"
-        sc.surface((X, Y, Z), ('s', sr[0], sr[1]), ('q', qr[0], qr[1]), color, ref, ('point', (0, 0.03, 10.4)))
-    cape(1.0, (0, 1), (0, 1), CREAM, 'cape')
-    cape(0.985, (0, 1), (0.02, 1), CREAM_DK, 'capeLining', dz=0.004)
-    cape(1.01, (0, 1), (0.94, 1), GOLD, 'capeHemTrim', dz=-0.004)
-    cape(1.01, (0, 0.012), (0.04, 1), GOLD, 'capeEdgeTrimR')
-    cape(1.01, (0.988, 1), (0.04, 1), GOLD, 'capeEdgeTrimL')
-    sc.surface(("0.3*cos(w)", "0.03+0.29*sin(w)", "10.6+0.2*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'capeCollar', ('tube', 'u'))
-    torus((0, 0.03, 10.8), ((1, 0, 0), (0, 1, 0), (0, 0, 1)), 0.3, 0.012, GOLD, 'capeCollarTrim')
-    # emblems on the front panels
-    for side, tag in ((1, 'L'), (-1, 'R')):
-        s0 = 0.5
-        z0, a0, b0 = bezier_eval(CAPE, s0)
-        th = 0.95 * side
-        P = (a0 * math.sin(th), 0.03 - b0 * math.cos(th), z0)
-        n = unit((math.sin(th) / a0, -math.cos(th) / b0, 0.55))
-        flower(add(P, mul(n, 0.012)), n, 0.17, f'capeEmblem{tag}', layers=2, colors=(ORANGE, ORANGE_LT, AMBER, GOLD), flat=True)
+run('cape.py')        # always: the hair keeps clear of it; draws it if want('cape')
 
 # =====================================================================
 #  ARMS: sleeves and hands, measured on the sheet (arms.py)

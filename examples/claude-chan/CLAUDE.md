@@ -45,10 +45,18 @@ beside the shoulder; at 0 it would hang behind her back); it draws the forearm a
 front view, so `arms.py` takes each landmark height as the mean over the five drawn arms; the back view
 draws the arms 0.1 to 0.2 closer to the body; the lacing is drawn facing whichever view it is in.
 
+The capelet: unlike the arms, the side view draws it as a true profile (its front edge reaches the bust where
+the front view's front edge, on a section hugging the chest, puts it), but it draws its upper front edge at
+the side of the neck and cuts its lower front higher than the front view; its emblem there (y 0.8) fits no
+single place on it, so the emblems follow the front and back views. On the back view the hair falls in a
+narrower band than the model's hair, leaving the capelet's sides and back emblems visible.
+
 ## When the outline is hidden
 
 Where hair covers a part (the arms), automatic edge tracking drifts onto the hair. Ask the user to trace the
 part's outline in black over an overlay picture, then read the strokes as numbers: register the marked-up
 picture onto the overlay (`cv2.findTransformECC`, affine), keep pixels that are near-black, neutral and much
 darker than the overlay at the same place, map them back to sheet pixels and then to model units, and take
-each row's outermost strokes as the edges.
+each row's outermost strokes as the edges. A marked-up screenshot of the sheet at another scale registers
+with SIFT features and a RANSAC similarity (`cv2.estimateAffinePartial2D`); enclosed holes in the ink find
+drawn circles.

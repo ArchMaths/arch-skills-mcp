@@ -9,18 +9,11 @@ TB = 0.09                                # how far down a lock eases from turnin
 T0 = 1 / (1 + (ZHC - ZBOT) / (HDZ * math.pi / 2))   # part of a lock's length that lies on the dome
 VF = HDZ * math.pi / 2 / T0              # how fast z falls with t below the dome
 
-_cape = [bezier_eval(CAPE, s) for s in np.linspace(0, 1, 200)]
-_cape_s = list(zip(np.linspace(0, 1, 200), _cape))
 # ARM_ENV, ARM_PSI (arms.py): how far out the sleeves, cuffs and hands reach by height, and round which angles
 _bk = BOOK[2]
 BOOK_Z = (min(P[2] for P in _bk) - 0.05, max(P[2] for P in _bk) + 0.05)
 BOOK_R = max(math.hypot(P[0], P[1] - 0.03) for P in _bk) + 0.04
 BOOK_PSI = (min(math.atan2(P[0], P[1] - 0.03) for P in _bk) - 0.1, max(math.atan2(P[0], P[1] - 0.03) for P in _bk) + 0.1)
-
-
-def cape_ab(z):
-    best = min(_cape, key=lambda p: abs(p[0] - z))
-    return best[1], best[2]
 
 
 def ell_r(a, b, psi):
@@ -30,13 +23,7 @@ def ell_r(a, b, psi):
 def envelope(psi, z):
     """Distance from the body axis to the outside of the figure at angle psi from the back."""
     r = 0.3
-    if 8.1 <= z <= 10.75:                       # the capelet, longer and fuller at the back
-        th = math.pi - abs(psi)
-        dr = cape_drop(th)
-        best = min(_cape_s, key=lambda p: abs(p[1][0] - dr * p[0] ** 2 - z))
-        sp, (zc_, a, b) = best
-        if abs(zc_ - dr * sp ** 2 - z) < 0.05:
-            r = max(r, ell_r(a, b + CAPE_FLARE * sp ** 2 * max(0.0, -math.cos(th)), psi))
+    r = max(r, cape_env(psi, z))                # the capelet (cape.py), standing out at the back
     if 7.6 <= z <= 9.3:
         r = max(r, ell_r(0.7, 0.55, psi))
     if z < SK_TOP - 0.2:
