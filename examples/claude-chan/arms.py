@@ -23,6 +23,9 @@ SL_CX = [0.98, 1.04, 1.10, 1.132, 1.165, 1.20, 1.238, 1.263, 1.266, 1.257, 1.25,
 SL_CY = [0.0, -0.02, -0.03, -0.03, -0.02, 0.0, 0.06, 0.05, 0.035, 0.045, 0.08, 0.08, 0.05, -0.02, -0.065, -0.13, -0.18, -0.225, -0.27, -0.31, -0.36, -0.415]
 SL_A = [0.15, 0.20, 0.235, 0.25, 0.285, 0.32, 0.366, 0.424, 0.428, 0.41, 0.37, 0.315, 0.279, 0.232, 0.228, 0.228, 0.226, 0.23, 0.235, 0.24, 0.24, 0.24]
 SL_B = [0.16, 0.22, 0.26, 0.28, 0.32, 0.38, 0.438, 0.428, 0.43, 0.425, 0.376, 0.342, 0.299, 0.25, 0.232, 0.215, 0.205, 0.195, 0.19, 0.19, 0.19, 0.19]
+# the drawn fold lines' tops: up the 16 hollows (odd k) to scattered heights under the capelet, up the crests (even
+# k) only through the gathers above the band
+SL_FOLD_TOP = [8.45 + 0.06 * ((math.sin(1.7 * k) + 1) / 2) if k % 2 == 0 else 8.95 + 0.4 * ((math.sin(2.39 * k + 0.7) + 1) / 2) for k in range(32)]
 SL_TOP, SL_END = 9.62, 6.95          # the sleeve's top (inside the capelet) and its end (inside the cuff)
 FORE = (0.243, -0.284)               # the forearm's centre moves this far out (x) and forward (y) per unit drop
 # elbow band: a small frill under the puff's gathers
@@ -227,6 +230,16 @@ slx, sly and half-widths sla across, slb front to back; slg the gathers at the e
         g = f"(1+slg(q)*cos(16*t))"
         sc.surface((f"{S}*(slx(q)+sla(q)*cos(t)*{g})", f"sly(q)+slb(q)*sin(t)*{g}", 'q'),
                    ('q', SL_END, SL_TOP), ('t', 0, '2*pi'), CREAM, f'sleeve{tag}', ('tube', 'u'))
+        # Drawn fold lines on the puff (soft grey-beige), one stroke a sleeve: a long line up each of the 16 hollows to a
+        # scattered height under the capelet and a short one up each crest, where the gathers bunch above the band;
+        # between lines the stroke runs round the sleeve under the band.
+        if side > 0:
+            sc.func('sfa(k)', '+'.join(f"{fmt(SL_FOLD_TOP[i])}*max(0,1-abs(k-{i}))" for i in range(32)))
+            sc.func('sfq(t)', "8.22+(sfa(floor(t))-8.22)*max(0,1-abs(t-floor(t)-0.4)/0.4)")
+            sc.func('sft(t)', f"{fmt(math.pi / 16)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
+        G_ = "(1.012+slg(sfq(t))*cos(16*sft(t)))"
+        sc.curve((f"{S}*(slx(sfq(t))+sla(sfq(t))*cos(sft(t))*{G_})", f"sly(sfq(t))+slb(sfq(t))*sin(sft(t))*{G_}", "sfq(t)"),
+                 ('t', 0, 31.8), FOLD_LINE, f'sleeveFoldLines{tag}', thickness=1)
         # elbow band: a short frill below the puff's gathers, flaring a little, with 14 waves
         z0, z1 = BAND_Z
         qv = f"({fmt(z0)}-{fmt(z0 - z1)}*v)"

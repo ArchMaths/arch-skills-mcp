@@ -45,7 +45,10 @@ FACING = [(0.92, 10.31), (0.87, 10.25), (0.83, 10.19), (0.79, 10.13), (0.75, 10.
           (0.64, 9.85), (0.585, 9.80), (0.53, 9.77)]
 # emblems: the circled places; the front pair on the front view, the back pair on the back view (|x|, z)
 EMB_FRONT, EMB_BACK, EMB_R = (1.10, 9.67), (1.23, 9.66), 0.17
-FOLD_N, FOLD_A = 18, 0.045   # folds fanning out from the shoulders: how many round, how deep at the hem
+# folds fanning out from the shoulders: how many across the cloth (front edge to front edge, so they fan with the
+# front edges), how deep at the hem, how far the hem rises on each crest
+FOLD_N, FOLD_A, FOLD_Z = 16, 0.045, 0.0
+FOLD_LINE = '#b8ac9a'        # the drawn fold lines: a soft grey-beige
 CP_P = 1.6                   # u spacing: the shoulder slope (wide, little drop) gets more of u
 CP_COLLAR = (10.58, 0.26, 0.305, 24)   # standing collar: bottom, height, radius, half-gap at the front (degrees)
 CP_LINING, CP_LACE, CP_EMB = '#decdb8', '#fbf6ee', '#d78a5e'
@@ -112,9 +115,25 @@ def kp_point(u, p, fold=True, s=1.0, dz=0.0):
     """Point on the capelet at level u (0 neckline, 1 hem) and angle p from the front (toward her left);
     s scales the section (the lining), dz lowers it."""
     u, p = np.asarray(u, float), np.asarray(p, float)
-    r = 1 + FOLD_A * u ** 2 * np.cos(FOLD_N * p) if fold else 1.0
+    w = kp_w(u, p) if fold else 0.0
+    r = 1 + FOLD_A * u ** 2 * w
     B = kp_f(u) + (kp_b(u) - kp_f(u)) * (1 - np.cos(p)) / 2
-    return (s * kp_a(u) * np.sin(p) * r, CP_Y0 - s * B * np.cos(p) * r, _zb(u) - u ** 4 * kp_h(p) - dz)
+    return (s * kp_a(u) * np.sin(p) * r, CP_Y0 - s * B * np.cos(p) * r, _zb(u) - u ** 4 * kp_h(p) + FOLD_Z * u ** 8 * w - dz)
+
+
+def kp_w(u, p):
+    """The folds: 1 on a crest, -1 in a hollow; FOLD_N of them across the cloth from front edge to front edge."""
+    e = kp_e(u)
+    return np.cos(2 * np.pi * FOLD_N * (p - e) / (2 * np.pi - 2 * e))
+
+
+def fold_lines():
+    """The drawn fold lines: (q across the cloth, level u where each starts). With many folds a line runs down
+    each hollow; with a few deep ones a line runs down each hollow and a shorter one down each crest between."""
+    h = lambda k: (np.sin(2.39 * k + 0.7) + 1) / 2          # a fixed scatter, so the lines start at varied heights
+    if FOLD_N >= 12:
+        return [((j + 0.5) / FOLD_N, 0.12 + 0.3 * h(j)) for j in range(FOLD_N)]
+    return [((k + 1) / (2 * FOLD_N), (0.12 + 0.3 * h(k)) if k % 2 == 0 else (0.5 + 0.2 * h(k))) for k in range(2 * FOLD_N - 1)]
 
 
 def _front_edge():
@@ -243,10 +262,11 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     sc.func('kph(c)', '+'.join(f"{fmt(v)}*c^{len(HEM_C) - 1 - i}" for i, v in enumerate(HEM_C)).replace('+-', '-').replace('*c^0', ''))
     sc.func('kpe(u)', _uarch(FE_C))
     sc.func('kpp(u,q)', 'kpe(u)+q*(2*pi-2*kpe(u))')
-    sc.func('kpr(u,p)', f"1+{fmt(FOLD_A)}*u^2*cos({FOLD_N}*p)")
+    sc.func('kpw(u,p)', f"cos({fmt(2 * np.pi * FOLD_N)}*(p-kpe(u))/(2*pi-2*kpe(u)))")
+    sc.func('kpr(u,p)', f"1+{fmt(FOLD_A)}*u^2*kpw(u,p)")
     sc.func('kpx(u,p,s)', 's*kpa(u)*sin(p)*kpr(u,p)')
     sc.func('kpy(u,p,s)', f"{fmt(CP_Y0)}-s*(kpf(u)+(kpb(u)-kpf(u))*(1-cos(p))/2)*cos(p)*kpr(u,p)")
-    sc.func('kpz(u,p)', f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))")
+    sc.func('kpz(u,p)', f"{fmt(CP_ZN)}-{fmt(CP_ZN - CP_H0)}*u^{fmt(CP_P)}-u^4*kph(cos(p))" + (f"+{fmt(FOLD_Z)}*u^8*kpw(u,p)" if FOLD_Z else ""))
 
     def S(X, Y, Z, U, V, col, ref, orient):
         sc.surface((X, Y, Z), U, V, col, ref, orient)
@@ -283,6 +303,24 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
         sf = "(1.012+0.03*v*(1+0.8*sin(40*t)))"
         sc.surface((f"kpx(({cu}),{pf},{sf})", f"kpy(({cu}),{pf},{sf})", f"kpz(({cu}),{pf})-0.12*v*(1+0.12*cos(40*t))"), ('t', -1, 1), ('v', 0, 1), CP_LACE,
                    f'capeFacingFrill{tag}', ('dir', (0, -1, 0.3)))
+    # Drawn fold lines (soft grey-beige), all in one stroke: up each line from the hem to where it starts and back
+    # down, then along the hem to the next line. kfa(k) is where line k starts.
+    FL = fold_lines()
+    q0, dq = FL[0][0], FL[1][0] - FL[0][0]
+    sc.func('kfa(k)', '+'.join(f"{fmt(a)}*max(0,1-abs(k-{i}))" for i, (_, a) in enumerate(FL)))
+    sc.func('kfu(t)', "1-(1-kfa(floor(t)))*max(0,1-abs(t-floor(t)-0.4)/0.4)")
+    sc.func('kfq(t)', f"{fmt(q0)}+{fmt(dq)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
+    sc.curve(("kpx(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpy(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpz(kfu(t),kpp(kfu(t),kfq(t)))"),
+             ('t', 0, len(FL) - 0.2), FOLD_LINE, 'capeFoldLines', thickness=1)
+    # Gathers where the front meets the collar: four short lines fanning down and out from the collar's corner, in one
+    # stroke out along each and back.
+    G = ((0.2, 0.022), (0.27, 0.038), (0.31, 0.055), (0.25, 0.072))
+    sc.func('kgu(t)', "0.035+(" + '+'.join(f"{fmt(u_ - 0.035)}*max(0,1-abs(floor(t)-{i}))" for i, (u_, _) in enumerate(G)) + ")*max(0,1-abs(t-floor(t)-0.5)/0.5)")
+    sc.func('kgq(t)', "0.008+(" + '+'.join(f"{fmt(q_ - 0.008)}*max(0,1-abs(floor(t)-{i}))" for i, (_, q_) in enumerate(G)) + ")*max(0,1-abs(t-floor(t)-0.5)/0.5)")
+    for side, tag in ((1, 'L'), (-1, 'R')):
+        Q = "kgq(t)" if side > 0 else "(1-kgq(t))"
+        sc.curve((f"kpx(kgu(t),kpp(kgu(t),{Q}),1.008)", f"kpy(kgu(t),kpp(kgu(t),{Q}),1.008)", f"kpz(kgu(t),kpp(kgu(t),{Q}))"),
+                 ('t', 0, len(G)), FOLD_LINE, f'capeGathers{tag}', thickness=1)
     # standing collar, open at the front, gold along its top and front edges
     z0, hgt, rc, gap = CP_COLLAR
     g = np.radians(gap)

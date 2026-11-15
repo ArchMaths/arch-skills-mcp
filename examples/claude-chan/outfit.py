@@ -126,7 +126,8 @@ def CHG(z):
     return float(sum(c * (z - 9.7) ** i for i, c in enumerate(CHG_FIT)))
 
 
-TUCK = '#d6c8b0'                # the blouse's tucks
+TUCK = '#b8ac9a'                # the blouse's pleat lines: a soft grey-beige
+TUCK_X0, TUCK_DX, TUCK_N = 0.05, 0.065, 9
 JABOT_X = -0.06                 # the cascade hangs a little toward her right, as the ascot does
 # jabot tiers: top, height, half-width, stand-off, ruffle depth, folds
 JABOT_TIERS = ((9.84, 0.32, 0.42, 0.03, 0.035, 13), (9.58, 0.28, 0.38, 0.05, 0.05, 12), (9.36, 0.27, 0.31, 0.045, 0.05, 11))
@@ -150,13 +151,15 @@ if want('body'):
     sc.surface(("(0.235+0.012*s)*cos(w)", "0.02+(0.235+0.012*s)*sin(w)", "10.42+0.46*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collar', ('tube', 'u'))
     sc.surface(("(0.25+0.12*s+0.03*s*sin(16*w))*cos(w)", "0.02+(0.25+0.12*s+0.03*s*sin(16*w))*sin(w)", "10.86+0.11*s+0.035*s*cos(16*w)"),
                ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffle', ('point', (0, 0.02, 10.5)))
-    # Fine tucks down the blouse over the bust (the close-up's thin vertical lines)
+    # Fine pleats down the blouse front (the shirt's close-up: about a dozen across), drawn in soft grey-beige, one
+    # stroke a side: up each line and back down, then across to the next under the corset's edge.
     s_of = lambda z: float(np.linspace(0, 1, 400)[int(np.argmin([abs(p[0] - z) for p in _tz]))])
+    sb_, st_ = s_of(9.06), s_of(10.3)
+    sc.func('tks(t)', f"{fmt(sb_)}+{fmt(st_ - sb_)}*max(0,1-abs(t-floor(t)-0.4)/0.4)")
     for sd, tag in ((1, 'L'), (-1, 'R')):
-        for i in range(5):
-            x = 0.3 + 0.06 * i
-            c = f"sqrt(max(0,1-({fmt(x)}/tsa(s))^2))"
-            sc.curve((fmt(sd * x), f"-(tsb(s)+bst({fmt(x)},tsz(s)))*{c}-0.006", "tsz(s)"), ('s', s_of(9.14), s_of(9.95 - 0.05 * i)), TUCK, f'blouseTuck{tag}{i + 1}', thickness=1)
+        X = f"({fmt(sd * TUCK_X0)}+{fmt(sd * TUCK_DX)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2)))"
+        c = f"sqrt(max(0,1-({X}/tsa(tks(t)))^2))"
+        sc.curve((X, f"-(tsb(tks(t))+bst({X},tsz(tks(t))))*{c}-0.006", "tsz(tks(t))"), ('t', 0, TUCK_N - 0.2), TUCK, f'blouseTucks{tag}', thickness=1)
 
     # What hangs in front of the chest hangs from its fullest point: chg(z) is how far forward a cloth hanging down
     # the front lies at height z (the chest's front above the bust, straight down below it).
