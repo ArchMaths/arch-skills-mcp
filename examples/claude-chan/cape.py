@@ -307,7 +307,8 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
     # down, then along the hem to the next line. kfa(k) is where line k starts.
     FL = fold_lines()
     q0, dq = FL[0][0], FL[1][0] - FL[0][0]
-    sc.func('kfa(k)', '+'.join(f"{fmt(a)}*max(0,1-abs(k-{i}))" for i, (_, a) in enumerate(FL)))
+    hk = "(sin(2.39*k+0.7)+1)"          # fold_lines' scatter, 2 h(k); a table of the starts is too long for Arch here
+    sc.func('kfa(k)', f"0.12+0.15*{hk}" if FOLD_N >= 12 else f"(1+cos(pi*k))/2*(0.12+0.15*{hk})+(1-cos(pi*k))/2*(0.5+0.1*{hk})")
     sc.func('kfu(t)', "1-(1-kfa(floor(t)))*max(0,1-abs(t-floor(t)-0.4)/0.4)")
     sc.func('kfq(t)', f"{fmt(q0)}+{fmt(dq)}*(floor(t)+max(0,(t-floor(t)-0.8)/0.2))")
     sc.curve(("kpx(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpy(kfu(t),kpp(kfu(t),kfq(t)),1.006)", "kpz(kfu(t),kpp(kfu(t),kfq(t)))"),
