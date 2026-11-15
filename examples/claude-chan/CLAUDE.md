@@ -105,8 +105,15 @@ along a stem and leaves no stray stroke. Draw the motif in 2D over its photo fir
 (about 6000 characters a coordinate failed, 2000 worked): put the motif in functions, split long strokes, and
 keep the mapping from repeating them.
 
-The black panels' emblem is too small on the sheet to read (14 x 20 pixels). Its design (`emblem_radii`,
-`emblem_curves`, `emblem_leaf` in `motifs.py`) is the one the user chose among several candidates: do not
-redesign it. A flat motif on a curved panel must stand off by more than its sagitta (0.03 for the emblem), or
-its tips sink into the cloth.
+The black panels' emblem went through several designs; the one in use is measured on the user's tracing of a
+high-resolution close-up (`emblem_radii`, `emblem_fills`, `emblem_curves` in `motifs.py`): keep it. A flat
+motif on a curved panel must stand off by more than its sagitta (0.03 for the emblem), or its tips sink into
+the cloth.
 
+The user has close-ups at about ten times the sheet's resolution. Match one to the sheet with multi-scale
+template matching (`cv2.matchTemplate` over a range of scales) to learn which view it is from and its units per
+pixel before measuring it. The side view draws the orange facing twice as wide as the front view; the model
+keeps the front view's width and takes proportions from the side view's close-up.
+
+In generated expressions never write a minus before a negative number (`a--2` is a decrement to Arch and fails
+with "Assigning to rvalue"): parenthesise it.

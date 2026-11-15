@@ -272,7 +272,7 @@ BORDER_CREAM, FERN = '#d9caa9', '#c45c36'     # the cream border woven into the 
 
 # The skirt's fern and the orange cloth's sprig are in motifs.py, measured on close-up photos (python3 motifs.py
 # draws the fern in 2D over its photo).
-from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_leaf, EMB_CENTRE
+from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_fills, facing_curves, _emb_len, EMB_CENTRE, EMB_DOT
 PANEL_GOLD, PANEL_LINE, PANEL_PALE = '#a8855d', '#bfa982', '#bca377'     # the black panels' emblem and border lines (1/1.2 of the sheet's)
 PLEAT_SHADE = '#9c8a72'         # the drawn line in each pleat
 N_PLEAT = 40
@@ -388,6 +388,7 @@ down to a hem near 2, lying on the skirt (the cloth hangs: nothing holds it out)
 her right (as traced, one line at the panel's edge), 9 degrees on her left, a wide strip below the front tab. q runs across a panel from
 its front edge, p down it.""")
     sc.func('bzh(q)', '1.95+0.1*sin(pi*q)')
+    sc.func('eml(k)', _emb_len('k'))
     sc.func('emi(w)', emblem_radii('w')[0])
     sc.func('emo(w)', emblem_radii('w')[1])
     sc.func('bph(q,p)', '5.45-0.1*q-(5.45-0.1*q-bzh(q))*p')
@@ -398,30 +399,48 @@ its front edge, p down it.""")
         H = "bph(q,p)"
         R = f"(sa(sz({H}))+0.09)"
         sc.surface((f"{fmt(sd)}*{R}*sin({TH})", f"-{R}*dk(sz({H}),{TH})*cos({TH})", H), ('q', 0, 1), ('p', 0, 1), BLACK, f'sidePanel{tag}', ('point', (0, 0, 4)))
-        # the front edge turned back: an orange facing, edged in gold
+        # The front edge turned back: an orange facing. On her right a thin edge; on her left a flat strip whose foot
+        # runs diagonally, 0.16 lower at its front edge than where it meets the panel (measured on a close-up, with
+        # its border: a cream band 0.035 wide on the front edge and the foot, a thin line 0.07 inside them) and
+        # carries a leafy cross and a sprig in cream thread.
         TF = f"({fmt(F0 - 0.01)}+{fmt(TB0 - F0 + 0.02)}*q)"
-        H = f"bph(0,p)"
-        wide = TB0 - F0 > 0.1            # her left: a strip of cloth, falling in two soft folds that open toward its foot
+        wide = TB0 - F0 > 0.1
+        FOOT0, RISE = 1.90, 0.16
+        HF = f"(5.45-({fmt(5.45 - FOOT0)}-{fmt(RISE)}*q)*p)" if wide else "bph(0,p)"
         FB = "(0.5-0.5*cos(4*pi*{0}))*(0.2+0.8*{1})" if wide else "0*{0}*{1}"
-        R = f"(sa(sz({H}))+0.105+0.045*{FB.format('q', 'p')}+{fmt(0.03 if wide else 0)}*p^3*sin(3*pi*q))"
-        sc.surface((f"{fmt(sd)}*{R}*sin({TF})", f"-{R}*dk(sz({H}),{TF})*cos({TF})", H), ('q', 0, 1), ('p', 0, 1), RUST, f'sideFacing{tag}', ('point', (0, 0, 4)))
+        R = f"(sa(sz({HF}))+0.105+0.02*{FB.format('q', 'p')})"
+        sc.surface((f"{fmt(sd)}*{R}*sin({TF})", f"-{R}*dk(sz({HF}),{TF})*cos({TF})", HF), ('q', 0, 1), ('p', 0, 1), RUST, f'sideFacing{tag}', ('point', (0, 0, 4)))
         if wide:
-            Hs = "bph(0,0.935+0.016*p)"
-            Rs = f"(sa(sz({Hs}))+0.113+0.045*{FB.format('q', '0.94')}+0.026*sin(3*pi*q))"
-            TS = f"({fmt(F0)}+{fmt(TB0 - F0)}*q)"
-            sc.surface((f"{fmt(sd)}*{Rs}*sin({TS})", f"-{Rs}*dk(sz({Hs}),{TS})*cos({TS})", Hs), ('q', 0, 1), ('p', 0, 1), BORDER_CREAM, f'sideFacingBorder{tag}', ('point', (0, 0, 4)))
-            for i_, (qq, dh) in enumerate(((0.27, 0.17), (0.73, 0.17), (0.5, 0.52))):
+            arc = (TB0 - F0 + 0.02) * SA(sk_s(2.6))          # the strip's width, to turn widths into q
+            def on_facing(q_, p_, lift):
+                h_ = f"(5.45-({fmt(5.45 - FOOT0)}-{fmt(RISE)}*{q_})*{p_})"
+                r_ = f"(sa(sz({h_}))+{fmt(0.125 + lift)})"
+                t_ = f"({fmt(F0 - 0.01)}+{fmt(TB0 - F0 + 0.02)}*{q_})"
+                return (f"{fmt(sd)}*{r_}*sin({t_})", f"-{r_}*dk(sz({h_}),{t_})*cos({t_})", h_)
+            wq, wp = 0.035 / arc, 0.035 / (5.45 - FOOT0)
+            sc.surface(on_facing(f"({fmt(wq)}*q)", 'p', 0.004), ('q', 0, 1), ('p', 0, 1), BORDER_CREAM, f'sideFacingBorder{tag}1', ('point', (0, 0, 4)))
+            sc.surface(on_facing('q', f"(1-{fmt(wp)}*p)", 0.004), ('q', 0, 1), ('p', 0, 1), BORDER_CREAM, f'sideFacingBorder{tag}2', ('point', (0, 0, 4)))
+            c1, c2 = "min(1,max(0,t))", "min(1,max(0,t-1))"
+            sc.curve(on_facing(f"({fmt(0.085 / arc)}+{fmt(1 - 0.085 / arc)}*{c2})", f"({fmt(1 - 3 * wp)}*{c1})", 0.008), ('t', 0, 2), BORDER_CREAM, f'sideFacingLine{tag}', thickness=1)
+            q0, hup = 0.36, 0.17                              # the cross: across the strip, above the foot
+            tq = F0 - 0.01 + (TB0 - F0 + 0.02) * q0
+            hb = FOOT0 + RISE * q0 + hup
+            for part, (X, H), T in facing_curves():
+                Hl = f"({fmt(hb)}+{H})"
+                Rl = f"(sa(sz({Hl}))+0.135)"
+                Tl = f"({fmt(tq)}+{X}/{fmt(SA(sk_s(hb)))})"
+                sc.curve((f"{fmt(sd)}*{Rl}*sin({Tl})", f"-{Rl}*dk(sz({Hl}),{Tl})*cos({Tl})", Hl), ('t',) + T, BORDER_CREAM, f'sideFacingCross{tag}{part}', thickness=2)
+            for i_, (qq, dh) in enumerate(((0.78, 0.11),)):
                 tq = F0 + (TB0 - F0) * qq
-                hb = 1.95 + (5.45 - 1.95) * 0.06 + dh
+                hb = FOOT0 + RISE * qq + dh
                 Xl, Hl = sprig_xy('0', fmt(hb))
-                Rl = f"(sa(sz({Hl}))+0.118+0.045*{fmt(0.5 - 0.5 * math.cos(4 * math.pi * qq))}+{fmt(max(0, 0.03 * math.sin(3 * math.pi * qq)))})"
+                Rl = f"(sa(sz({Hl}))+0.135)"
                 Tl = f"({fmt(tq)}+{Xl}/{fmt(SA(sk_s(hb)))})"
                 sc.curve((f"{fmt(sd)}*{Rl}*sin({Tl})", f"-{Rl}*dk(sz({Hl}),{Tl})*cos({Tl})", Hl), ('t', 0, 2.999), BORDER_CREAM, f'sideFacingSprig{tag}{i_ + 1}', thickness=2)
-            for nm_, q_, col_, lift_ in (('Crease', 0.5, RUST_DK, 0.108), ('TrimB', 0.97, GOLD, 0.112)):
-                tq = F0 - 0.01 + (TB0 - F0 + 0.02) * q_
-                Rc = f"(sa(sz(bph(0,t)))+{fmt(lift_)})"
-                sc.curve((f"{fmt(sd)}*{Rc}*sin({fmt(tq)})", f"-{Rc}*dk(sz(bph(0,t)),{fmt(tq)})*cos({fmt(tq)})", "bph(0,t)"),
-                         ('t', 0.03 if nm_ == 'Crease' else 0, 1), col_, f'sideFacing{nm_}{tag}', thickness=2)
+            tq = F0 - 0.01 + (TB0 - F0 + 0.02) * 0.97
+            Hc = f"(5.45-{fmt(5.45 - FOOT0 - RISE * 0.97)}*t)"
+            Rc = f"(sa(sz({Hc}))+0.128)"
+            sc.curve((f"{fmt(sd)}*{Rc}*sin({fmt(tq)})", f"-{Rc}*dk(sz({Hc}),{fmt(tq)})*cos({fmt(tq)})", Hc), ('t', 0, 1), GOLD, f'sideFacingTrimB{tag}', thickness=2)
         sc.curve((f"{fmt(sd)}*(sa(sz(bph(0,t)))+0.11)*sin({fmt(F0)})", f"-(sa(sz(bph(0,t)))+0.11)*dk(sz(bph(0,t)),{fmt(F0)})*cos({fmt(F0)})", "bph(0,t)"),
                  ('t', 0, 1), GOLD, f'sideFacingTrim{tag}', thickness=2)
         # The hem's border, measured across the hem on a close-up: a pale gold line 0.05 wide on the edge, black
@@ -434,9 +453,25 @@ its front edge, p down it.""")
         Hq, TQ = "(bzh(t)+0.25)", TQ.replace('q', 't')
         Rq = f"(sa(sz({Hq}))+0.1)"
         sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), PANEL_GOLD, f'sideBand{tag}3', thickness=1)
+        # The border also runs up the panel's front and back edges (close-up): the pale band on the edge and the
+        # thin line 0.11 inside it; a small sprig sits in each lower corner.
+        for e_, (te, dirn, qe) in enumerate(((TB0, 1, 0), (TB1, -1, 1))):
+            He = f"bph({qe},p)"
+            Re = f"(sa(sz({He}))+0.098)"
+            TE = f"({fmt(te)}+{fmt(dirn * 0.05)}*v/{Re})"
+            sc.surface((f"{fmt(sd)}*{Re}*sin({TE})", f"-{Re}*dk(sz({He}),{TE})*cos({TE})", He), ('p', 0, 1), ('v', 0, 1), PANEL_LINE, f'sideEdge{tag}{e_ + 1}', ('point', (0, 0, 4)))
+            Ht = f"(bph({qe},0)-(bph({qe},0)-bzh({qe})-0.25)*t)"
+            Rt = f"(sa(sz({Ht}))+0.1)"
+            TT = f"({fmt(te)}+{fmt(dirn * 0.11)}/{Rt})"
+            sc.curve((f"{fmt(sd)}*{Rt}*sin({TT})", f"-{Rt}*dk(sz({Ht}),{TT})*cos({TT})", Ht), ('t', 0, 1), PANEL_GOLD, f'sideEdge{tag}{e_ + 1}Line', thickness=1)
+            hb = 1.95 + 0.30
+            Xl, Hl = sprig_xy('0', fmt(hb))
+            Rl = f"(sa(sz({Hl}))+0.1)"
+            Tl = f"({fmt(te)}+({fmt(dirn * 0.2)}+{Xl})/{fmt(SA(sk_s(hb)))})"
+            sc.curve((f"{fmt(sd)}*{Rl}*sin({Tl})", f"-{Rl}*dk(sz({Hl}),{Tl})*cos({Tl})", Hl), ('t', 0, 2.999), PANEL_GOLD, f'sideEdge{tag}{e_ + 1}Sprig', thickness=2)
         # The emblems where the sheet's circles are (the front pair on the front view, the back pair on the back):
-        # a star of 8 kite spikes and 8 kite petals round a pale disc, a stem with two leaves below (motifs.py); the
-        # star is filled in eight sectors and outlined.
+        # a flower of pointed petals round a ringed centre, a bud above, a spray below and a twig and a dot to each
+        # side (motifs.py, measured on the user's tracing of a close-up). The petals are filled in eight sectors.
         for k, (x_, h, back) in enumerate(SIDE_EMBLEMS):
             th = math.asin(min(1.0, x_ / (SA(sk_s(h)) + 0.105)))
             th = sd * (math.pi - th if back else th)
@@ -446,15 +481,15 @@ its front edge, p down it.""")
             if e_bk[1] < 0:
                 e_bk = mul(e_bk, -1)
             fr = (e_bk, e_up, n_)
-            for j in range(8):           # sector edges on the spikes' tips, so the tips are exact
+            for j in range(8):
                 L = ("(emi(w)+(emo(w)-emi(w))*r)*cos(w)", "(emi(w)+(emo(w)-emi(w))*r)*sin(w)", "0")
                 sc.surface(place(L, C, fr), ('r', 0, 1), ('w', math.pi / 2 + j * math.pi / 4, math.pi / 2 + (j + 1) * math.pi / 4), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
-            sc.surface(place((f"{fmt(EMB_CENTRE)}*r*cos(w)", f"{fmt(EMB_CENTRE)}*r*sin(w)", "0.004"), C, fr), ('r', 0, 1), ('w', 0, '2*pi'), PANEL_PALE, f'sideEmblem{tag}{k + 1}Mid', ('dir', n_))
-            for j, side in enumerate((-1, 1)):
-                X, H = emblem_leaf(side)
-                sc.surface(place((X, H, '0'), C, fr), ('u', 0, 1), ('v', -1, 1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}Leaf{j + 1}', ('dir', n_))
+            for nm_, rad, lift, col in (('Mid', EMB_CENTRE, 0.004, PANEL_GOLD), ('Dot', EMB_DOT, 0.008, PANEL_PALE)):
+                sc.surface(place((f"{fmt(rad)}*r*cos(w)", f"{fmt(rad)}*r*sin(w)", fmt(lift)), C, fr), ('r', 0, 1), ('w', 0, '2*pi'), col, f'sideEmblem{tag}{k + 1}{nm_}', ('dir', n_))
+            for nm_, (X, H) in emblem_fills():
+                sc.surface(place((X, H, '0'), C, fr), ('u', 0, 1), ('v', -1, 1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}{nm_}Fill', ('dir', n_))
             for part, (X, H), T in emblem_curves():
-                sc.curve(place((X, H, '0.006'), C, fr), ('t',) + T, BLACK if part == 'Ring' else PANEL_GOLD, f'sideEmblem{tag}{k + 1}{part}', thickness=1 if part == 'Ring' else 2)
+                sc.curve(place((X, H, '0.01'), C, fr), ('t',) + T, BLACK if part == 'Ring' else PANEL_GOLD, f'sideEmblem{tag}{k + 1}{part}', thickness=2)
 
     sc.blank()
     sc.note('Skirt: cream overskirt in two side pieces, caught up by bows at the front and the back')
