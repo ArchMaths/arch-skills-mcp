@@ -265,14 +265,15 @@ def skirt_normal(h, th):
 OV_F, OV_B = 0.6, 2.47          # the overskirt pieces run from 34 degrees (front bows) to 141.5 (back bows)
 OV_TOP = 8.2                    # their top, under the corset's lower edge
 BOW_ZF, BOW_ZB = 5.55, 5.5      # heights of the front and back bows' knots, measured on the sheet
+SIDE_EMBLEMS = ((2.14, 2.75, False), (1.84, 2.84, True))   # |x| and height of the circled emblems: front view, back view
 
 
-# The overskirt's hem, measured where its lower edge crosses the black panels on the front and back views
-# and where its lining shows at the sides: (degrees from the front, height). It hangs from the front bow
-# straight down the piece's front edge to 4.3, runs out and down to its lowest, 2.95, at the side, and
-# rises up the back to 4.5 under the back bow.
-OZH_PTS = [(34.4, 4.3), (42.5, 4.1), (49.2, 4.08), (51.7, 4.0), (55.0, 3.65), (64.6, 3.23), (80, 3.0), (95, 2.95),
-           (110, 3.0), (123.3, 3.13), (131.2, 3.62), (137.7, 4.13), (141.5, 4.5)]
+# The overskirt's hem, measured on its lower edge as traced over the front and back views (|x| -> angle on the
+# overskirt): (degrees from the front, height). It hangs from the front bow down the piece's front edge to
+# 4.3, stays high (3.9 at 60 degrees) before dropping steeply to the side, is lowest, 2.95, at the side, and
+# rises up the back to 4.5 under the back bow; the lining shows where the edge curls.
+OZH_PTS = [(34.4, 4.3), (42, 4.12), (48, 4.05), (52, 4.0), (57, 3.95), (61, 3.82), (64, 3.5), (67, 3.2), (75, 3.02), (95, 2.95),
+           (110, 3.0), (118, 3.1), (122.5, 3.3), (127, 3.5), (131, 3.78), (134, 4.0), (137.5, 4.17), (139.5, 4.32), (141.5, 4.5)]
 _OZK = [(math.radians(a) - OV_F) / (OV_B - OV_F) for a, _ in OZH_PTS]       # q of each point
 
 
@@ -306,14 +307,14 @@ if want('skirt'):
     sc.comment(f"""Skirt: s from the waist (z={fmt(SK_TOP)}) to the hem (z={fmt(SK_HEM)}); t is the angle from the front, + toward her
 left. sa(s) is its half-width: the straight A-line of the front view. Seen from the side the front hangs
 nearly flat and the back is full, so the depth is dk(s,t) times the half-width: 0.57 at the front, 0.75
-to 1 at the back from the waist to the hem. 24 soft pleats (spl). sz(h) is s at height h.""")
+to 1 at the back from the waist to the hem. 40 pleats (spl), 9 degrees apart as traced. sz(h) is s at height h.""")
     sc.func('sa(s)', SA_EXPR)
     sc.func('stp(q)', 'min(1,max(0,q))^2*(3-2*min(1,max(0,q)))')
     sc.func('fk(s)', FK_EXPR)
     sc.func('gk(s)', GK_EXPR)
     sc.func('dk(s,t)', DK_EXPR)
     sc.func('sz(h)', f"({fmt(SK_TOP)}-h)/{fmt(SK_L)}")
-    sc.func('spl(s,t)', '1+0.02*(0.25+0.75*s)*sin(24*t)')
+    sc.func('spl(s,t)', '1+0.02*(0.25+0.75*s)*sin(40*t)')
     Zs = f"{fmt(SK_TOP)}-{fmt(SK_L)}*s"
     sc.surface(("sa(s)*spl(s,t)*sin(t)", "-sa(s)*spl(s,t)*dk(s,t)*cos(t)", Zs), ('s', 0, 1), ('t', '-pi', 'pi'), CREAM, 'underskirt', ('tube', 'u'))
     for k, (z0, z1, r0, r1, nw, col) in enumerate([(1.66, 1.32, 0.99, 1.05, 30, CREAM), (1.4, 1.14, 1.0, 1.07, 38, '#f8f2e8')]):
@@ -340,14 +341,14 @@ to 1 at the back from the waist to the hem. 24 soft pleats (spl). sz(h) is s at 
     sc.note('Skirt: black side panels with orange facings, gold bands and chrysanthemum emblems')
     sc.comment("""Black side panels under the overskirt, from 29-31 degrees to 152 on each side (measured on the front
 and back views; the pleated skirt shows between them at the front and the back), from just under the bows
-down to a hem near 2; their lower corners flare a little. The front edge is faced in orange: 5 degrees wide
-on her right, 9 on her left, where it shows as a wide strip below the front tab. q runs across a panel from
+down to a hem near 2; their lower corners flare a little. The front edge is faced in orange: a thin edge on
+her right (as traced, one line at the panel's edge), 9 degrees on her left, a wide strip below the front tab. q runs across a panel from
 its front edge, p down it.""")
     sc.func('bzh(q)', '1.95+0.1*sin(pi*q)')
     sc.func('bph(q,p)', '5.45-0.1*q-(5.45-0.1*q-bzh(q))*p')
     TB1 = 2.66
     for sd, tag in ((1, 'L'), (-1, 'R')):
-        F0, TB0 = {1: (0.38, 0.54), -1: (0.41, 0.50)}[sd]     # facing from F0, black from TB0
+        F0, TB0 = {1: (0.38, 0.54), -1: (0.48, 0.50)}[sd]     # facing from F0, black from TB0
         TH = f"({fmt(TB0)}+{fmt(TB1 - TB0)}*q)"
         H = "bph(q,p)"
         R = f"(sa(sz({H}))+0.09+0.12*p^4*sin(pi*q)^2)"
@@ -364,11 +365,11 @@ its front edge, p down it.""")
             Rq = f"(sa(sz({Hq}))+0.105+0.12*{fmt(pp ** 4)}*sin(pi*t)^2)"
             TQ = f"({fmt(F0)}+{fmt(TB1 - F0)}*t)"
             sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), GOLD, f'sideBand{tag}{k + 1}', thickness=2)
-        for k, q in enumerate((0.12, 0.88)):
-            th = sd * (TB0 + (TB1 - TB0) * q)
-            top = 5.45 - 0.1 * q
-            h = top - (top - (1.95 + 0.1 * math.sin(math.pi * q))) * 0.8
-            flat_flower(skirt_point(h, th, 0.105), skirt_normal(h, th), 0.17, f'sideEmblem{tag}{k + 1}', n=12, color=ORANGE, center=GOLD)
+        # chrysanthemums where the sheet's circles are: the front pair on the front view, the back pair on the back
+        for k, (x_, h, back) in enumerate(SIDE_EMBLEMS):
+            th = math.asin(min(1.0, x_ / (SA(sk_s(h)) + 0.105)))
+            th = sd * (math.pi - th if back else th)
+            flat_flower(skirt_point(h, th, 0.115), skirt_normal(h, th), 0.17, f'sideEmblem{tag}{k + 1}', n=12, color=ORANGE, center=GOLD)
 
     sc.blank()
     sc.note('Skirt: cream overskirt in two side pieces, caught up by bows at the front and the back')
@@ -412,32 +413,46 @@ back over the side (oft) so the lining shows there, as drawn on the sheet.""")
                 sc.curve((f"{fmt(sd)}*{Rt}*sin({TE})", f"-{Rt}*dk(sz({Ht}),{TE})*cos({TE})", Ht), ('t', 0, 1), GOLD, f'edgeBandTrim{nm}{tag}{k + 1}', thickness=2)
 
     sc.blank()
-    sc.note('Skirt: orange tabs at the front (her left) and the back, edged in gold')
-    sc.comment("""The front tab hangs from the corset's point on her left of the centre line, widening down to a slanting
-cut that is lowest on the outside. The back tab hangs at the centre back to a slanting point, lowest on
-her left. Both lie on the pleated skirt; x is measured across, so each follows the skirt's curve.""")
-    # front tab (measured): x from 0.2 out at the waist, 0.35 wide widening downward; its foot slants from 5.0
-    # (inside) to 4.6 (outside). Back tab: 0.75 wide at the waist to 0.95 at the foot, which slants from 4.55
-    # to its point at 3.95 on her left.
-    sc.func('fth(v,p)', '8.0-(8.0-(5.0-0.4*v))*p')
-    FX = "(0.18+0.1*(8-fth(v,p))+(0.35+0.1*(8-fth(v,p)))*v)"
-    H = "fth(v,p)"
-    A = f"(sa(sz({H}))+0.07)"
-    TF = f"asin(min(0.97,{FX}/{A}))"
-    sc.surface((FX, f"-{A}*dk(sz({H}),{TF})*cos({TF})", H), ('v', 0, 1), ('p', 0, 1), ORANGE, 'frontTab', ('dir', (0, -1, 0.2)))
-    sc.func('bth(v,p)', '8.05-(8.05-(4.25+0.3*(1-2*v)))*p')
-    BX = "((0.36+0.03*(8.05-bth(v,p)))*(2*v-1))"
-    H = "bth(v,p)"
-    A = f"(sa(sz({H}))+0.07)"
-    TB = f"(pi-asin(min(0.97,{BX}/{A})))"
-    sc.surface((BX, f"-{A}*dk(sz({H}),{TB})*cos({TB})", H), ('v', 0, 1), ('p', 0, 1), ORANGE, 'backTab', ('dir', (0, 1, 0.2)))
-    for nm, fh, fx_, sgn in (('frontTab', 'fth', FX, -1), ('backTab', 'bth', BX, 1)):
-        for k, (vv, pp) in enumerate((('0', 't'), ('1', 't'), ('t', '1'))):
-            Ht = f"{fh}({vv},{pp})"
-            Xt = fx_.replace('fth(v,p)', Ht).replace('bth(v,p)', Ht).replace('*v)', f'*{vv})').replace('(2*v-1)', f'(2*{vv}-1)')
-            At = f"(sa(sz({Ht}))+0.077)"
-            Tt = f"asin(min(0.97,{Xt}/{At}))" if sgn < 0 else f"(pi-asin(min(0.97,{Xt}/{At})))"
-            sc.curve((Xt, f"-{At}*dk(sz({Ht}),{Tt})*cos({Tt})", Ht), ('t', 0, 1), GOLD, f'{nm}Trim{k + 1}', thickness=2)
+    sc.note('Skirt: orange tabs at the front (her left) and the back, folded at the foot, edged in gold')
+    sc.comment("""Tabs, measured on outlines traced over the sheet: each lies on the pleated skirt (x is measured across, so
+it follows the skirt's curve) and ends in a diagonal fold, the turned-back end hanging below it as a lighter
+flap. Front tab, on her left of the centre line: inner edge ftx(0,h) from 0.31 in to 0.14, outer edge widening
+from 0.5 to 0.87; folded from (0.14, 5.24) up to (0.87, 6.0), its point at (0.88, 4.5). Back tab, at the centre
+back: 0.34 wide at the waist, widening to 0.9; folded from 4.76 on her right up to 5.48 on her left, the flap
+narrowing to a point at 3.85 on her left. v runs across a tab, p down a part.""")
+    sc.func('ftx(v,h)', '0.14+0.065*(h-5.24)+(min(0.87,0.5+0.24*(8.5-h))-0.14-0.065*(h-5.24))*v')
+    sc.func('ffd(v)', '5.24+0.76*v')
+    sc.func('ffb(v)', '5.24-0.74*v')
+    sc.func('bhw(h)', '0.17+0.28*(1-exp(-(8.1-h)/0.8))')
+    sc.func('btx(v,h)', '-bhw(h)-0.12*max(0,(5.5-h)/0.74)+(2*bhw(h)+0.12*max(0,(5.5-h)/0.74))*v')
+    sc.func('btf(v,h)', '-bhw(h)-0.12*max(0,(5.5-h)/0.74)+(0.4-0.05*(5.48-h)+bhw(h)+0.12*max(0,(5.5-h)/0.74))*v')
+    sc.func('bfd(v)', '4.76+0.72*v')
+    sc.func('bfb(v)', '4.76-0.91*v')
+
+    def on_tab(X, H, off, back):
+        A = f"(sa(sz({H}))+{fmt(off)})"
+        T = f"(pi-asin(min(0.97,{X}/{A})))" if back else f"asin(min(0.97,{X}/{A}))"
+        return (X, f"-{A}*dk(sz({H}),{T})*cos({T})", H)
+
+    for nm, xf, xflap, top, fold, foot, back in (('frontTab', 'ftx', 'ftx', 8.0, 'ffd', 'ffb', False),
+                                                  ('backTab', 'btx', 'btf', 8.05, 'bfd', 'bfb', True)):
+        H = f"({fmt(top)}-({fmt(top)}-{fold}(v))*p)"
+        sc.surface(on_tab(f"{xf}(v,{H})", H, 0.07, back), ('v', 0, 1), ('p', 0, 1), ORANGE, nm, ('dir', (0, 1 if back else -1, 0.2)))
+        H = f"({fold}(v)-({fold}(v)-{foot}(v))*p)"
+        sc.surface(on_tab(f"{xflap}(v,{H})", H, 0.082, back), ('v', 0, 1), ('p', 0, 1), ORANGE_LT, nm + 'Flap',
+                   ('dir', (0, 1 if back else -1, 0.2)))
+        for k, (X, Hc) in enumerate(((f"{xf}(0,{fmt(top)}-({fmt(top)}-{fold}(0))*t)", f"({fmt(top)}-({fmt(top)}-{fold}(0))*t)"),
+                                     (f"{xf}(1,{fmt(top)}-({fmt(top)}-{fold}(1))*t)", f"({fmt(top)}-({fmt(top)}-{fold}(1))*t)"),
+                                     (f"{xflap}(t,{fold}(t))", f"{fold}(t)"),
+                                     (f"{xflap}(t,{foot}(t))", f"{foot}(t)"),
+                                     (f"{xflap}({0 if not back else 1},{fold}({0 if not back else 1})-({fold}({0 if not back else 1})-{foot}({0 if not back else 1}))*t)",
+                                      f"({fold}({0 if not back else 1})-({fold}({0 if not back else 1})-{foot}({0 if not back else 1}))*t)"),
+                                     (f"{xflap}({1 if not back else 0},{fold}({1 if not back else 0})-({fold}({1 if not back else 0})-{foot}({1 if not back else 0}))*t)",
+                                      f"({fold}({1 if not back else 0})-({fold}({1 if not back else 0})-{foot}({1 if not back else 0}))*t)"))):
+            sc.curve(on_tab(X, Hc, 0.09, back), ('t', 0, 1), GOLD, f'{nm}Trim{k + 1}', thickness=2)
+    # the black strip under the corset's tassel, hanging over the front tab to 6.6 (traced on the front and side views)
+    pts_ = [skirt_point(h, math.asin(0.505 / (SA(sk_s(h)) + 0.12)), 0.12) for h in (7.72, 7.15, 6.6)]
+    ribbon(pts_, 0.085, BLACK, 'corsetStrip', unit((0, -1, 0.15)), vcut=0.0, rim=GOLD)
 
     sc.blank()
     sc.note('Skirt: four black bows with chrysanthemums and gold tassels where the overskirt is caught up')

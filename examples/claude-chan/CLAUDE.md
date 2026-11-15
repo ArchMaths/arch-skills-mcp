@@ -51,6 +51,13 @@ the side of the neck and cuts its lower front higher than the front view; its em
 single place on it, so the emblems follow the front and back views. On the back view the hair falls in a
 narrower band than the model's hair, leaving the capelet's sides and back emblems visible.
 
+The dress, traced: the side view draws the overskirt's hem as if turned too (high at the front, low at the
+back, where the front and back views put it low at the side), so the hem was fitted on the front and back
+views; the frill's bottom rises from 1.13 at the centre to 2.1 at the sides in every view, the "seen from
+above" effect (about 29 degrees here), so only its centre is compared. The overskirt's lower edge is one
+wavy line that curls to show the orange lining; a second traced line at the same angle is a curl, not a
+second hem.
+
 ## When the outline is hidden
 
 Where hair covers a part (the arms), automatic edge tracking drifts onto the hair. Ask the user to trace the
@@ -59,4 +66,8 @@ picture onto the overlay (`cv2.findTransformECC`, affine), keep pixels that are 
 darker than the overlay at the same place, map them back to sheet pixels and then to model units, and take
 each row's outermost strokes as the edges. A marked-up screenshot of the sheet at another scale registers
 with SIFT features and a RANSAC similarity (`cv2.estimateAffinePartial2D`); enclosed holes in the ink find
-drawn circles.
+drawn circles. If the strokes cross dark parts of the sheet and break up, ask for (or use) a picture
+of the strokes alone and register it onto the extracted ink (ECC on the blurred masks). To compare traced
+borders with a whole layered model, draw the model as a surface-id map (z-buffered, hidden parts removed),
+take its borders where the visible surface changes, and match each stroke pixel to its nearest border
+(`cv2.distanceTransformWithLabels`): the distance per border pair shows which part is off.

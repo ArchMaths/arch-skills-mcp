@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (570 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (580 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -77,19 +77,25 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   of the measured table. The views disagree on some heights (the side view draws the forearm about 0.25
   longer than the front view), so each landmark is the mean over the five drawn arms.
 - **Dress**: measured layer by layer on the sheet's three views (with `sheetfit.py`) and its skirt panel
-  (三片式长裙与褶边衬裙). A pleated cream skirt with a frilled petticoat and orange fern embroidery where it
+  (三片式长裙与褶边衬裙), then refined on outlines traced over the three views. A cream skirt in 40 pleats
+  (9 degrees apart, as traced) with a frilled petticoat and orange fern embroidery where it
   shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
   side the front hangs nearly flat and the back is full (the depth is 0.53 to 0.60 of the half-width at the
   front, measured on the side view, and 0.75 to 1 at the back). Over it, on each side, a black panel from
-  29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems; its front edge is faced in
-  orange, narrowly on her right and wide on her left, where the facing carries the front tab's orange strip
-  on down to the hem. Over that a cream overskirt piece lined in orange, from 34 to 141.5 degrees, caught up
+  29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems where the sheet circles
+  them (x ±2.14 at 2.75 on the front view, ±1.84 at 2.84 on the back); its front edge is faced in orange, a
+  thin edge on her right and wide on her left, where the facing carries the front tab's orange strip on
+  down to the hem. Over that a cream overskirt piece lined in orange, from 34 to 141.5 degrees, caught up
   by a black bow at each end (their knots 5.55 high at the front and 5.5 at the back), each bow with a
   chrysanthemum medallion above it, tails and two gold tassels. The overskirt's hem, a spline through
-  points measured on the front and back views, hangs from the front bow down its front edge to 4.3, swags
-  to 2.95 at the side, where the lining shows at the turn, and rises up the back to 4.5. Black bands run
-  down the overskirt's edges from the waist to the bows; an orange tab hangs on her left of the front, to
-  a foot slanting from 5.0 to 4.6, and a longer one at the centre back, to a point at 3.95. On the sheet's
+  points on its traced lower edge in the front and back views, hangs from the front bow down its front edge
+  to 4.3, stays high (3.9 at 60 degrees) before dropping steeply to 2.95 at the side, where the lining shows
+  at the turn, and rises up the back to 4.5. Black bands run down the overskirt's edges from the waist to
+  the bows. An orange tab hangs on her left of the front, its inner edge running in from 0.31 to 0.14 and
+  its outer edge widening from 0.5 to 0.87, folded diagonally at the foot so that a lighter flap hangs to a
+  point at (0.88, 4.5); a black strip edged in gold hangs over it from the corset's tassel to 6.6. A longer
+  tab hangs at the centre back, 0.34 wide at the waist and widening to 0.9, folded from 4.76 to 5.48, its
+  flap ending in a point at 3.85 on her left. On the sheet's
   side view the outline is a true profile (it fits the model seen from the side within 0.1), but the bows
   and facings are drawn as if turned about 30 degrees, so the layers were placed from the front and back
   views; all three views draw the hems as if seen from above, so they curve up at the sides there.
@@ -133,7 +139,11 @@ outlines traced over it by hand; against those the model's edges are off by 0.03
 front and side views (puff 0.01 to 0.02, forearm under 0.04, cuff and hand 0.03 to 0.08), while the back
 view draws the arms 0.1 to 0.2 closer to the body. The capelet was measured the same way: its outline is within 0.03 of the
 front and back views' average (the two traced sides differ by up to 0.12), its front edge within 0.015,
-its back edge on the side view within 0.014, and its hem and lace heights within 0.03. `CLAUDE.md` has the working rules: measure and model
+its back edge on the side view within 0.014, and its hem and lace heights within 0.03. The dress was refined the same way: the
+model's borders were drawn as a surface-id map in each view and every traced stroke matched to its nearest
+border; the tabs, the overskirt's hem, the pleat count, the facing on her right and the emblems were
+changed where the two disagreed. The traced hem is now a median 0.09 from the
+model's on the front view (0.12 before) and 0.08 on the back (0.09). `CLAUDE.md` has the working rules: measure and model
 each part before writing it for Arch.
 
 `generate.py --prec 4` writes a quicker version; `--parts head,hair` limits it to some parts and
