@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (783 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (817 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -91,7 +91,9 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   wider than drawn. Every layer lies on the one beneath (panels 0.09 off the skirt with no flare, overskirt
   0.13 off with folds 0.07 deep). The frill hangs in two loose layers with deep folds (36 and 48 round, up to
   0.16 deep), built in twelve sectors each. The hem is level, where the sheet draws it as if seen from
-  above. Over it, on each side, a black panel from
+  above. Over it, on each side, a black panel that really folds (measured on a close-up: the fold runs from
+  under the front bow to the hem, 0.41 in front of the emblem; the cloth doubles back there, so the emblem's part
+  laps over a narrow front strip whose hem ends at 2.07; shallow folds cross the rest), from
   29-31 to 152 degrees from the front, with a border (measured on close-ups: at the hem a pale gold line 0.05 wide on the edge, black for
   0.07, a second line and a faint thin line 0.25 up; up the front and back edges the edge line and the thin
   line, with a small sprig in each lower corner) and flower emblems (pointed petals in 16 places round a ringed
