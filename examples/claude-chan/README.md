@@ -10,7 +10,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
-Opening the file takes several minutes (it is about 11 MB): it is saved with `implicitPrecision=10`, so
+Opening the file takes several minutes (it is about 23 MB): it is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
 surfaces are about three times as long to evaluate. Lower the *equation, inequality and parametric
 surface precision* slider in Arch's settings for faster redraws while rotating.
