@@ -270,49 +270,9 @@ SKIRT_CREAM = '#ddd3c2'
 BORDER_CREAM, FERN = '#d9caa9', '#c45c36'     # the cream border woven into the orange cloth; the fern's thread
 
 
-def leaf_xy(cx, cy, ang, L, W, w):
-    """Outline of a leaf (an ellipse L long, W wide, centred at (cx, cy), its length at angle ang from +x) as w
-    runs 0..1, starting and ending at its tip. Every argument may be an Arch expression."""
-    c, s_ = f"cos(2*pi*({w}))", f"sin(2*pi*({w}))"
-    return (f"({cx}+({L})/2*{c}*cos({ang})-({W})/2*{s_}*sin({ang}))", f"({cy}+({L})/2*{c}*sin({ang})+({W})/2*{s_}*cos({ang}))")
-
-
-def quad3(a, b, c, m):
-    """Expression equal to a, b, c at m = 0, 1, 2."""
-    return f"({fmt(a)}+{fmt(-1.5 * a + 2 * b - 0.5 * c)}*{m}+{fmt(0.5 * a - b + 0.5 * c)}*{m}^2)"
-
-
-# The skirt's fern, measured on a close-up photo of one (leaf centres, lengths, widths and angles from ellipses
-# fitted to the orange thread; 0.00232 units a pixel, the fern 0.95 tall): a stem to 0.79 with a leaf 0.145 x
-# 0.062 on top; three pairs of leaves 0.105 x 0.06 at 0.72, 0.58 and 0.44, 43 degrees off the stem, a little
-# larger lower down; a twig on each side with three leaves 0.093 x 0.055 around (0.15, 0.35); a diamond at
-# 0.16 where the twigs leave the stem and a leaf on each side at the foot. x across, h up from its foot.
-def fern_curves():
-    out = []
-    X, H = leaf_xy('0', '0.862', 'pi/2', '0.145', '0.062', 'max(0,t-1)+0.5')
-    out.append(('Stem', (f"({X})", f"(0.79*min(1,t)+{H}-0.7895)"), (0, 2)))
-    j, k = 'floor(t/2)', 'floor(t)'
-    sg = f"(1-2*({k}-2*{j}))"
-    out.append(('Pairs', leaf_xy(f"{sg}*0.055*(1+0.1*{j})", f"(0.77-0.142*{j})", f"(pi/2-{sg}*0.75)", f"0.105*(1+0.06*{j})", '0.06', f"t-{k}+0.5"), (0, 5.999)))
-    g = 'floor(t/3)'
-    m = f"({k}-3*{g})"
-    sg = f"(2*{g}-1)"
-    out.append(('Twigs', leaf_xy(f"{sg}*{quad3(0.172, 0.12, 0.165, m)}", quad3(0.406, 0.35, 0.297, m), f"(pi/2-{sg}*{quad3(0.26, 0.26, 1.4, m)})", '0.093', '0.055', f"t-{k}+0.5"), (0, 5.999)))
-    out.append(('TwigStems', ('t', '(0.17+0.96*abs(t))'), (-0.135, 0.135)))
-    out.append(('Diamond', ('0.036*sqc(t,2)', '(0.16+0.045*sqs(t,2))'), (0, '2*pi')))
-    sg = f"(2*{k}-1)"
-    out.append(('Foot', leaf_xy(f"{sg}*0.15", '0.08', f"(pi/2-{sg}*0.63)", '0.115', '0.06', f"t-{k}+0.5"), (0, 1.999)))
-    return out
-
-
-# The orange cloth's border, from a close-up photo of the front tab's fold (372 pixels a unit): a cream stripe
-# 0.05 wide, 0.027 in from the edge, and above it every 0.39 a sprig of three petals (0.07 x 0.026 between two
-# of 0.05, fanned 34 degrees) with its foot 0.1 from the stripe, a dot between sprigs.
-def sprig_xy(x0, h0):
-    k = 'floor(t)'
-    a = f"((1-{k})*0.6)"
-    Lk = f"(0.07-0.02*abs({k}-1))"
-    return leaf_xy(f"({x0}+(0.012+{Lk}/2)*sin({a}))", f"({h0}+(0.012+{Lk}/2)*cos({a}))", f"(pi/2-{a})", Lk, '0.026', f"t-{k}+0.5")
+# The skirt's fern and the orange cloth's sprig are in motifs.py, measured on close-up photos (python3 motifs.py
+# draws the fern in 2D over its photo).
+from motifs import fern_curves, sprig_xy
 PLEAT_SHADE = '#9c8a72'         # the drawn line in each pleat
 N_PLEAT = 40
 OV_F, OV_B = 0.6, 2.47          # the overskirt pieces run from 34 degrees (front bows) to 141.5 (back bows)
@@ -392,6 +352,13 @@ sz(h) is s at height h.""")
         sc.surface((f"{Rk}*sin(t)", f"-{Rk}*dk(1,t)*cos(t)", f"{fmt(z0)}-{fmt(z0 - z1)}*s+0.03*s*cos({nw}*t)"),
                    ('s', 0, 1), ('t', '-pi', 'pi'), col, f'petticoat{k + 1}', ('tube', 'u'))
     sc.comment("Embroidery where the pleated skirt shows, at the front and the back: hem lines and a row of ferns in orange thread.")
+    sc.comment("The fern's parts as functions of the curve parameter: x across and h up from its foot (motifs.py).")
+    FERN_PARTS = []
+    for i_, (part, (X, H), T) in enumerate(fern_curves()):
+        fx_, fh_ = f"fn{'abcdef'[i_]}x", f"fn{'abcdef'[i_]}h"
+        sc.func(f'{fx_}(t)', X)
+        sc.func(f'{fh_}(t)', H)
+        FERN_PARTS.append((part, (f"{fx_}(t)", f"{fh_}(t)"), T))
     for side, nm, c0, hw in (('Front', 'F', 0.0, 0.36), ('Back', 'B', math.pi, 0.4)):
         sc.curve(on_skirt("0.955", f"({fmt(c0)}+t)"), ('t', -hw, hw), GOLD, f'hemLine{nm}1', thickness=2)
         sc.curve(on_skirt("0.94", f"({fmt(c0)}+t)"), ('t', -hw, hw), FERN, f'hemLine{nm}2', thickness=2)
@@ -401,8 +368,12 @@ sz(h) is s at height h.""")
         n_f = max(1, int(wid / 0.43))
         for i in range(n_f):
             tc = c0 + (hw - 0.215 / SA(s_f - 0.06)) * ((2 * i / (n_f - 1) - 1) if n_f > 1 else 0)
-            for part, (X, H), T in fern_curves():
-                sc.curve(on_skirt(f"({fmt(s_f)}-{H}/{fmt(SK_L)})", f"({fmt(tc)}+{X}/{fmt(SA(s_f - 0.06))})"), ('t',) + T, FERN, f'fern{nm}{i + 1}{part}', thickness=2)
+            for part, (X, H), T in FERN_PARTS:
+                # (the pleats' depth and the skirt's depth-to-width ratio are taken at the fern's middle height: Arch drops
+                # a curve whose expression grows too long)
+                sx, tx = f"({fmt(s_f)}-{H}/{fmt(SK_L)})", f"({fmt(tc)}+{X}/{fmt(SA(s_f - 0.06))})"
+                Rf = f"sa({sx})*spl({fmt(s_f - 0.06)},{tx})*1.018"
+                sc.curve((f"{Rf}*sin({tx})", f"-{Rf}*dk({fmt(s_f - 0.06)},{tx})*cos({tx})", f"{fmt(SK_TOP)}-{fmt(SK_L)}*{sx}"), ('t',) + T, FERN, f'fern{nm}{i + 1}{part}', thickness=2)
 
     sc.blank()
     sc.note('Skirt: black side panels with orange facings, gold bands and chrysanthemum emblems')

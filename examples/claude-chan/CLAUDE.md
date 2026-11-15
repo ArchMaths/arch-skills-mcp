@@ -89,6 +89,10 @@ take its borders where the visible surface changes, and match each stroke pixel 
 Embroidery and woven borders are measured on the user's close-ups with Python: threshold the thread's colour,
 split the mask into blobs (opening, then distance-transform peaks), fit an ellipse to each (centre, length,
 width, angle) and scale by a known size. Draw them as curves (they keep their own resolution): one curve can
-trace several leaves by taking the leaf's index as floor(t) (`leaf_xy`, `fern_curves`, `sprig_xy` in
-`outfit.py`). Lay them on the cloth through the same mapping as the surface (`on_skirt`, `on_tab`) so they
-follow its pleats and folds.
+trace several leaves by taking the leaf's index as floor(t) (`leaf_off`, `fern_curves`, `sprig_xy` in
+`motifs.py`). Start and end every leaf where it joins its stem, so the jump from one leaf to the next runs
+along a stem and leaves no stray stroke. Draw the motif in 2D over its photo first (`python3 motifs.py --photo
+<close-up>`) and tune it there. Lay it on the cloth through the same mapping as the surface (`on_skirt`,
+`on_tab`) so it follows the pleats and folds. Arch silently drops a curve whose expression grows too long
+(about 6000 characters a coordinate failed, 2000 worked): put the motif in functions, split long strokes, and
+keep the mapping from repeating them.
