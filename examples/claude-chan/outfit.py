@@ -50,17 +50,17 @@ def flat_flower(C, n_dir, R, ref, color=ORANGE, center=GOLD, n=14, up=(0, 0, 1))
 
 SK_TOP, SK_HEM = 8.66, 1.61      # the pleated skirt, from the waist (under the corset) to its hem; the boots show below
 SK_L = SK_TOP - SK_HEM
-SA_EXPR = '0.43+0.079*ln(1+exp((s-0.057)/0.02))-6.5*max(0,s-0.62)^2'
+SA_EXPR = '0.43+0.0579*ln(1+exp((s-0.057)/0.02))'
 DK_EXPR = '(fk(s)+gk(s))/2-(gk(s)-fk(s))/2*cos(t)'
 FK_EXPR = '0.57-0.04*stp((s-0.5)/0.15)+0.07*stp((s-0.78)/0.14)'     # front: measured on the side view
-GK_EXPR = '0.75+0.25*s-0.07*stp((s-0.86)/0.12)'                       # back: full, but hanging at the hem
+GK_EXPR = '0.75+0.25*s'                                             # back
 
 
 def SA(s):
-    """Half-width of the skirt, s from the waist (0) to the hem (1): narrow inside the corset, then from the
-    corset's edge the straight A-line of the sheet's front view (0.56 out per unit down, joined smoothly),
-    rounding off at the hem."""
-    return 0.43 + 0.079 * math.log(1 + math.exp((s - 0.057) / 0.02)) - 6.5 * max(0, s - 0.62) ** 2
+    """Half-width of the skirt, s from the waist (0) to the hem (1): narrow inside the corset, then one straight
+    line from the corset's edge to the hem (0.41 out per unit down), which the frill carries on to 3.35 at
+    z 1.14, the sheet's widest. The cloth hangs loose: it neither bulges nor draws in toward the hem."""
+    return 0.43 + 0.0579 * math.log(1 + math.exp((s - 0.057) / 0.02))
 
 
 def _stp(q):
@@ -71,10 +71,9 @@ def _stp(q):
 def DK(s, th):
     """Depth of the skirt over its half-width at angle th from the front. Measured on the sheet's side view:
     the front hangs nearly flat, 0.57 of the half-width at the waist, 0.53 at mid-thigh and 0.60 toward the
-    hem; the back is full, 0.75 at the waist to 0.96 at knee height, easing to 0.93 at the hem
-    where the cloth hangs instead of standing out."""
+    hem; the back is full, 0.75 at the waist to 1 at the hem."""
     f = 0.57 - 0.04 * _stp((s - 0.5) / 0.15) + 0.07 * _stp((s - 0.78) / 0.14)
-    g = 0.75 + 0.25 * s - 0.07 * _stp((s - 0.86) / 0.12)
+    g = 0.75 + 0.25 * s
     return (f + g) / 2 - (g - f) / 2 * math.cos(th)
 
 
@@ -319,7 +318,7 @@ if want('skirt'):
     sc.blank()
     sc.note('Skirt: cream pleated skirt with orange embroidery and a frilled petticoat')
     sc.comment(f"""Skirt: s from the waist (z={fmt(SK_TOP)}) to the hem (z={fmt(SK_HEM)}); t is the angle from the front, + toward her
-left. sa(s) is its half-width: the straight A-line of the front view. Seen from the side the front hangs
+left. sa(s) is its half-width: one straight line from the corset to the hem. Seen from the side the front hangs
 nearly flat and the back is full, so the depth is dk(s,t) times the half-width: 0.57 at the front, 0.75
 to 1 at the back from the waist to the hem. 40 knife pleats (spl), 9 degrees apart as traced: each rises slowly
 to its edge and drops back sharply, cut into the skirt (the edges stay on sa) and deepening to 5% of the
@@ -348,10 +347,14 @@ sz(h) is s at height h.""")
         tk = (math.acos(0.7) + 2 * math.pi * k) / N_PLEAT
         if abs(tk) < SEC_F or abs(tk) > SEC_B:
             sc.curve(on_skirt("t", fmt(tk), 1.01), ('t', 0.04, 1), PLEAT_SHADE, f'pleat{k + N_PLEAT // 2 + 1}', thickness=1)
-    for k, (z0, z1, r0, r1, nw, col) in enumerate([(1.66, 1.32, 0.985, 0.975, 30, CREAM), (1.4, 1.14, 0.968, 0.955, 38, '#f8f2e8')]):
-        Rk = f"sa(1)*({fmt(r0)}+{fmt(r1 - r0)}*s+0.018*s*sin({nw}*t))"
-        sc.surface((f"{Rk}*sin(t)", f"-{Rk}*dk(1,t)*cos(t)", f"{fmt(z0)}-{fmt(z0 - z1)}*s+0.03*s*cos({nw}*t)"),
-                   ('s', 0, 1), ('t', '-pi', 'pi'), col, f'petticoat{k + 1}', ('tube', 'u'))
+    # The frill: two loose layers hanging from the hem in deep folds (36 and 48 round, 0.14 and 0.16 deep at the
+    # bottom), their crests on the skirt's line carried on to 3.35 at z 1.14. Twelve sectors each, so that Arch's
+    # mesh (60 steps a side at most) has 3 or 4 folds to resolve.
+    for k, (z0, z1, r0, r1, amp, nw, col) in enumerate([(1.66, 1.32, 0.99, 0.993, 0.045, 36, CREAM), (1.4, 1.14, 0.985, 1.011, 0.05, 48, '#f8f2e8')]):
+        Rk = f"sa(1)*({fmt(r0)}+{fmt(r1 - r0)}*s+{fmt(amp)}*s*sin({nw}*t))"
+        for j in range(12):
+            sc.surface((f"{Rk}*sin(t)", f"-{Rk}*dk(1,t)*cos(t)", f"{fmt(z0)}-{fmt(z0 - z1)}*s+0.03*s*cos({nw}*t)"),
+                       ('s', 0, 1), ('t', -math.pi + j * math.pi / 6, -math.pi + (j + 1) * math.pi / 6), col, f'petticoat{k + 1}s{j + 1}', ('point', (0, 0, 4)))
     sc.comment("Embroidery where the pleated skirt shows, at the front and the back: hem lines and a row of ferns in orange thread.")
     sc.comment("The fern's parts as functions of the curve parameter: x across and h up from its foot (motifs.py).")
     FERN_PARTS = []

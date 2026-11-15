@@ -70,11 +70,13 @@ above" effect (about 29 degrees here), so only its centre is compared. The overs
 wavy line that curls to show the orange lining; a second traced line at the same angle is a curl, not a
 second hem.
 
-The dress is hanging cloth: a wind from the front presses it to the legs and trails it behind, and nothing
-inside holds it out. Layers lie on the layer beneath and never flare or stand off on their own; the outline
-below z 3.3 is vertical. Below z 2 the sheet's outline rounds inward in every view: that is the level hem seen
-from above, not cloth curling under (the user's decision: keep the hem level, and add no wind effect beyond
-what the sheet's side view shows).
+The dress is loose hanging cloth: a wind from the front presses it to the legs and trails it behind, and
+nothing inside holds it out. The user's rules: its side is one straight line from the corset to the hem (never
+concave down, never vertical or drawn in at the bottom: that reads as a stuffed balloon); layers lie on the
+layer beneath and never flare on their own; the frill's folds are deep; the hem is level; no wind effect beyond
+the sheet's side view. The line ends at the sheet's widest half-width (3.35) at the frill's foot, so the model
+is deliberately slimmer than the sheet's outline above (the sheet's outline spreads to 3.3 by z 3.3, stays
+there to 2.1 and rounds inward below, which no straight-sided dress with a level hem can follow).
 
 ## When the outline is hidden
 

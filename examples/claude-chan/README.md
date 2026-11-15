@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (677 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (687 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -19,7 +19,7 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
 
 - **Proportions**: measured on the sheet's full-body front view (正面). Her head, crown to chin, is 1/7.9
   of her height; the elbows are at the waist, the cuffs at the hips and the fingertips at mid-thigh, with
-  the forearms and hands angled forward and out, clear of the skirt. The skirt flares from the corset in a straight A-line, as
+  the forearms and hands angled forward and out, clear of the skirt. The skirt widens from the corset in one straight line to the hem, as
   wide as the sheet's at every height, and ends high enough to show the lace-up boots.
 - **Head**: sculpted from parts, tilted toward her right shoulder and turned a little to her right, which
   gives her a lively pose. The tilt is 7 degrees at the eyes, between the sheet's calm portraits (7 to 9
@@ -84,11 +84,14 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   shows at the front and back. Seen from the front it is a straight A-line from the corset; seen from the
   side the front hangs nearly flat and the back is full (the depth is 0.53 to 0.60 of the half-width at the
   front, measured on the side view, and 0.75 at the waist to 0.96 at knee height and 0.93 at the hem at the
-  back). The dress is cloth hanging in a wind from the front, with nothing inside to hold it out: the side
-  outline spreads to a half-width of 3.33 at z 3.3 and then falls straight to the hem, every layer lies on the
-  one beneath (panels 0.09 off the skirt with no flare, overskirt 0.13 off with folds 0.07 deep), and the frill
-  hangs straight from the hem, drawing in to 0.955 of its radius. Front outline within 0.03 of the sheet from
-  z 4.7 to 2.1; the hem is level, where the sheet draws it as if seen from above. Over it, on each side, a black panel from
+  back). The dress is loose cloth hanging in a wind from the front, with nothing inside to hold it out: its
+  side is one straight line from the corset to the hem (0.41 out per unit down; no bulge, no drawing in),
+  ending at the sheet's widest half-width, 3.35, at the frill's foot. That makes it slimmer than the sheet's
+  outline above (2.06 at z 4.7 where the sheet has 2.61): the user's choice between this and a hem a third
+  wider than drawn. Every layer lies on the one beneath (panels 0.09 off the skirt with no flare, overskirt
+  0.13 off with folds 0.07 deep). The frill hangs in two loose layers with deep folds (36 and 48 round, up to
+  0.16 deep), built in twelve sectors each. The hem is level, where the sheet draws it as if seen from
+  above. Over it, on each side, a black panel from
   29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems where the sheet circles
   them (x ±2.14 at 2.75 on the front view, ±1.84 at 2.84 on the back); its front edge is faced in orange, a
   thin edge on her right and wide on her left, where the facing carries the front tab's orange strip on
