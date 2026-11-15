@@ -272,7 +272,8 @@ BORDER_CREAM, FERN = '#d9caa9', '#c45c36'     # the cream border woven into the 
 
 # The skirt's fern and the orange cloth's sprig are in motifs.py, measured on close-up photos (python3 motifs.py
 # draws the fern in 2D over its photo).
-from motifs import fern_curves, sprig_xy
+from motifs import fern_curves, sprig_xy, emblem_curves, emblem_radii, emblem_leaf, EMB_CENTRE
+PANEL_GOLD, PANEL_LINE, PANEL_PALE = '#a8855d', '#bfa982', '#bca377'     # the black panels' emblem and border lines (1/1.2 of the sheet's)
 PLEAT_SHADE = '#9c8a72'         # the drawn line in each pleat
 N_PLEAT = 40
 OV_F, OV_B = 0.6, 2.47          # the overskirt pieces run from 34 degrees (front bows) to 141.5 (back bows)
@@ -387,6 +388,8 @@ down to a hem near 2, lying on the skirt (the cloth hangs: nothing holds it out)
 her right (as traced, one line at the panel's edge), 9 degrees on her left, a wide strip below the front tab. q runs across a panel from
 its front edge, p down it.""")
     sc.func('bzh(q)', '1.95+0.1*sin(pi*q)')
+    sc.func('emi(w)', emblem_radii('w')[0])
+    sc.func('emo(w)', emblem_radii('w')[1])
     sc.func('bph(q,p)', '5.45-0.1*q-(5.45-0.1*q-bzh(q))*p')
     TB1 = 2.66
     for sd, tag in ((1, 'L'), (-1, 'R')):
@@ -421,16 +424,37 @@ its front edge, p down it.""")
                          ('t', 0.03 if nm_ == 'Crease' else 0, 1), col_, f'sideFacing{nm_}{tag}', thickness=2)
         sc.curve((f"{fmt(sd)}*(sa(sz(bph(0,t)))+0.11)*sin({fmt(F0)})", f"-(sa(sz(bph(0,t)))+0.11)*dk(sz(bph(0,t)),{fmt(F0)})*cos({fmt(F0)})", "bph(0,t)"),
                  ('t', 0, 1), GOLD, f'sideFacingTrim{tag}', thickness=2)
-        for k, pp in enumerate((0.94, 0.985)):
-            Hq = f"bph(t,{pp})"
-            Rq = f"(sa(sz({Hq}))+0.105)"
-            TQ = f"({fmt(F0)}+{fmt(TB1 - F0)}*t)"
-            sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), GOLD, f'sideBand{tag}{k + 1}', thickness=2)
-        # chrysanthemums where the sheet's circles are: the front pair on the front view, the back pair on the back
+        # The hem's border, measured across the hem on a close-up: a pale gold line 0.05 wide on the edge, black
+        # for 0.07, a second line 0.05 wide (centred 0.145 up) and a faint thin line 0.25 up.
+        TQ = f"({fmt(TB0)}+{fmt(TB1 - TB0)}*q)"
+        for k, (h0, h1) in enumerate(((0.0, 0.05), (0.12, 0.17))):
+            Hq = f"(bzh(q)+{fmt(h0)}+{fmt(h1 - h0)}*p)"
+            Rq = f"(sa(sz({Hq}))+0.098)"
+            sc.surface((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('q', 0, 1), ('p', 0, 1), PANEL_LINE, f'sideBand{tag}{k + 1}', ('point', (0, 0, 4)))
+        Hq, TQ = "(bzh(t)+0.25)", TQ.replace('q', 't')
+        Rq = f"(sa(sz({Hq}))+0.1)"
+        sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), PANEL_GOLD, f'sideBand{tag}3', thickness=1)
+        # The emblems where the sheet's circles are (the front pair on the front view, the back pair on the back):
+        # a star of 8 kite spikes and 8 kite petals round a pale disc, a stem with two leaves below (motifs.py); the
+        # star is filled in eight sectors and outlined.
         for k, (x_, h, back) in enumerate(SIDE_EMBLEMS):
             th = math.asin(min(1.0, x_ / (SA(sk_s(h)) + 0.105)))
             th = sd * (math.pi - th if back else th)
-            flat_flower(skirt_point(h, th, 0.115), skirt_normal(h, th), 0.17, f'sideEmblem{tag}{k + 1}', n=12, color=ORANGE, center=GOLD)
+            C, n_ = skirt_point(h, th, 0.12), skirt_normal(h, th)      # flat, so 0.03 off the curved panel to clear it at its tips
+            e_up = unit(sub((0, 0, 1), mul(n_, n_[2])))
+            e_bk = cross(e_up, n_)
+            if e_bk[1] < 0:
+                e_bk = mul(e_bk, -1)
+            fr = (e_bk, e_up, n_)
+            for j in range(8):           # sector edges on the spikes' tips, so the tips are exact
+                L = ("(emi(w)+(emo(w)-emi(w))*r)*cos(w)", "(emi(w)+(emo(w)-emi(w))*r)*sin(w)", "0")
+                sc.surface(place(L, C, fr), ('r', 0, 1), ('w', math.pi / 2 + j * math.pi / 4, math.pi / 2 + (j + 1) * math.pi / 4), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
+            sc.surface(place((f"{fmt(EMB_CENTRE)}*r*cos(w)", f"{fmt(EMB_CENTRE)}*r*sin(w)", "0.004"), C, fr), ('r', 0, 1), ('w', 0, '2*pi'), PANEL_PALE, f'sideEmblem{tag}{k + 1}Mid', ('dir', n_))
+            for j, side in enumerate((-1, 1)):
+                X, H = emblem_leaf(side)
+                sc.surface(place((X, H, '0'), C, fr), ('u', 0, 1), ('v', -1, 1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}Leaf{j + 1}', ('dir', n_))
+            for part, (X, H), T in emblem_curves():
+                sc.curve(place((X, H, '0.006'), C, fr), ('t',) + T, BLACK if part == 'Ring' else PANEL_GOLD, f'sideEmblem{tag}{k + 1}{part}', thickness=1 if part == 'Ring' else 2)
 
     sc.blank()
     sc.note('Skirt: cream overskirt in two side pieces, caught up by bows at the front and the back')

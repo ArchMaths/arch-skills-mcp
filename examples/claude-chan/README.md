@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (687 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (737 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 
@@ -92,7 +92,10 @@ surface precision* slider in Arch's settings for faster redraws while rotating.
   0.13 off with folds 0.07 deep). The frill hangs in two loose layers with deep folds (36 and 48 round, up to
   0.16 deep), built in twelve sectors each. The hem is level, where the sheet draws it as if seen from
   above. Over it, on each side, a black panel from
-  29-31 to 152 degrees from the front, with gold bands and chrysanthemum emblems where the sheet circles
+  29-31 to 152 degrees from the front, with a three-line border at its hem (a pale gold line 0.05 wide on the edge, black for 0.07, a second
+  line, and a faint thin line 0.25 up, measured across the hem on a close-up) and star emblems (8 kite spikes
+  0.32 long with 8 kite petals 0.21 long between them round a pale disc, a stem with two leaves below: the
+  sheet's emblem is too small to read, so this is a design the user chose) where the sheet circles
   them (x ±2.14 at 2.75 on the front view, ±1.84 at 2.84 on the back); its front edge is faced in orange, a
   thin edge on her right and wide on her left, where the facing carries the front tab's orange strip on
   down to the hem. Over that a cream overskirt piece lined in orange, from 34 to 141.5 degrees, caught up

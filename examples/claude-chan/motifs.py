@@ -86,10 +86,59 @@ def sprig_xy(x0, h0):
     return (f"({x0}+{dx})", f"({h0}+{dh})")
 
 
+# ---- the black panels' emblem -------------------------------------------------------------------------------------
+# Too small on the sheet to read (14 x 20 pixels: a dense core, about 8 spikes, a tail below, 0.33 from the centre
+# to its top), so the design is Claude's proposal, which the user chose among the candidates: a star of 8 kite
+# spikes with 8 shorter kite petals between them round a pale disc, and below it a stem with two kite leaves.
+# A kite runs from its foot on the axis, widens to its full width 0.45 of the way along, and ends in a point.
+EMB_FOOT = 0.05                        # where every kite starts
+EMB_SPIKE = (0.32, 0.07)               # length from the centre, width
+EMB_PETAL = (0.21, 0.075)
+EMB_CENTRE = 0.06                      # the pale disc
+EMB_STEM = (-0.34, -0.50)              # the sprig's stem, below the star
+EMB_LEAF = (-0.40, 0.8, 0.11, 0.045)   # the leaves: height of their foot, angle off straight down, length, width
+
+
+def _kite(phi, L, w):
+    """Outer and inner radius of a kite at angle phi off its axis (0 and 9 where the kite does not reach)."""
+    h, m = w / 2, EMB_FOOT + 0.45 * (L - EMB_FOOT)
+    ps = math.atan2(h, m)
+    on = f"(0.5+0.5*sign({_f(ps)}-{phi}))"
+    q = f"min({phi},{_f(ps)})"
+    front = f"{_f(L * h)}/({_f(h)}*cos({q})+{_f(L - m)}*sin({q}))*{on}"
+    back = f"(9+({_f(EMB_FOOT * h)}/({_f(h)}*cos({q})-{_f(m - EMB_FOOT)}*sin({q}))-9)*{on})"
+    return front, back
+
+
+def emblem_radii(w='w'):
+    """The star as a ring: (inner, outer) radius at angle w (from +x; a spike points up). Between the kites' feet
+    the inner radius is beyond the disc, which leaves the dark teeth round it."""
+    ps = f"(acos(cos(8*(({w})-pi/2)))/8)"            # angle to the nearest spike's axis
+    pp = f"({_f(math.pi / 8)}-{ps})"                 # and to the nearest petal's
+    sf, sb = _kite(ps, *EMB_SPIKE)
+    pf, pb = _kite(pp, *EMB_PETAL)
+    return f"min({sb},{pb})", f"max({sf},{pf})"
+
+
+def emblem_curves():
+    out = [('Star', ("emo(t)*cos(t)", "emo(t)*sin(t)"), (0, '2*pi')),
+           ('Ring', (f"{_f(EMB_CENTRE + 0.003)}*cos(t)", f"{_f(EMB_CENTRE + 0.003)}*sin(t)"), (0, '2*pi')),
+           ('Stem', ("0*t", f"{_f(EMB_STEM[0])}+{_f(EMB_STEM[1] - EMB_STEM[0])}*t"), (0, 1))]
+    return [(n, (f"({x})", f"({h})"), T) for n, (x, h), T in out]
+
+
+def emblem_leaf(side):
+    """One leaf as a surface: (x, h) expressions in u (0..1 along it) and v (-1..1 across it)."""
+    h0, ang, L, W = EMB_LEAF
+    dx, dh = side * math.sin(ang), -math.cos(ang)
+    hw = f"{_f(W / 2)}*min(u/0.45,(1-u)/0.55)*v"
+    return (f"({_f(L * dx)}*u+{_f(-dh)}*{hw})", f"({_f(h0)}+{_f(L * dh)}*u+{_f(dx)}*{hw})")
+
+
 # ---- evaluating a motif in Python --------------------------------------------------------------------------------
 def evaluate(curves, n=1500):
     import numpy as np
-    ns = dict(sin=np.sin, cos=np.cos, abs=np.abs, floor=np.floor, pi=np.pi, min=np.minimum, max=np.maximum,
+    ns = dict(sin=np.sin, cos=np.cos, acos=lambda v: np.arccos(np.clip(v, -1, 1)), exp=np.exp, abs=np.abs, sign=np.sign, floor=np.floor, pi=np.pi, min=np.minimum, max=np.maximum,
               sqc=lambda t, p: np.sign(np.cos(t)) * np.abs(np.cos(t)) ** p, sqs=lambda t, p: np.sign(np.sin(t)) * np.abs(np.sin(t)) ** p)
     out = []
     for name, (X, H), (t0, t1) in curves:
