@@ -280,6 +280,26 @@ OV_F, OV_B = 0.6, 2.47          # the overskirt pieces run from 34 degrees (fron
 OV_TOP = 8.2                    # their top, under the corset's lower edge
 BOW_ZF, BOW_ZB = 5.55, 5.5      # heights of the front and back bows' knots, measured on the sheet
 SIDE_EMBLEMS = ((2.14, 2.75, False), (1.84, 2.84, True))   # |x| and height of the circled emblems: front view, back view
+# The black panels' big fold, measured on a close-up of the side view (see the panel's comment)
+PF_TH, PF_LEAN = 0.788, 0.0917  # the fold line's angle at height 2, and how far it turns forward per unit up
+PF_TOP = 4.6                    # the fold fades out by here, toward the bow
+PF_SPAN, PF_A = 0.36, 0.3       # width of cloth taken up by the fold; how far it doubles back (q+A*sin(2 pi q))
+PF_X0, PF_QE = 0.407, 0.661     # where the outer turn lies within the span, and its q
+PF_D = 0.07                     # how far the lapping part stands off the strip
+PF_MIN = 0.54                   # the fold stays behind the panel's front edge
+PF_HEM = 2.07                   # the front strip's hem (the lapping part hangs to 1.98 at the fold)
+PF_Q0 = 0.11                    # the main part's hem starts here on the old hem line bzh
+PF_RIDGES, PF_RW, PF_RD = (0.2, 0.36, 0.52, 0.68), 0.03, 0.035   # soft folds across the main part: places, width, depth at the hem
+
+
+def panel_off(h, th):
+    """Stand-off of the black panel's main part at height h and angle th (for what is sewn on it)."""
+    g = min(1.0, max(0.0, (PF_TOP - h) / 1.6)) ** 2
+    span = PF_SPAN * g / (SA(sk_s(h)) + 0.09)
+    tb = max(PF_MIN, PF_TH - PF_LEAN * (h - 2) - PF_X0 * span) + span
+    q = min(1.0, max(0.0, (abs(th) - tb) / (2.66 - tb)))
+    rid = sum(math.exp(-((q - v) / PF_RW) ** 2) for v in PF_RIDGES)
+    return 0.09 + PF_D * g * math.exp(-4 * q) + PF_RD * min(1.0, max(0.0, (5 - h) / 3)) * rid
 
 
 # The overskirt's hem, measured on its lower edge as traced over the front and back views (|x| -> angle on the
@@ -392,13 +412,41 @@ its front edge, p down it.""")
     sc.func('emi(w)', emblem_radii('w')[0])
     sc.func('emo(w)', emblem_radii('w')[1])
     sc.func('bph(q,p)', '5.45-0.1*q-(5.45-0.1*q-bzh(q))*p')
+    # The big fold (measured on a close-up of the side view): a line from under the front bow to the hem, 0.41 in
+    # front of the emblem at the emblem's height and leaning 0.2 per unit of height. The cloth really folds there:
+    # it runs back from the front edge, turns out and forward, then turns again and runs on to the back, so the
+    # emblem's part laps over a narrow front strip whose hem ends higher. The fold fades out toward the bow.
+    sc.func('pfg(h)', f"min(1,max(0,({fmt(PF_TOP)}-h)/1.6))^2")
+    sc.func('pff(h)', f"{fmt(PF_TH)}-{fmt(PF_LEAN)}*(h-2)")
+    sc.func('pfs(h)', f"{fmt(PF_SPAN)}*pfg(h)/(sa(sz(h))+0.09)")
+    sc.func('pfa(h)', f"max({fmt(PF_MIN)},pff(h)-{fmt(PF_X0)}*pfs(h))")
+    sc.func('pfb(h)', "pfa(h)+pfs(h)")
+    sc.func('pfm(q)', "q*q*(3-2*q)")
+    sc.func('pfr(q)', '+'.join(f"exp(-(((q)-{fmt(v)})/{fmt(PF_RW)})^2)" for v in PF_RIDGES))
+    sc.func('pfd(h)', f"{fmt(PF_RD)}*min(1,max(0,(5-h)/3))")
     TB1 = 2.66
     for sd, tag in ((1, 'L'), (-1, 'R')):
         F0, TB0 = {1: (0.38, 0.54), -1: (0.48, 0.50)}[sd]     # facing from F0, black from TB0
-        TH = f"({fmt(TB0)}+{fmt(TB1 - TB0)}*q)"
-        H = "bph(q,p)"
-        R = f"(sa(sz({H}))+0.09)"
-        sc.surface((f"{fmt(sd)}*{R}*sin({TH})", f"-{R}*dk(sz({H}),{TH})*cos({TH})", H), ('q', 0, 1), ('p', 0, 1), BLACK, f'sidePanel{tag}', ('point', (0, 0, 4)))
+
+        def ppt(th, ro, h, sd=sd):
+            r = f"(sa(sz({h}))+{ro})"
+            return (f"{fmt(sd)}*{r}*sin({th})", f"-{r}*dk(sz({h}),{th})*cos({th})", h)
+
+        # the panel's pieces: name, q range, angle(q, h), stand-off(q, h), hem(q), top(q)
+        qm = f"({fmt(PF_Q0)}+{fmt(1 - PF_Q0)}*q)"
+        pieces = [('Strip', (0, 1), lambda h, TB0=TB0: f"({fmt(TB0)}+(pfa({h})-{fmt(TB0)})*q)", lambda h: "0.09", fmt(PF_HEM), "5.45"),
+                  ('Fold', (0, 1), lambda h: f"(pfa({h})+pfs({h})*(q+{fmt(PF_A)}*sin(2*pi*q)))", lambda h: f"(0.09+{fmt(PF_D)}*pfg({h})*pfm(q))",
+                   f"({fmt(PF_HEM)}+{fmt(1.95 + 0.1 * math.sin(math.pi * PF_Q0) - PF_HEM)}*pfm(q))", "5.45")]
+        for j in range(3):
+            pieces.append((f'Main{j + 1}', (j / 3, (j + 1) / 3), lambda h: f"(pfb({h})+({fmt(TB1)}-pfb({h}))*q)",
+                           lambda h: f"(0.09+{fmt(PF_D)}*pfg({h})*exp(-4*q)+pfd({h})*pfr(q))", f"bzh({qm})", f"(5.45-0.1*{qm})"))
+        for nm_, qr, th_, ro_, hem_, top_ in pieces:
+            H = f"({top_}-({top_}-{hem_})*p)"
+            sc.surface(ppt(th_(H), ro_(H), H), ('q',) + qr, ('p', 0, 1), BLACK, f'sidePanel{tag}{nm_}', ('point', (0, 0, 4)))
+        # the lining shows as a thin dark-red line down the fold's outer edge
+        Hl = f"({fmt(PF_TOP - 0.2)}-{fmt(PF_TOP - 0.2 - 2.0)}*t)"
+        ql = fmt(PF_QE)
+        sc.curve(ppt(pieces[1][2](Hl).replace('q', ql), pieces[1][3](Hl).replace('pfm(q)', f"pfm({ql})") + "+0.004", Hl), ('t', 0, 1), RUST_DK, f'sidePanel{tag}FoldEdge', thickness=1)
         # The front edge turned back: an orange facing. On her right a thin edge; on her left a flat strip whose foot
         # runs diagonally, 0.16 lower at its front edge than where it meets the panel (measured on a close-up, with
         # its border: a cream band 0.035 wide on the front edge and the foot, a thin line 0.07 inside them) and
@@ -445,26 +493,25 @@ its front edge, p down it.""")
                  ('t', 0, 1), GOLD, f'sideFacingTrim{tag}', thickness=2)
         # The hem's border, measured across the hem on a close-up: a pale gold line 0.05 wide on the edge, black
         # for 0.07, a second line 0.05 wide (centred 0.145 up) and a faint thin line 0.25 up.
-        TQ = f"({fmt(TB0)}+{fmt(TB1 - TB0)}*q)"
-        for k, (h0, h1) in enumerate(((0.0, 0.05), (0.12, 0.17))):
-            Hq = f"(bzh(q)+{fmt(h0)}+{fmt(h1 - h0)}*p)"
-            Rq = f"(sa(sz({Hq}))+0.098)"
-            sc.surface((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('q', 0, 1), ('p', 0, 1), PANEL_LINE, f'sideBand{tag}{k + 1}', ('point', (0, 0, 4)))
-        Hq, TQ = "(bzh(t)+0.25)", TQ.replace('q', 't')
-        Rq = f"(sa(sz({Hq}))+0.1)"
-        sc.curve((f"{fmt(sd)}*{Rq}*sin({TQ})", f"-{Rq}*dk(sz({Hq}),{TQ})*cos({TQ})", Hq), ('t', 0, 1), PANEL_GOLD, f'sideBand{tag}3', thickness=1)
+        for nm_, qr, th_, ro_, hem_, top_ in pieces:
+            for k, (h0, h1) in enumerate(((0.0, 0.05), (0.12, 0.17))):
+                Hq = f"({hem_}+{fmt(h0)}+{fmt(h1 - h0)}*p)"
+                sc.surface(ppt(th_(Hq), ro_(Hq) + "+0.008", Hq), ('q',) + qr, ('p', 0, 1), PANEL_LINE, f'sideBand{tag}{k + 1}{nm_}', ('point', (0, 0, 4)))
+            Hq = f"({hem_}+0.25)"
+            sc.curve(tuple(re.sub(r'\bq\b', 't', e_) for e_ in ppt(th_(Hq), ro_(Hq) + "+0.01", Hq)), ('t',) + qr, PANEL_GOLD, f'sideBand{tag}3{nm_}', thickness=1)
         # The border also runs up the panel's front and back edges (close-up): the pale band on the edge and the
         # thin line 0.11 inside it; a small sprig sits in each lower corner.
         for e_, (te, dirn, qe) in enumerate(((TB0, 1, 0), (TB1, -1, 1))):
-            He = f"bph({qe},p)"
+            hem_e = PF_HEM if e_ == 0 else 1.95
+            He = f"({fmt(5.45 - 0.1 * qe)}-{fmt(5.45 - 0.1 * qe - hem_e)}*p)"
             Re = f"(sa(sz({He}))+0.098)"
             TE = f"({fmt(te)}+{fmt(dirn * 0.05)}*v/{Re})"
             sc.surface((f"{fmt(sd)}*{Re}*sin({TE})", f"-{Re}*dk(sz({He}),{TE})*cos({TE})", He), ('p', 0, 1), ('v', 0, 1), PANEL_LINE, f'sideEdge{tag}{e_ + 1}', ('point', (0, 0, 4)))
-            Ht = f"(bph({qe},0)-(bph({qe},0)-bzh({qe})-0.25)*t)"
+            Ht = f"({fmt(5.45 - 0.1 * qe)}-{fmt(5.45 - 0.1 * qe - hem_e - 0.25)}*t)"
             Rt = f"(sa(sz({Ht}))+0.1)"
             TT = f"({fmt(te)}+{fmt(dirn * 0.11)}/{Rt})"
             sc.curve((f"{fmt(sd)}*{Rt}*sin({TT})", f"-{Rt}*dk(sz({Ht}),{TT})*cos({TT})", Ht), ('t', 0, 1), PANEL_GOLD, f'sideEdge{tag}{e_ + 1}Line', thickness=1)
-            hb = 1.95 + 0.30
+            hb = hem_e + 0.30
             Xl, Hl = sprig_xy('0', fmt(hb))
             Rl = f"(sa(sz({Hl}))+0.1)"
             Tl = f"({fmt(te)}+({fmt(dirn * 0.2)}+{Xl})/{fmt(SA(sk_s(hb)))})"
@@ -475,7 +522,7 @@ its front edge, p down it.""")
         for k, (x_, h, back) in enumerate(SIDE_EMBLEMS):
             th = math.asin(min(1.0, x_ / (SA(sk_s(h)) + 0.105)))
             th = sd * (math.pi - th if back else th)
-            C, n_ = skirt_point(h, th, 0.12), skirt_normal(h, th)      # flat, so 0.03 off the curved panel to clear it at its tips
+            C, n_ = skirt_point(h, th, panel_off(h, th) + 0.035), skirt_normal(h, th)      # flat, so 0.035 off the curved panel to clear it at its tips
             e_up = unit(sub((0, 0, 1), mul(n_, n_[2])))
             e_bk = cross(e_up, n_)
             if e_bk[1] < 0:
