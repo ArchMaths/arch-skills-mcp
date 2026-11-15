@@ -37,6 +37,10 @@ Work in numbers, not screenshots: each image read is expensive, a table of edges
 - A surface is meshed with floor(3.125 x precision) steps a side, 60 at most. Fine repeated detail (the skirt's
   40 pleats) needs the surface split into sectors of a few repeats each, plus drawn lines (curves keep their
   own resolution).
+- Arch computes every mesh when the file opens (or an object changes); rotating and zooming in 3D reuse them. The
+  low-precision buffer (低精度缓冲) setting does nothing in Arch 2.0.0, whose background drawing skips it
+  (measured: zoom and rotate redraws took the same time with it on or off). What Arch computes is the formulas'
+  expansion (see below), so that is what to keep small.
 - A surface facing the viewer is lit to about 1.2 times its colour. Colours above about 210 clip to flat white
   or flat orange and lose their shading, which makes cloth look like rubber: give folded cloth a colour 1/1.2
   of the sheet's (`RUST`, `SKIRT_CREAM` in `outfit.py`) and real folds to shade.

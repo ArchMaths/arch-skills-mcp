@@ -14,8 +14,10 @@ design sheet with nothing but parametric surfaces and a few curves.
 Opening the file takes a few minutes. It is about 1.6 MB: it is built with `--lean`, and Arch rebuilds the
 expanded formulas left out of it as it opens it. It is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
-surfaces are about three times as long to evaluate. Lower the *equation, inequality and parametric
-surface precision* slider in Arch's settings for faster redraws while rotating.
+surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
+meshes and redraw in about a second. The *low-precision buffer* (低精度缓冲) setting makes no difference in Arch
+2.0.0, whose background drawing (异步绘图) skips it (measured). Lowering the *equation, inequality and
+parametric surface precision* slider recomputes the scene faster and coarser.
 
 ## What is modelled
 
