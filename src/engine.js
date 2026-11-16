@@ -226,6 +226,7 @@ export class ArchEngine {
             try {
                 const reloaded = await guard(check.page.evaluate(loadAndDescribe, result.json), timeoutMs, 'Reloading the saved file');
                 for (const message of reloaded.errors) result.errors.push({message: `Reloading the saved file failed: ${message}`});
+                for (const message of reloaded.warnings || []) result.warnings.push({message: `Arch used synchronous drawing while reloading: ${message}`});
                 result.errors.push(...compareReload(result.objects, reloaded.objects));
                 result.errors.push(...compareSaved(JSON.parse(fullJson), JSON.parse(reloaded.json)));
                 if (result.lean) result.errors.push(...compareExpanded(JSON.parse(fullJson), JSON.parse(reloaded.json)));
