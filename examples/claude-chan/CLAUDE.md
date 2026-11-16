@@ -110,7 +110,10 @@ that is how the parting down her back was found.
 The user's rules for hair: a curl at the end of a lock winds about an upright axis (its normal is the z-axis, even
 where the sheet draws it as a loop facing the viewer) and drops as it turns; strands are never machine-smooth (they
 wander, vary in width and twist gently about their own lines, about half a turn); the user calls a whole lock a
-"strand" and its parts "sub-strands", and wants ten sub-strands a lock (`BK_SUBS`). Lay a strand on the strand beneath as that one really is
+"strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
+gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
+model's hair in the back view, drawn with hidden parts removed), then place strands through them and check that none touches a
+ringlet (nearest-point distance between the surfaces). Lay a strand on the strand beneath as that one really is
 (its twisted section), rounded off, not with a running maximum: a running maximum carries every twist's edge all
 the way down and piles the strands up.
 

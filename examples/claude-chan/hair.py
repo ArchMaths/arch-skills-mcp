@@ -273,9 +273,9 @@ def chest_strands():
 # drawing registered onto it by ECC) and put into model units by the back view's calibration (sheetfit.py). On
 # the sheet these two locks are nearly all the hair down the middle of her back: they part below the braid,
 # the corset shows between them and the capelet's back beside them, and the rest of the hair falls over the
-# arms. Each lock is drawn as strands along the inner lines of the tracing, each strand split into sub-strands
-# (BK_SUBS, ten a lock): (x, z, half-width) in the back view down each strand's centre line, from under the braid
-# to where its curl starts (or its tip).
+# arms. Each lock is drawn as strands along the inner lines of the tracing, and four more between them, each
+# strand split into sub-strands (BK_SUBS, 18 a lock): (x, z, half-width) in the back view down each strand's centre
+# line, from under the braid to where its curl starts (or its tip).
 BK_STRANDS = {
     # her left: BL1 and BL2 spread out at the bottom (BL2 hooks back in), BL3 and BL4 bend in S-curves and wind
     # together into a corkscrew ringlet
@@ -302,6 +302,32 @@ BK_STRANDS = {
             (-0.92, 8.8, .05), (-1.01, 8.45, .05), (-1.04, 8.1, .05), (-1.12, 7.85, .05), (-1.17, 7.6, .05), (-1.23, 7.35, .05),
             (-1.3, 7.12, .05)],
     'BR0': [(-0.42, 11.35, .03), (-0.45, 11.1, .04), (-0.47, 10.85, .03), (-0.47, 10.74, 0)],
+    # four more strands in each lock, to fill the gaps between those traced (measured on the model's back view
+    # against the outline: e.g. on her right a gap 0.3 wide between BR3 and BR2 from z 9.6 to 7.4); they lie under
+    # the traced strands and end in free tips
+    'BL5': [(0.16, 11.48, .03), (0.2, 11.0, .04), (0.27, 10.4, .045), (0.37, 9.85, .05), (0.49, 9.35, .05), (0.6, 8.95, .05),
+            (0.74, 8.55, .055), (0.79, 8.25, .055), (0.73, 7.97, .05), (0.66, 7.75, .05), (0.68, 7.5, .045), (0.72, 7.42, .03),
+            (0.74, 7.36, 0)],
+    'BL6': [(0.24, 11.52, .03), (0.29, 11.02, .04), (0.39, 10.42, .045), (0.49, 9.85, .05), (0.62, 9.35, .05), (0.74, 8.95, .05),
+            (0.87, 8.55, .05), (0.9, 8.22, .05), (0.9, 7.95, .05), (0.95, 7.75, .05), (1.03, 7.52, .045), (1.12, 7.3, .045),
+            (1.22, 7.08, .04), (1.3, 6.88, .03), (1.33, 6.72, 0)],
+    'BL7': [(0.08, 11.4, .03), (0.1, 10.95, .04), (0.14, 10.35, .045), (0.24, 9.8, .045), (0.37, 9.3, .045), (0.46, 8.85, .045),
+            (0.42, 8.45, .045), (0.44, 8.15, .045), (0.43, 7.85, .045), (0.4, 7.6, .045), (0.43, 7.4, .04), (0.47, 7.25, .03),
+            (0.5, 7.12, 0)],
+    'BL8': [(0.06, 11.38, .03), (0.08, 10.9, .035), (0.11, 10.3, .04), (0.2, 9.75, .04), (0.3, 9.25, .04), (0.38, 8.8, .04),
+            (0.38, 8.4, .04), (0.36, 8.0, .04), (0.3, 7.7, .04), (0.27, 7.4, .035), (0.24, 7.15, .03), (0.22, 6.98, 0)],
+    'BR4': [(-0.03, 11.35, .03), (-0.05, 10.9, .04), (-0.12, 10.3, .045), (-0.24, 9.8, .05), (-0.37, 9.5, .05), (-0.45, 9.2, .05),
+            (-0.48, 8.9, .05), (-0.52, 8.6, .05), (-0.5, 8.3, .05), (-0.47, 8.0, .05), (-0.5, 7.7, .05), (-0.55, 7.45, .045),
+            (-0.58, 7.2, .04), (-0.6, 7.02, .03), (-0.61, 6.9, 0)],
+    'BR5': [(-0.05, 11.35, .03), (-0.08, 10.9, .04), (-0.2, 10.3, .045), (-0.32, 9.8, .05), (-0.45, 9.5, .05), (-0.53, 9.2, .05),
+            (-0.6, 8.9, .05), (-0.63, 8.6, .05), (-0.6, 8.3, .05), (-0.6, 8.0, .05), (-0.66, 7.7, .05), (-0.72, 7.55, .04),
+            (-0.77, 7.45, .02), (-0.79, 7.4, 0)],
+    'BR6': [(-0.06, 11.38, .03), (-0.1, 10.9, .04), (-0.22, 10.4, .045), (-0.37, 10.05, .045), (-0.53, 9.65, .045), (-0.68, 9.2, .045),
+            (-0.83, 8.8, .045), (-0.9, 8.45, .045), (-0.93, 8.1, .045), (-0.98, 7.85, .045), (-1.04, 7.6, .04), (-1.09, 7.45, .025),
+            (-1.11, 7.38, 0)],
+    'BR7': [(0.0, 11.3, .03), (-0.02, 10.8, .035), (-0.08, 10.1, .04), (-0.18, 9.65, .04), (-0.28, 9.3, .04), (-0.34, 8.95, .04),
+            (-0.36, 8.5, .04), (-0.33, 8.2, .04), (-0.31, 7.85, .04), (-0.33, 7.6, .04), (-0.4, 7.35, .035), (-0.45, 7.15, .03),
+            (-0.47, 7.02, 0)],
 }
 # the curls: ringlets, each a helix about an upright axis (through x cx and dy behind where the strand's hanging
 # part ends, or the axis of another strand's curl), starting where the hanging part ends; r1 the radius it closes
@@ -315,7 +341,9 @@ BK_CURL = {
     'BR1': dict(axis_of='BR3', r1=0.2, turns=1.25, drop=0.75, sense=-1),
 }
 # colour and thickness, in the order they are laid on
-BK_LOOK = {'BL4': (HAIR_DK, 0.05), 'BL3': (HAIR, 0.055), 'BL2': (HAIR_LT, 0.05), 'BL1': (HAIR, 0.045),
+BK_LOOK = {'BL8': (HAIR, 0.04), 'BL7': (HAIR_DK, 0.045), 'BL5': (HAIR_LT, 0.045), 'BL6': (HAIR, 0.05),
+           'BL4': (HAIR_DK, 0.05), 'BL3': (HAIR, 0.055), 'BL2': (HAIR_LT, 0.05), 'BL1': (HAIR, 0.045),
+           'BR7': (HAIR, 0.04), 'BR4': (HAIR_LT, 0.045), 'BR5': (HAIR, 0.05), 'BR6': (HAIR_DK, 0.045),
            'BR3': (HAIR_DK, 0.05), 'BR2': (HAIR, 0.055), 'BR1': (HAIR_LT, 0.05), 'BR0': (HAIR_LT, 0.04)}
 BK_ROOT = (0.88, 11.87)     # the strands start inside the braid at the back of the head (y, z; measured: the braid's
                             # outside is at y 0.96 and z 11.84 to 11.9 in the middle)
@@ -326,9 +354,11 @@ BK_WIDE = 1.5               # the traced lines are the strands' borders, drawn a
 BK_WAVE = (0.06, 0.7, 8.6)  # below z 8.6 the strands wave back and forth by 0.06, 0.7 a wave, so they curl in 3D
 BK_NOISE = (0.025, 0.25, 0.2, 0.015)   # so that no strand is machine-smooth: each wanders across by up to 0.025, its
                             # width and thickness vary by up to 25% and 20%, and it lifts off what it lies on by up to 0.015
-BK_TWIST = {'BL4': 0.5, 'BL3': -0.5, 'BL2': 0.6, 'BL1': -0.5, 'BR3': 0.5, 'BR2': -0.6, 'BR1': 0.5}   # turns each
+BK_TWIST = {'BL4': 0.5, 'BL3': -0.5, 'BL2': 0.6, 'BL1': -0.5, 'BR3': 0.5, 'BR2': -0.6, 'BR1': 0.5,   # turns each
+            'BL5': -0.5, 'BL6': 0.5, 'BL7': 0.4, 'BL8': -0.4, 'BR4': -0.5, 'BR5': 0.5, 'BR6': -0.5, 'BR7': 0.4}
                             # strand twists about its own line below the nape
-BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1}   # sub-strands, ten a lock:
+BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1,   # sub-strands, 18 a lock:
+           'BL5': 2, 'BL6': 2, 'BL7': 2, 'BL8': 2, 'BR4': 2, 'BR5': 2, 'BR6': 2, 'BR7': 2}
                             # each strand is drawn as these, side by side across it, each with its own wander, depth,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
@@ -493,7 +523,7 @@ def back_strands():
     under = np.zeros((301, 301))
     out, axes = {}, {}
     for key, (col, th) in BK_LOOK.items():
-        sd, n_ = (1 if key[1] == 'L' else -1), len(out)
+        sd, n_ = (1 if key[1] == 'L' else -1), list(BK_STRANDS).index(key)      # its noise and wave are its own
         D = np.array(BK_STRANDS[key], float) * [1, 1, BK_WIDE]
         d = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
         s = np.linspace(0, d[-1], 600)
@@ -521,7 +551,8 @@ def back_strands():
             fb = np.maximum(fb, [body_back(a, b) for a, b in zip(px, pz)])
             fh = np.maximum(fh, _grid_at(under, px, pz))
         # it falls straight below the fullest point of the body, and lies over the strands beneath (their twists
-        # included) where they are
+        # included) where they are, easing onto them over its first 0.4 (under the braid, where they all begin)
+        fh = BK_TOP + np.maximum(fh - BK_TOP, 0) * np.clip(s / 0.4, 0, 1) ** 2
         g, ker = fh + CH_ON, np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
         g = np.max([np.roll(np.pad(g, 20, mode='edge'), i)[20:-20] for i in range(-20, 21)], axis=0)  # rounded off
         g = np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid')                    # without sinking
@@ -726,8 +757,8 @@ a separate surface so that its curl gets a fine mesh.""")
         sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), col, f'chestLock{key}Tip', ('tube', 'u'))
     sc.comment("""The two locks down the back, from under the braid, as traced on the sheet's back view: on her left four
 strands, two spreading out at the bottom and two winding together into a ringlet; on her right strands that
-sweep out and wind into a second ringlet. Each strand is drawn as two or three sub-strands side by side, ten a
-lock. Their hanging parts are written like the chest locks (in pieces); each strand wanders a little, varies in
+sweep out and wind into a second ringlet; four more strands in each lock fill the gaps between these and end in
+free tips. Each strand is drawn as two or three sub-strands side by side, 18 a lock. Their hanging parts are written like the chest locks (in pieces); each strand wanders a little, varies in
 width and thickness, and twists about its own line below the nape, and each sub-strand has its own wander, depth,
 width and shade, fanning out at a free tip. A ringlet is a helix about an upright axis written as it is, in its
 angle th = Th (t + 1) / 2, its radius closing as it turns and dropping as it goes, one surface a turn.""")
