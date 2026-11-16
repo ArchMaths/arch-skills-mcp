@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1075 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1053 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -232,7 +232,10 @@ listed in `generate.py`.
   mesh.
 - **The back locks** (`back_strands` in `hair.py`) are drawn the same way from the user's tracing over the
   sheet's back view (calibrated like the full-body views, so no landmarks are needed). They hang on the
-  hair above the nape, the capelet's back and the corset; below the capelet they fall straight and wave
+  hair above the nape, the capelet's back and the corset; how far back they reach follows the user's tracing
+  of the hair's outline on the sheet's side view (close down the back of the head and the nape, along the
+  capelet's back and back below it, within about 0.05 except at the sharp bend under the capelet), each strand
+  at its place in the lock's depth between the body and that outline; below z 9 they fall straight and wave
   back and forth a little, so they curl in 3D too. So that no strand is machine-smooth, each wanders across
   by up to 0.025 and varies in width and thickness (sums of three waves of incommensurate lengths, their
   phases a formula in the strand's number), and below the nape it twists about its own line, about half a

@@ -362,6 +362,16 @@ BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3,
                             # each strand is drawn as these, side by side across it, each with its own wander, depth,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
+# The outline of the back hair on the sheet's side view, traced by the user (its crop found on the sheet by template
+# matching, scale 0.114): how far back (y) the hair reaches at each height. It hugs the back of the head and the
+# nape, follows the capelet's back and heads back below it; below z 9 the locks fall straight (the user's choice).
+# The outermost strands of each back lock lie just under it, the others at their places in the lock's depth
+# between it and the body (BK_DEPTH).
+BK_SIDE = ((9.0, 2.4), (9.1, 2.36), (9.2, 2.24), (9.3, 2.14), (9.4, 2.02), (9.5, 1.93), (9.7, 1.87), (9.9, 1.79),
+           (10.1, 1.73), (10.3, 1.63), (10.5, 1.56), (10.7, 1.47), (10.9, 1.36), (11.1, 1.29), (11.3, 1.25),
+           (11.5, 1.22), (11.8, 1.2), (12.0, 1.17))
+BK_DEPTH = (0.3, 1.0)       # where a lock's strands lie between the body and the outline: the first laid (the
+                            # fillers) at 0.3 of the way, the last laid (the traced, on top) at the outline
 
 
 def body_back(x, z):
@@ -544,34 +554,43 @@ def back_strands():
         if key in BK_TWIST and len(low):
             u = np.clip((s - s[low[0]]) / (s[-1] - s[low[0]]), 0, 1)
             phi = 2 * np.pi * BK_TWIST[key] * u * u * (3 - 2 * u) + 0.25 * np.sin(np.pi * u) * _bk_wobble(s, n_, 4)
-        lift = 1.2 * hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # how far a twisted strand's edge turns in
+        lift = 0.6 * hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # a twisted strand rises from what it lies on
         fb, fh = np.zeros(len(s)), np.zeros(len(s))
         for k in np.linspace(-1, 1, 7):
             px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
             fb = np.maximum(fb, [body_back(a, b) for a, b in zip(px, pz)])
             fh = np.maximum(fh, _grid_at(under, px, pz))
-        # it falls straight below the fullest point of the body, and lies over the strands beneath (their twists
-        # included) where they are, easing onto them over its first 0.4 (under the braid, where they all begin)
+        # its depth: at its place in the lock (BK_DEPTH) between the body, below whose fullest point it falls
+        # straight, and the side view's outline (BK_SIDE), never beyond the outline; and on the strands beneath
+        # where they are (easing onto them over its first 0.4, under the braid, where they all begin)
+        body = np.maximum.accumulate(np.r_[BK_TOP, fb + CH_GAP])[1:]
+        ker = np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
+        cap = np.interp(Q[:, 1], *np.array(BK_SIDE).T) - 0.6 * th - 0.06      # its top and twist inside the outline
+        cap = np.maximum(np.convolve(np.pad(cap, 24, mode='edge'), ker / ker.sum(), 'valid'), body)
+        lock = [k for k in BK_LOOK if k[1] == key[1]]
+        f = BK_DEPTH[0] + (BK_DEPTH[1] - BK_DEPTH[0]) * lock.index(key) / max(1, len(lock) - 1)
         fh = BK_TOP + np.maximum(fh - BK_TOP, 0) * np.clip(s / 0.4, 0, 1) ** 2
-        g, ker = fh + CH_ON, np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
+        g = fh + CH_ON
         g = np.max([np.roll(np.pad(g, 20, mode='edge'), i)[20:-20] for i in range(-20, 21)], axis=0)  # rounded off
         g = np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid')                    # without sinking
-        lo = np.maximum(np.maximum.accumulate(np.r_[BK_TOP, fb + CH_GAP])[1:], g)
+        lo = np.minimum(np.maximum(body + f * (cap - body), g), cap)
         g = lo.copy()
         for _ in range(60):
             g = np.maximum(np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
+        g = np.minimum(g, cap)
         curl = BK_CURL.get(key)
         tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
         y = g + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
-        for k in np.linspace(-1.2, 1.2, 11):                 # its back, across the twisted section and its sub-strands
+        for k in np.linspace(-1.2, 1.2, 11):                 # across the twisted section and its sub-strands
             kc = k * hw * np.cos(phi)
             px, pz = Q[:, 0] + kc * N2[:, 0], Q[:, 1] + kc * N2[:, 1]
             i, j = np.round((px - _CG[0]) / _CG[2]).astype(int), np.round((pz - _CG[1]) / _CG[2]).astype(int)
             ok = (i >= 0) & (i < 301) & (j >= 0) & (j < 301)
-            np.maximum.at(under, (i[ok], j[ok]), (y + np.abs(k * hw * np.sin(phi)) + thv * tip * (1.5 - 0.55 * k * k))[ok])
+            np.maximum.at(under, (i[ok], j[ok]), (y + 0.35 * thv * tip * (1 - 0.5 * k * k))[ok])   # the strands over it sink
+                                                    # into it a little rather than pile up
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
         root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]

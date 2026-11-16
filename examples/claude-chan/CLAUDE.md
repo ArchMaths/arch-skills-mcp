@@ -113,9 +113,13 @@ wander, vary in width and twist gently about their own lines, about half a turn)
 "strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
 gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
 model's hair in the back view, drawn with hidden parts removed), then place strands through them and check that none touches a
-ringlet (nearest-point distance between the surfaces). Lay a strand on the strand beneath as that one really is
-(its twisted section), rounded off, not with a running maximum: a running maximum carries every twist's edge all
-the way down and piles the strands up.
+ringlet (nearest-point distance between the surfaces). Check every hair change from the side as well: the
+hair's outline (its largest y at each height) against the sheet's side view. Laying each strand on its full
+thickness over the ones beneath piled the eight strands of a lock up to 1.6 behind the back, which no back view
+shows and the user saw in Arch. The back locks' depth now comes from the user's tracing of the side view's
+outline (`BK_SIDE`): each strand has its place between the body and the outline (`BK_DEPTH`), never beyond it,
+and strands over others sink into them a little rather than pile up. Below z 9 the locks fall straight (the
+user's choice; the sheet's side view keeps trailing them back).
 
 Curls: write a helix as it is (cos and sin of its angle, `curl_xyz`), never fit one. A least-squares fit of
 polynomials times cos and sin to a helix that starts steeply gave coefficients near 10^8 that cancel each other;
