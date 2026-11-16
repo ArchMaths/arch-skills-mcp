@@ -9,12 +9,11 @@ TB = 0.09                                # how far down a lock eases from turnin
 T0 = 1 / (1 + (ZHC - ZBOT) / (HDZ * math.pi / 2))   # part of a lock's length that lies on the dome
 VF = HDZ * math.pi / 2 / T0              # how fast z falls with t below the dome
 
-_cape = [bezier_eval(CAPE, s) for s in np.linspace(0, 1, 200)]
-
-
-def cape_ab(z):
-    best = min(_cape, key=lambda p: abs(p[0] - z))
-    return best[1], best[2]
+# ARM_ENV, ARM_PSI (arms.py): how far out the sleeves, cuffs and hands reach by height, and round which angles
+_bk = BOOK[2]
+BOOK_Z = (min(P[2] for P in _bk) - 0.05, max(P[2] for P in _bk) + 0.05)
+BOOK_R = max(math.hypot(P[0], P[1] - 0.03) for P in _bk) + 0.04
+BOOK_PSI = (min(math.atan2(P[0], P[1] - 0.03) for P in _bk) - 0.1, max(math.atan2(P[0], P[1] - 0.03) for P in _bk) + 0.1)
 
 
 def ell_r(a, b, psi):
@@ -24,20 +23,21 @@ def ell_r(a, b, psi):
 def envelope(psi, z):
     """Distance from the body axis to the outside of the figure at angle psi from the back."""
     r = 0.3
-    if 8.9 <= z <= 10.75:
-        a, b = cape_ab(z)
-        r = max(r, ell_r(a, b, psi))
+    r = max(r, cape_env(psi, z))                # the capelet (cape.py), standing out at the back
     if 7.6 <= z <= 9.3:
         r = max(r, ell_r(0.7, 0.55, psi))
-    if z < 8.2:
-        a = SA((8.4 - z) / 7.05) + 0.16
-        r = max(r, ell_r(a, 0.88 * a, psi))
-        if abs(psi) < 0.75 and 6.3 < z < 8.5:          # back bow and its tails
-            r = max(r, 0.88 * (SA((8.4 - 8.0) / 7.05) + 0.2) + 0.32)
-    if 1.25 < abs(psi) < 1.95 and 7.1 < z < 9.05:      # forearms and hands below the capelet
-        r = max(r, 1.45)
-    if 1.6 < psi < 2.1 and 6.0 < z < 7.6:              # the book in her left hand
-        r = max(r, 1.68)
+    if z < SK_TOP - 0.2:
+        th = math.pi - abs(psi)                     # angle from the front
+        s = sk_s(z)
+        a = (OSR(z) + 0.12) if OV_F - 0.2 < th < OV_B + 0.2 and z > 2.5 else SA(s) + 0.16
+        r = max(r, a * math.hypot(math.sin(th), DK(s, th) * math.cos(th)))
+        for th_b, z_b in ((OV_B, BOW_ZB), (OV_F, BOW_ZF)):     # the bows, their tails and tassels
+            if abs(th - th_b) < 0.4 and z_b - 1.0 < z < z_b + 0.35:
+                r = max(r, (OSR(z_b) + 0.1) * math.hypot(math.sin(th_b), DK(sk_s(z_b), th_b) * math.cos(th_b)) + 0.3)
+    if ARM_PSI[0] < abs(psi) < ARM_PSI[1] and ARM_ENV[-1][0] < z < ARM_ENV[0][0]:      # arms and hands below the capelet
+        r = max(r, float(np.interp(z, [e[0] for e in ARM_ENV[::-1]], [e[1] for e in ARM_ENV[::-1]])))
+    if BOOK_PSI[0] < psi < BOOK_PSI[1] and BOOK_Z[0] < z < BOOK_Z[1]:   # the book in her left hand
+        r = max(r, BOOK_R)
     return r
 
 
@@ -100,7 +100,10 @@ def fit_profile(req, base):
             break
         target = target + np.maximum(deficit, 0) * 1.5
     margin = float(np.min((fit - (req - base))[US > 0.05]))
-    return ''.join(f"+{fmt(c)}*max(0,t-{fmt(T0 + k)})^2" for c, k in zip(coef, KNOTS)), margin
+    return ''.join(f"+{fmt(c)}*max(0,t-{fmt(T0 + k)})^2" for c, k in zip(coef, KNOTS)), margin, coef
+
+
+FRONT_BLADES = []      # the locks in front of the face, for the brows drawn over them
 
 
 def run_hair():
@@ -112,21 +115,27 @@ crown), below that it falls. hzz(t) is the height, hrx(t) and hry(t) are the hal
 hair lies on at that height: they follow the dome, then keep clear of the shoulders, capelet, arms, book
 and skirt and flare out toward the ends (fitted by the generator). hu(t) is 0 on the dome and grows to 1
 down the fall. hdw keeps a lock's width steady as the hair spreads.""")
-    gx, m1 = fit_profile(side_req, HDX)
-    gy, m2 = fit_profile(back_req, HDY)
+    gx, m1, cx_ = fit_profile(side_req, HDX)
+    gy, m2, cy_ = fit_profile(back_req, HDY)
+    # hdw = min(1, 1.54 / (hrx + hry)), exactly: on the dome hrx + hry = 1.54 sin(ha) and the profiles' knot terms
+    # are 0; on the fall sin(ha) = 1. So hdw = 1.54 / (1.54 + both profiles' knot terms), one spline (their
+    # coefficients summed, the knots are shared) instead of min(...), which Arch writes with both profiles twice.
+    gs = ''.join(f"+{fmt(a + b)}*max(0,t-{fmt(T0 + k)})^2" for a, b, k in zip(cx_, cy_, KNOTS))
     print(f'  hair clearance margins: side {m1:.3f}, back {m2:.3f}', file=sys.stderr)
     sc.func('ha(t)', f"1.5708*min(1,t/{fmt(T0)})")
     sc.func('hu(t)', f"max(0,t-{fmt(T0)})/{fmt(1 - T0)}")
     sc.func('hzz(t)', f"{fmt(ZHC)}+{fmt(HDZ)}*cos(ha(t))-{fmt(VF)}*max(0,t-{fmt(T0)})")
     sc.func('hrx(t)', f"{fmt(HDX)}*sin(ha(t)){gx}")
     sc.func('hry(t)', f"{fmt(HDY)}*sin(ha(t)){gy}")
-    sc.func('hdw(t)', 'min(1,1.54/(hrx(t)+hry(t)))')
+    sc.func('hdw(t)', f"1.54/(1.54{gs})")
     sc.comment(f"""Her head is tilted and turned (see the generator); a lock turns with it where it lies on the head and
 hangs straight below. hb(t) is 1 on the head and eases to 0 by t = {fmt(T0 + TB)}; hs and hk are the sine and
-one minus the cosine of the head's turn times hb.""")
+one minus the cosine of the head's turn times hb, and hm scales the lock with the head where it lies on it.""")
     sc.func('hb(t)', f"1-min(1,max(0,(t-{fmt(T0)})/{fmt(TB)}))^2*(3-2*min(1,max(0,(t-{fmt(T0)})/{fmt(TB)})))")
     sc.func('hs(t)', f"sin({fmt(HEAD_TURN['angle'])}*hb(t))")
     sc.func('hk(t)', f"1-cos({fmt(HEAD_TURN['angle'])}*hb(t))")
+    sc.func('hm(t)', f"1-{fmt(1 - HEAD_TURN['scale'])}*hb(t)")
+    HB = ('hs(t)', 'hk(t)', 'hm(t)')
     sc.comment("""A lock is a tube around its own flow line. lpc is the angle of that line around the head: a starting
 angle pb+p0 (0 = straight back, + toward her left) whose part p0 closes up by sg as the hair spreads (sg = 1
 falls straight down, sg = 0 fans out over the shoulders; pb is 0 for the back and pi for the front), a drift dr, and a wave of size am that grows down the
@@ -150,7 +159,7 @@ quarters of a circle: sideways like a hook, or outward like a scroll.""")
         WD = f"lwd(t,{fmt(te)},{fmt(hw)})"
         TH = f"lth(t,w,{fmt(te)},{fmt(th)})"
         end = te if curl is None else te - 0.08
-        with sc.turned(**HEAD_TURN, blend=('hs(t)', 'hk(t)')):
+        with sc.turned(**HEAD_TURN, blend=HB):
             sc.surface((f"(hrx(t)+({RC}+{TH})*sin(ha(t)))*sin({PC}+{WD}*cos(w))", f"{fmt(HY0)}+(hry(t)+({RC}+{TH})*sin(ha(t)))*cos({PC}+{WD}*cos(w))",
                         f"hzz(t)+({RC}+{TH})*cos(ha(t))"), ('t', start, end), ('w', 0, '2*pi'), col, ref, ('tube', 'u'))
         if curl is None:
@@ -169,11 +178,13 @@ quarters of a circle: sideways like a hook, or outward like a scroll.""")
                    f"{ZC}-{fmt(rc)}*sin{AL}+{TH}*sin{AL}")
         sc.surface(xyz, ('t', te - 0.08, te), ('w', 0, '2*pi'), col, ref + 'Curl', ('tube', 'u'))
 
-    sc.comment("A dark cap and an inner sheet under the locks, so no gap shows skin.")
+    sc.comment("""A dark cap and an inner sheet under the locks, so no gap shows skin. The cap stops higher above her left
+eye and a little higher above her right eye, where the forehead shows between the bangs as on the sheet.""")
+    CAPM = "(1.75-0.42*exp(-((v+1.3)/0.1)^2)-0.2*exp(-((v+1.15)/0.15)^2)-0.1*exp(-((v+2.12)/0.12)^2))"
     with sc.turned(**HEAD_TURN):
-        sc.surface((f"{fmt(HDX * 0.98)}*sin(u)*cos(v)", f"{fmt(HY0)}+{fmt(HDY * 0.98)}*sin(u)*sin(v)", f"{fmt(ZHC)}+{fmt(HDZ * 0.98)}*cos(u)"),
-               ('u', 0, 1.75), ('v', 0, '2*pi'), HAIR_DK, 'hairCap', ('point', (0, HY0, ZHC)))
-    with sc.turned(**HEAD_TURN, blend=('hs(t)', 'hk(t)')):
+        sc.surface((f"{fmt(HDX * 0.98)}*sin(u*{CAPM})*cos(v)", f"{fmt(HY0)}+{fmt(HDY * 0.98)}*sin(u*{CAPM})*sin(v)", f"{fmt(ZHC)}+{fmt(HDZ * 0.98)}*cos(u*{CAPM})"),
+               ('u', 0, 1), ('v', '-pi', 'pi'), HAIR_DK, 'hairCap', ('point', (0, HY0, ZHC)))
+    with sc.turned(**HEAD_TURN, blend=HB):
         sc.surface(("(hrx(t)-0.03)*sin(k*(1-0.64*(1-hdw(t))))", f"{fmt(HY0)}+(hry(t)-0.03)*cos(k*(1-0.64*(1-hdw(t))))", "hzz(t)"),
                    ('t', T0 * 0.9, 0.7), ('k', -1.2, 1.2), HAIR_DK, 'hairUnder', ('point', (0, 0, 9)))
 
@@ -215,7 +226,8 @@ Across it (w) the blade has the same crescent section as the long locks; its wid
 vectors are polynomials too.""")
     fyf = sc.ns['fy']
 
-    def blade(ref, pts, nrms, wid, thk, color):
+    def blade(ref, pts, nrms, wid, thk, color, sheen=None):
+        """sheen=(t0, t1): a lighter streak down the front of the blade between t0 and t1, as anime hair is shaded."""
         n = len(pts) - 1
         sides = []
         for i in range(n + 1):
@@ -226,31 +238,66 @@ vectors are polynomials too.""")
         U = bezier_poly(interp_bezier([mul(s_, w_) for s_, w_ in zip(sides, wid)]))
         Vv = bezier_poly(interp_bezier([mul(n_, t_) for n_, t_ in zip(nrms, thk)]))
         xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(Vv[i], 't')})" for i in range(3))
+        FRONT_BLADES.append((ref, xyz))
         with sc.turned(**HEAD_TURN):
             sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), color, ref, ('tube', 'u'))
+        if sheen:
+            t0, t1, col = sheen
+            tp = f"max(0,sin(pi*(t-{fmt(t0)})/{fmt(t1 - t0)}))^1.2"
+            sx = tuple(f"{horner(C[i], 't')}+0.22*cos(w)*{tp}*({horner(U[i], 't')})+1.12*({horner(Vv[i], 't')})" for i in range(3))
+            FRONT_BLADES.append((ref + 'Sheen', sx))
+            with sc.turned(**HEAD_TURN):
+                sc.surface(sx, ('t', t0, t1), ('w', 0, 'pi'), col, ref + 'Sheen', ('dir', (0, -1, 0.3)))
 
-    def bang(ref, phis, tip, w0, color, ths=(0.14, 0.75, 1.32), fwd_=0.05, off=0.04, tk=1.0):
-        p0, p1, p2 = dome(ths[0], phis[0], 1.005), dome(ths[1], phis[1], 1.035), dome(ths[2], phis[2], 1.045)
+    def bang(ref, phis, tip, w0, color, ths=(0.14, 0.75, 1.32), fwd_=0.05, off=0.04, tk=1.0, wp=(0.18, 0.95, 1.0, 0.6), lift=0.0):
+        """lift stacks a lock on top of the ones it overlaps, so they lie on each other instead of crossing."""
+        p0, p1, p2 = dome(ths[0], phis[0], 1.005 + lift), dome(ths[1], phis[1], 1.035 + lift), dome(ths[2], phis[2], 1.045 + lift)
         xt, zt = tip
-        p4 = (xt, fyf(xt, zt) - off, zt)
+        p4 = (xt, fyf(xt, zt) - off - 0.5 * lift, zt)
         x3, z3 = p2[0] + (xt - p2[0]) * 0.55, p2[2] + (zt - p2[2]) * 0.5
-        y3 = min(0.5 * (p2[1] + p4[1]) - fwd_, fyf(x3, z3) - 0.075)
+        y3 = min(0.5 * (p2[1] + p4[1]) - fwd_, fyf(x3, z3) - 0.075) - lift
         p3 = (x3, y3, z3)
         n3 = unit((0.4 * x3, -1, 0.15))
         n4 = unit((0.4 * xt, -1, 0.0))
         blade(ref, [p0, p1, p2, p3, p4], [dome_normal(p0), dome_normal(p1), dome_normal(p2), n3, n4],
-              [0.18 * w0, 0.95 * w0, w0, 0.6 * w0, 0.0], [0.008 * tk, 0.04 * tk, 0.045 * tk, 0.03 * tk, 0.0], color)
+              [wp[0] * w0, wp[1] * w0, wp[2] * w0, wp[3] * w0, 0.0], [0.008 * tk, 0.04 * tk, 0.045 * tk, 0.03 * tk, 0.0], color)
 
-    bang('bang1', (0.3, 0.2, 0.1), (0.03, ZE - 0.05), 0.16, HAIR)
-    bang('bang2', (0.05, -0.1, -0.2), (-0.14, ZE + 0.03), 0.15, HAIR_LT)
-    bang('bang3', (0.5, 0.4, 0.3), (0.11, ZE + 0.11), 0.13, HAIR_LT)
-    bang('bang4', (-0.15, -0.4, -0.55), (-0.28, ZE + 0.1), 0.17, HAIR)
-    bang('bang5', (-0.4, -0.72, -0.92), (-0.47, ZE + 0.06), 0.18, HAIR_LT)
+    def strand(ref, xtop, mid, tip, hw, color, lift=0.0, tk=0.75, off=0.04, sweep=-0.12, sheen=None, hug=False):
+        """One strand of the bangs: from the crown over the dome to the hairline at x = xtop, then through mid and
+        down to a pointed tip (face x, height above the pupils) just in front of the face. hw: half-widths at the
+        hairline and at mid. It is narrow and round in section, so the light runs across it like hair. hug keeps
+        its middle close to the face (for strands that fall past the cheeks)."""
+        ph2 = math.asin(max(-0.98, min(0.98, xtop / (HDX * math.sin(1.32) * (1.045 + lift)))))
+        p0, p1, p2 = dome(0.14, ph2 + 2 * sweep, 1.005 + lift), dome(0.75, ph2 + sweep, 1.035 + lift), dome(1.32, ph2, 1.045 + lift)
+        (x3, z3), (xt, zt) = (mid[0], ZE + mid[1]), (tip[0], ZE + tip[1])
+        p4 = (xt, fyf(xt, zt) - off - 0.5 * lift, zt)
+        y3 = fyf(x3, z3) - 0.05 if hug else min(0.5 * (p2[1] + p4[1]) - 0.03, fyf(x3, z3) - 0.07)
+        p3 = (x3, y3 - lift, z3)
+        blade(ref, [p0, p1, p2, p3, p4], [dome_normal(p0), dome_normal(p1), dome_normal(p2), unit((0.4 * x3, -1, 0.15)), unit((0.4 * xt, -1, 0.0))],
+              [0.2 * hw[0], 0.9 * hw[0], hw[0], hw[1], 0.0], [0.008 * tk, 0.038 * tk, 0.042 * tk, 0.034 * tk, 0.0], color,
+              sheen=None if sheen is None else (0.47, sheen, HAIR_HI))
+
+    # As on the sheet's portrait: one wide lock sweeps down to a point at the bridge of the nose, the forehead
+    # shows in a tall triangle above her left eye, a lock sweeps over her left temple, and above her right eye a
+    # smaller gap is framed by the locks at the side (bang5-6). The wide lock and the temple lock are made of
+    # strands along the strand lines drawn on the sheet, with staggered pointed tips; a thin dark layer under the
+    # wide lock keeps the forehead from showing between its strands. Strands are stacked (lift) so that they lie
+    # on each other, and the main ones carry a lighter streak (sheen).
+    strand('bangUnder', -0.08, (-0.09, 0.25), (-0.05, -0.03), (0.23, 0.16), HAIR_SH, tk=0.3)
+    strand('bang1', -0.23, (-0.23, 0.25), (-0.14, -0.08), (0.07, 0.055), HAIR, lift=0.018, sheen=0.8)
+    strand('bang2', -0.31, (-0.32, 0.3), (-0.28, 0.05), (0.045, 0.035), HAIR_DK, lift=0.03)
+    strand('bang3', -0.13, (-0.12, 0.25), (-0.06, -0.09), (0.065, 0.05), HAIR_LT, lift=0.032, sheen=0.78)
+    strand('bang4', -0.03, (-0.04, 0.25), (-0.01, -0.1), (0.07, 0.055), HAIR, lift=0.015, sheen=0.82)
+    strand('bang10', 0.08, (0.06, 0.25), (0.04, -0.06), (0.07, 0.05), HAIR_LT, lift=0.03, sheen=0.78)
+    strand('bang11', 0.16, (0.135, 0.28), (0.07, 0.02), (0.045, 0.033), HAIR_DK, lift=0.042)
+    strand('bang12', -0.17, (-0.13, 0.42), (-0.08, 0.2), (0.05, 0.035), HAIR_LT, lift=0.05)
+    strand('bang13', 0.12, (0.11, 0.38), (0.06, 0.13), (0.045, 0.03), HAIR, lift=0.056)
+    bang('bang5', (-0.6, -0.8, -0.85), (-0.5, ZE + 0.1), 0.16, HAIR_LT, lift=0.03)
     bang('bang6', (-0.7, -1.05, -1.27), (-0.6, ZE - 0.02), 0.18, HAIR)
-    bang('bang7', (0.72, 0.97, 1.12), (0.57, ZE + 0.09), 0.17, HAIR)
-    bang('bang8', (1.0, 1.26, 1.42), (0.62, ZE + 0.13), 0.16, HAIR_LT)
-    bang('bang9', (0.45, 0.6, 0.7), (0.37, ZE + 0.3), 0.13, HAIR)
-    bang('bang10', (0.62, 0.85, 0.97), (0.5, ZE + 0.2), 0.14, HAIR_LT)
+    strand('bang7', 0.3, (0.4, 0.3), (0.55, 0.07), (0.07, 0.05), HAIR, sweep=-0.1, sheen=0.8)
+    strand('bang9', 0.42, (0.51, 0.3), (0.62, 0.0), (0.08, 0.065), HAIR_LT, lift=0.02, sweep=-0.1)
+    strand('bang14', 0.52, (0.55, 0.38), (0.53, 0.14), (0.05, 0.035), HAIR_DK, lift=0.04, sweep=-0.1)
+    bang('bang8', (1.0, 1.26, 1.42), (0.66, ZE + 0.1), 0.16, HAIR_LT, lift=0.03)
     for sd, tag in ((1, 'L'), (-1, 'R')):
         pts = [dome(0.3, 1.5 * sd, 1.005), dome(1.15, 1.62 * sd, 1.04), (0.71 * sd, -0.07, ZE + 0.06), (0.69 * sd, -0.13, ZE - 0.2)]
         xt, zt = 0.6 * sd, ZE - 0.38
@@ -258,11 +305,16 @@ vectors are polynomials too.""")
         nr = [dome_normal(pts[0]), dome_normal(pts[1]), unit((sd, -0.25, 0)), unit((sd, -0.3, 0)), unit((sd, -0.5, 0))]
         blade(f'frame{tag}', pts, nr, [0.04, 0.15, 0.14, 0.1, 0.0], [0.008, 0.04, 0.04, 0.03, 0.0], HAIR)
 
-    sc.comment("""Thin wisps from the bangs that cross the eyes, and locks that fall from the temples in front of the
-cheeks to below the jaw, so the face shows as a soft narrow oval between them, as on the sheet.""")
+    sc.comment("""Thin wisps from the bangs that cross the eyes, and locks that fall from the temples to below the jaw:
+beside the face on her right, so the jaw line shows, and over the outer cheek on her left, as in the portrait.""")
     bang('wisp1', (0.22, 0.02, -0.14), (-0.25, ZE - 0.07), 0.035, HAIR_LT, off=0.042, tk=0.45)
-    bang('wisp2', (0.42, 0.36, 0.3), (0.27, ZE - 0.03), 0.03, HAIR_LT, off=0.042, tk=0.45)
+    bang('wisp2', (0.3, 0.22, 0.16), (0.2, ZE + 0.02), 0.03, HAIR_LT, off=0.042, tk=0.45)
     bang('wisp3', (-0.45, -0.78, -0.98), (-0.5, ZE - 0.1), 0.032, HAIR, off=0.042, tk=0.45)
+    # thin strands that fall past her left cheek and flick inward, and one beside her right cheek, as drawn on the sheet
+    strand('wisp4', 0.62, (0.55, -0.1), (0.34, -0.34), (0.04, 0.03), HAIR_LT, lift=0.02, off=0.03, sweep=-0.05, hug=True)
+    strand('wisp5', 0.63, (0.54, -0.24), (0.31, -0.47), (0.035, 0.026), HAIR, lift=0.025, off=0.03, sweep=-0.05, hug=True)
+    strand('wisp6', 0.62, (0.5, -0.4), (0.35, -0.56), (0.03, 0.022), HAIR_LT, lift=0.03, off=0.03, sweep=-0.05, hug=True)
+    strand('wisp7', -0.6, (-0.62, 0.2), (-0.63, -0.22), (0.05, 0.04), HAIR_LT, lift=0.03, sweep=0.05, hug=True)
 
     def face_normal(x, z, e=1e-4):
         return unit(((fyf(x + e, z) - fyf(x - e, z)) / (2 * e), -1, (fyf(x, z + e) - fyf(x, z - e)) / (2 * e)))
@@ -271,8 +323,9 @@ cheeks to below the jaw, so the face shows as a soft narrow oval between them, a
         p0 = dome(0.6, (1.12 + dx) * sd, 1.01)
         p1 = dome(1.22, (1.18 + 0.5 * dx) * sd, 1.045)
         z2, z3 = ZE + 0.02, ZE - 0.28
-        p2 = (x2 * sd, fyf(x2 * sd, z2) - gap, z2)
-        p3 = (x3 * sd, fyf(x3 * sd, z3) - gap, z3)
+        fw_ = sc.ns['fwd']
+        p2 = (x2 * sd, fyf(min(x2, fw_(z2) - 0.02) * sd, z2) - gap, z2)
+        p3 = (x3 * sd, fyf(min(x3, fw_(z3) - 0.02) * sd, z3) - gap, z3)     # beside the jaw where it is outside it
         p4 = (x4 * sd, -0.3, z4)
         # keep clear of the face: wherever the centre line is over the face it stays gap/2 in front of it;
         # if it does not, bring the lower part of the lock forward
@@ -289,10 +342,19 @@ cheeks to below the jaw, so the face shows as a soft narrow oval between them, a
         blade(ref, pts, nr, [0.035, 0.9 * w0, w0, 0.85 * w0, 0.0], [0.008, 0.03, 0.028, 0.024, 0.0], color)
 
     for sd, tag in ((1, 'L'), (-1, 'R')):
-        # on the sheet the hair covers the outer part of each cheek, leaving about +-0.42 of the face showing
-        cheek_lock(f'cheekLock{tag}1', sd, 0.0, 0.6, 0.47, 0.36, ZE - 0.82, 0.08, HAIR)
-        cheek_lock(f'cheekLock{tag}2', sd, -0.07, 0.575, 0.42, 0.3, ZE - 0.68, 0.05, HAIR_LT)
-        cheek_lock(f'cheekLock{tag}3', sd, 0.06, 0.615, 0.53, 0.44, ZE - 0.96, 0.065, HAIR_DK)
+        if sd < 0:      # her right: the hair falls beside the face, so the whole jaw line shows
+            cheek_lock(f'cheekLock{tag}1', sd, 0.0, 0.63, 0.6, 0.5, ZE - 0.86, 0.075, HAIR)
+            cheek_lock(f'cheekLock{tag}2', sd, -0.07, 0.61, 0.57, 0.45, ZE - 0.74, 0.05, HAIR_LT)
+            cheek_lock(f'cheekLock{tag}3', sd, 0.06, 0.645, 0.63, 0.56, ZE - 0.98, 0.065, HAIR_DK)
+        else:           # her left: the hair covers the outer cheek, leaving about 0.42 of the face showing
+            cheek_lock(f'cheekLock{tag}1', sd, 0.0, 0.6, 0.47, 0.36, ZE - 0.82, 0.08, HAIR)
+            cheek_lock(f'cheekLock{tag}2', sd, -0.07, 0.575, 0.42, 0.3, ZE - 0.68, 0.05, HAIR_LT)
+            cheek_lock(f'cheekLock{tag}3', sd, 0.06, 0.615, 0.53, 0.44, ZE - 0.96, 0.065, HAIR_DK)
+
+    sc.blank()
+    sc.note('Brows')
+    with sc.turned(**HEAD_TURN):
+        draw_brows(FRONT_BLADES)
 
     # ---------- the braid crown ----------
     sc.blank()

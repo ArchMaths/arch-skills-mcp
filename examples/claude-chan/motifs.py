@@ -1,0 +1,308 @@
+"""Embroidery motifs of Claude Chan's dress as Arch curve expressions, measured on close-up photos.
+
+    python3 motifs.py --photo fern.jpg -o fern-demo.png     # 2D demo of the fern, over the photo it was measured on
+
+A motif is a list of (name, (X, H), (t0, t1)): X across and H up, in model units, as Arch expressions in t.
+Every leaf starts and ends where it joins its stem, so a curve that draws several leaves (index floor(t)) only
+ever jumps along a stem it has already drawn and leaves no stray stroke.
+"""
+import math
+
+
+def _f(v):
+    return v if isinstance(v, str) else f"{v:.5g}"
+
+
+def clamp01(e):
+    return f"min(1,max(0,{e}))"
+
+
+def quad3(a, b, c, m):
+    """Expression equal to a, b, c at m = 0, 1, 2."""
+    return f"({_f(a)}+{_f(-1.5 * a + 2 * b - 0.5 * c)}*{m}+{_f(0.5 * a - b + 0.5 * c)}*{m}^2)"
+
+
+def leaf_off(tilt, L, W, w, taper=0.6):
+    """Offsets (dx, dh) of a leaf's outline from its base as w runs 0..1: L long, about W wide, leaning tilt from
+    straight up (+ toward +x). taper 0 is an ellipse; larger narrows the base into a teardrop."""
+    L, W, tilt = _f(L), _f(W), _f(tilt)
+    u = f"((1-cos(2*pi*({w})))/2)"
+    a = f"({L})*{u}"
+    c = f"({W})/2*sin(2*pi*({w}))" + (f"*{_f(1 / (0.94 * 0.67 ** taper))}*{u}^{_f(taper)}" if taper else '')
+    return (f"({a}*sin({tilt})+{c}*cos({tilt}))", f"({a}*cos({tilt})-{c}*sin({tilt}))")
+
+
+# ---- the skirt's fern (photo: 0.00232 units a pixel; stem at x 100, foot at y 460) ------------------------------
+FERN_STEM = 0.79                       # the stem's top, where the top leaf starts
+FERN_TOP = (0.145, 0.058)              # top leaf: length, width
+FERN_NODE = (0.719, -0.1415)           # height of the first pair's node, step to the next (3 pairs)
+FERN_PAIR_L = (0.125, 0.0155)          # pair leaf length: first pair, growth per pair
+FERN_PAIR_W = (0.049, 0.004)
+FERN_PAIR_TILT = (0.70, 0.015)          # radians off the stem
+FERN_FORK = 0.195                      # where the twigs leave the stem
+FERN_TWIG = ((0.12, 0.295), (0.16, 0.36))            # twig: its bend A and its end B (x, h), mirrored
+FERN_TWIG_LEAVES = ((0.12, 0.100), (1.46, 0.092), (0.26, 0.094))   # (tilt, length): two at A, one at B
+FERN_TWIG_W = 0.046
+FERN_DIAMOND = (0.105, 0.062, 0.095)   # centre height, half width, half height
+FERN_FOOT = (0.0, 0.125, 0.04, 0.75, 0.105, 0.048)  # foot twig: height at the stem, x and h of its ends; leaf tilt, length, width
+
+
+def fern_curves():
+    out = []
+    dx, dh = leaf_off(0, *FERN_TOP, 'max(0,t-1)', taper=0.15)
+    out.append(('Stem', (dx, f"({_f(FERN_STEM)}*min(1,t)+{dh})"), (0, 2)))
+    k, j = 'floor(t)', 'floor(t/2)'
+    sg = f"(1-2*({k}-2*{j}))"
+    dx, dh = leaf_off(f"{sg}*({_f(FERN_PAIR_TILT[0])}+{_f(FERN_PAIR_TILT[1])}*{j})", f"{_f(FERN_PAIR_L[0])}+{_f(FERN_PAIR_L[1])}*{j}",
+                      f"{_f(FERN_PAIR_W[0])}+{_f(FERN_PAIR_W[1])}*{j}", f"t-{k}", taper=0.9)
+    out.append(('Pairs', (dx, f"({_f(FERN_NODE[0])}+{_f(FERN_NODE[1])}*{j}+{dh})"), (0, 5.999)))
+    # a twig, one stroke: its end leaf, down the twig to its bend (two leaves there), on down to the stem
+    (ax, ah), (bx, bh) = FERN_TWIG
+    xl = f"({_f(bx)}-{_f(bx - ax)}*{clamp01('t-1')}-{_f(ax)}*{clamp01('t-4')})"
+    s1, s2 = (ah - FERN_FORK) / ax, (bh - ah) / (bx - ax)
+    hl = f"({_f(FERN_FORK)}+{_f(s1)}*{xl}+{_f(s2 - s1)}*max(0,{xl}-{_f(ax)}))"
+    X, H = [xl], [hl]
+    (t2, l2), (t3, l3), (t1, l1) = FERN_TWIG_LEAVES
+    for seg, tilt, L in ((0, t1, l1), (2, t2, l2), (3, t3, l3)):
+        dx, dh = leaf_off(tilt, L, FERN_TWIG_W, clamp01(f"t-{seg}"), taper=0.9)
+        X.append(dx), H.append(dh)
+    out.append(('TwigL', ('+'.join(X), '+'.join(H)), (0, 5)))
+    out.append(('TwigR', ('-(' + '+'.join(X) + ')', '+'.join(H)), (0, 5)))
+    hc, wx, wh = FERN_DIAMOND
+    out.append(('Diamond', (f"{_f(wx)}*sqc(t,2)", f"({_f(hc)}+{_f(wh)}*sqs(t,2))"), (0, '2*pi')))
+    h0, fx, fh, tilt, L, W = FERN_FOOT
+    xl = f"({_f(-fx)}+{_f(2 * fx)}*{clamp01('t-1')})"
+    a = leaf_off(-tilt, L, W, clamp01('t'), taper=0.9)
+    b = leaf_off(tilt, L, W, clamp01('t-2'), taper=0.9)
+    out.append(('Foot', (f"{xl}+{a[0]}+{b[0]}", f"{_f(h0)}+{_f((fh - h0) / fx)}*abs({xl})+{a[1]}+{b[1]}"), (0, 3)))
+    return [(n, (f"({X})", f"({H})"), T) for n, (X, H), T in out]
+
+
+# ---- the orange cloth's sprig (photo: 372 pixels a unit) ---------------------------------------------------------
+def sprig_xy(x0, h0):
+    """Three petals fanned 34 degrees from (x0, h0): 0.082 long between two of 0.062, 0.026 wide."""
+    k = 'floor(t)'
+    dx, dh = leaf_off(f"((1-{k})*0.6)", f"0.082-0.02*abs({k}-1)", '0.03', f"t-{k}", taper=0.35)
+    return (f"({x0}+{dx})", f"({h0}+{dh})")
+
+
+# ---- the black panels' emblem -------------------------------------------------------------------------------------
+# Measured with Python on the user's tracing of a close-up (petal directions and lengths in units of the centre
+# ring's radius, which is 0.063 on the sheet: 0.00252 units a pixel in the close-up). A flower of pointed,
+# round-sided petals in 16 places round a ringed centre: 3.6 ring radii long, the two upper diagonal ones 4.25;
+# the top one carries a bud that reaches 5.55; the bottom place is a spray, a long leaf to 5.3 with a shorter
+# leaf curling out on each side. Below, to each side, a dot and a forked twig. x toward the back, h up.
+EMB_N = 16
+EMB_CENTRE = 0.063                     # the ring's radius; the lengths below are multiples of it
+EMB_DOT = 0.55 * EMB_CENTRE            # the inner ring
+EMB_FOOT, EMB_W = 1.12, 0.80           # where petals start; their width
+EMB_LEN = (3.6, 4.25, 4.2, 5.3)        # petals; the upper diagonals; the top one; the bottom leaf
+EMB_BUD = (3.75, 5.55, 0.75)           # the bud on the top petal: from, to, width
+EMB_SPRAY = (2.7, 4.6, 0.6, 0.42)      # the spray's side leaves: from, to, width, angle off straight down
+EMB_TWIGS = (((-2.0, -2.9), (-5.2, -5.1), (-2.1, -3.5)), ((2.6, -3.5), (4.9, -4.75), (1.95, -3.8)))   # each: from, to, its dot
+
+
+def _emb_len(k):
+    """Length of the petal in place k (counted counter-clockwise from the top one), in model units."""
+    R, n = EMB_CENTRE, EMB_N
+    # 1 at place j, below 1e-6 at every other whole place (written without max: Arch pastes max's argument twice)
+    pk = lambda j: f"((1+cos(2*pi*(({k})-({j}))/{n}))/2)^400"
+    return (f"({_f(EMB_LEN[0] * R)}+{_f((EMB_LEN[1] - EMB_LEN[0]) * R)}*({pk(2)}+{pk(-2)})"
+            f"+{_f((EMB_LEN[2] - EMB_LEN[0]) * R)}*{pk(0)}+{_f((EMB_LEN[3] - EMB_LEN[0]) * R)}*{pk(8)})")
+
+
+def emb_len(k):
+    """Length of the petal in place k (as _emb_len, in Python)."""
+    k, R = int(k) % EMB_N, EMB_CENTRE
+    return R * {2: EMB_LEN[1], EMB_N - 2: EMB_LEN[1], 0: EMB_LEN[2], EMB_N // 2: EMB_LEN[3]}.get(k, EMB_LEN[0])
+
+
+def _emb_petal(k, phi, L=None):
+    """Inner and outer radius of petal k at angle phi off its axis, and whether phi is on the petal. The sides
+    are rounded: both radii move to the widest point's radius as (phi / half-angle)^1.5. L: the petal's length
+    as an expression (eml(k) by default)."""
+    a, h = EMB_FOOT * EMB_CENTRE, EMB_W * EMB_CENTRE / 2
+    L = L or f"eml({k})"
+    m = f"({_f(a / 2)}+0.5*{L})"
+    ps = f"atan({_f(h)}/{m})"
+    on = f"(0.5+0.5*sign({ps}-{phi}))"
+    f_ = f"min(1,{phi}/{ps})^1.5"
+    return f"({_f(a)}+({m}-{_f(a)})*{f_})", f"({L}-({L}-{m})*{f_})", on, m
+
+
+def emblem_radii(w='w', sector=False):
+    """The petals as a ring for a surface: (inner, outer) radius at angle w (from +x). Between two petals both
+    are the radius of the petals' widest point, so the surface closes to nothing there. sector: for a surface
+    over one sector of three petal places kz, kz+1, kz+2, whose lengths are passed as la, lb, lc (the functions
+    take (w,kz,la,lb,lc), see emblem_sector): the lengths through an exact quadratic in k, without eml's sharp
+    peaks, which Arch pastes in as max(...) twice over at every use."""
+    x = f"((({w})-pi/2)*{EMB_N}/(2*pi))"
+    k = f"floor({x}+0.5)"
+    phi = f"(abs({x}-{k})*{_f(2 * math.pi / EMB_N)})"
+    d = f"({k}-kz)"
+    ri, ro, on, m = _emb_petal(k, phi, f"(la+{d}*(lb-la)+{d}*({d}-1)/2*(lc-2*lb+la))" if sector else None)
+    return f"({m}+({ri}-{m})*{on})", f"({m}+({ro}-{m})*{on})"
+
+
+def emblem_sector(j, n=8):
+    """Sector j of n for the petal surfaces: (w from, w to, k0, the three petal lengths)."""
+    w0 = math.pi / 2 + j * 2 * math.pi / n
+    k0 = j * EMB_N // n
+    return w0, w0 + 2 * math.pi / n, k0, [emb_len(k0 + i) for i in range(3)]
+
+
+def _lens(x0, h0, tilt, r0, r1, W):
+    """A leaf as a surface: (x, h) in u (0..1 along it) and v (-1..1 across it), from r0 to r1 along its axis."""
+    dx, dh = math.sin(tilt), math.cos(tilt)
+    hw = f"{_f(W / 2)}*sin(pi*u)^0.8*v"
+    al = f"({_f(r0)}+{_f(r1 - r0)}*u)"
+    return (f"({_f(x0)}+{al}*{_f(dx)}+{hw}*{_f(dh)})", f"({_f(h0)}+{al}*{_f(dh)}-{hw}*{_f(dx)})")
+
+
+def emblem_fills():
+    """The bud and the spray's two side leaves, as (name, (x, h) in u and v)."""
+    R = EMB_CENTRE
+    out = [('Bud', _lens(0, 0, 0, EMB_BUD[0] * R, EMB_BUD[1] * R, EMB_BUD[2] * R))]
+    r0, r1, W, ang = EMB_SPRAY
+    for i, sg in enumerate((-1, 1)):
+        out.append((f'Spray{i + 1}', _lens(0, 0, math.pi - sg * ang, r0 * R, r1 * R, W * R)))
+    return out
+
+
+def emblem_curves():
+    """Outlines: every petal in one stroke (the jumps between their feet run round the centre ring), the inner
+    ring, the bud and spray leaves, the two twigs with their dots."""
+    R = EMB_CENTRE
+    k = 'floor(t)'
+    s4 = f"(4*(t-{k}))"
+    ri, ro, on, m = _emb_petal(k, '0')
+    ps = f"atan({_f(EMB_W * R / 2)}/{m})"
+    phi = f"({ps}*(1-abs(1-({s4}-2*floor({s4}/2)))))"          # 0 -> ps -> 0 -> ps -> 0 round the petal
+    ri, ro, on, m = _emb_petal(k, phi)
+    outer = f"(0.5+0.5*sign(1-abs({s4}-2)))"                   # the second and third quarters run along the outside
+    rho = f"({ri}+({ro}-{ri})*{outer})"
+    th = f"(pi/2+{k}*{_f(2 * math.pi / EMB_N)}+sign(2-{s4})*{phi})"
+    out = [('Petals', (f"{rho}*cos({th})", f"{rho}*sin({th})"), (0, EMB_N - 0.001)),
+           ('Ring', (f"{_f(EMB_DOT)}*cos(t)", f"{_f(EMB_DOT)}*sin(t)"), (0, '2*pi'))]
+    for name, (X, H) in emblem_fills():                        # their rims: v = 1 out, v = -1 back
+        u, v = "(1-abs(1-t))", "sign(1-t)"
+        out.append((name, (X.replace('u', u).replace('v', v), H.replace('u', u).replace('v', v)), (0, 2)))
+    for i, ((x0, h0), (x1, h1), (xd, hd)) in enumerate(EMB_TWIGS):
+        dx, dh = (x1 - x0) * R, (h1 - h0) * R
+        fx, fh = -dh * 0.22, dx * 0.22                         # a short fork two thirds of the way along, to the upper side
+        if fh < 0:
+            fx, fh = -fx, -fh
+        c0, c1, c2 = clamp01('t'), "(1-abs(1-min(2,max(0,t-1))))", clamp01('t-3')
+        out.append((f'Twig{i + 1}', (f"{_f(x0 * R)}+{_f(0.66 * dx)}*{c0}+{_f(fx)}*{c1}+{_f(0.34 * dx)}*{c2}",
+                                     f"{_f(h0 * R)}+{_f(0.66 * dh)}*{c0}+{_f(fh)}*{c1}+{_f(0.34 * dh)}*{c2}"), (0, 4)))
+        out.append((f'Dot{i + 1}', (f"{_f(xd * R)}+{_f(0.2 * R)}*cos(t)", f"{_f(hd * R)}+{_f(0.2 * R)}*sin(t)"), (0, '2*pi')))
+    return [(n, (f"({x})", f"({h})"), T) for n, (x, h), T in out]
+
+
+def _blade_path(x0, h0, tilt, stem, L, W, t0):
+    """A sprig as one stroke from t = t0: stem, a blade to each side, stem again, an end blade."""
+    dx, dh = math.sin(tilt), math.cos(tilt)
+    X, H = [_f(x0), f"{_f(stem * dx)}*{clamp01(f't-{t0}')}", f"{_f(0.6 * stem * dx)}*{clamp01(f't-{t0 + 3}')}"], \
+           [_f(h0), f"{_f(stem * dh)}*{clamp01(f't-{t0}')}", f"{_f(0.6 * stem * dh)}*{clamp01(f't-{t0 + 3}')}"]
+    for seg, tl, ll in ((1, tilt - 0.8, L), (2, tilt + 0.8, L), (4, tilt, 0.8 * L)):
+        b = blade_off(tl, ll, W, clamp01(f"t-{t0 + seg}"))
+        X.append(b[0]), H.append(b[1])
+    return '+'.join(X), '+'.join(H)
+
+
+def blade_off(tilt, L, W, w):
+    """A straight-edged leaf (a kite, widest 0.4 of the way along) from its base, as w runs 0..1."""
+    L, W, tilt = _f(L), _f(W), _f(tilt)
+    a = f"(({L})*(1-abs(1-2*({w}))))"
+    c = f"(({W})/2*sign(0.5-({w}))*min({a}/(0.4*({L})),(({L})-{a})/(0.6*({L}))))"
+    return (f"({a}*sin({tilt})+{c}*cos({tilt}))", f"({a}*cos({tilt})-{c}*sin({tilt}))")
+
+
+# ---- the orange facing's embroidery -------------------------------------------------------------------------------
+# Measured on a close-up of the facing's foot in the side view (0.00144 units a pixel there, where the facing is
+# drawn twice as wide as in the front view, so sizes are halved with it): a leafy cross in cream thread. From a
+# small centre, a stem straight up with three pairs of leaves and an end leaf, and seven blades to the other
+# sides, the level and downward ones longer than the diagonal ones.
+FACE_STEM = (0.16, 0.045, 0.014)       # the stem's length, its leaves' length and width
+FACE_BLADES = (0.065, 0.048, 0.016)    # blade length on the cross's arms, on the diagonals; width
+FACE_FOOT = 0.016                      # where the blades start
+
+
+def facing_curves():
+    k = 'floor(t)'
+    th = f"(pi/2+({k}+1)*pi/4)"                       # seven blades, skipping straight up
+    L = f"({_f(FACE_BLADES[1])}+{_f(FACE_BLADES[0] - FACE_BLADES[1])}*(0.5+0.5*cos(pi*({k}+1))))"
+    b = blade_off(f"(pi/2-{th})", L, FACE_BLADES[2], f"t-{k}")
+    out = [('Blades', (f"{_f(FACE_FOOT)}*cos({th})+{b[0]}", f"{_f(FACE_FOOT)}*sin({th})+{b[1]}"), (0, 6.999))]
+    sl, ll, lw = FACE_STEM
+    j = 'floor(t/2)'
+    sg = f"(1-2*({k}-2*{j}))"
+    b = blade_off(f"{sg}*0.7", ll, lw, f"t-{k}")
+    out.append(('Leaves', (b[0], f"{_f(FACE_FOOT + 0.25 * sl)}+{_f(0.25 * sl)}*{j}+{b[1]}"), (0, 5.999)))
+    e = blade_off(0, ll * 1.2, lw, clamp01('t-1'))
+    out.append(('Stem', (e[0], f"{_f(FACE_FOOT)}+{_f(sl - FACE_FOOT)}*{clamp01('t')}+{e[1]}"), (0, 2)))
+    return [(n, (f"({x})", f"({h})"), T) for n, (x, h), T in out]
+
+
+# ---- evaluating a motif in Python --------------------------------------------------------------------------------
+def evaluate(curves, n=1500):
+    import numpy as np
+    ns = dict(sin=np.sin, cos=np.cos, acos=lambda v: np.arccos(np.clip(v, -1, 1)), exp=np.exp, abs=np.abs, sign=np.sign, sqrt=np.sqrt, atan=np.arctan, floor=np.floor, pi=np.pi, min=np.minimum, max=np.maximum,
+              sqc=lambda t, p: np.sign(np.cos(t)) * np.abs(np.cos(t)) ** p, sqs=lambda t, p: np.sign(np.sin(t)) * np.abs(np.sin(t)) ** p)
+    out = []
+    for name, (X, H), (t0, t1) in curves:
+        t = np.linspace(float(eval(str(t0).replace('^', '**'), ns)), float(eval(str(t1).replace('^', '**'), ns)), n)
+        ns['t'] = t
+        out.append((name, eval(X.replace('^', '**'), ns) + 0 * t, eval(H.replace('^', '**'), ns) + 0 * t))
+    return out
+
+
+if __name__ == '__main__':
+    import argparse
+    import numpy as np
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--photo', help='the close-up the fern was measured on')
+    ap.add_argument('-o', default='fern-demo.png')
+    a = ap.parse_args()
+    K, X0, Y0 = 0.00232, 100, 460
+    cs = evaluate(fern_curves())
+    fig, axs = plt.subplots(1, 3 if a.photo else 1, figsize=(13 if a.photo else 5, 9), squeeze=False)
+    axs = axs[0]
+    if a.photo:
+        import cv2
+        im = cv2.imread(a.photo)
+        B, G, R = [im[..., i].astype(int) for i in range(3)]
+        mask = (R - B > 70) & (R > 150) & (G < 170)
+        mask[Y0:] = False
+        model = np.zeros(mask.shape, np.uint8)
+        for name, x, h in cs:
+            P = np.c_[X0 + x / K, Y0 - h / K].round().astype(np.int32)
+            cv2.polylines(model, [P], False, 1, 5)
+            if name != 'Twigs' or True:
+                pass
+        # fill each closed leaf loop: flood the outline's inside
+        ff = model.copy()
+        cv2.floodFill(ff, None, (0, 0), 2)
+        model = ((ff != 2) | (model > 0))
+        iou = (model & mask)[:Y0].sum() / (model | mask)[:Y0].sum()
+        ext = (-X0 * K, (im.shape[1] - X0) * K, (Y0 - im.shape[0]) * K, Y0 * K)
+        axs[0].imshow(im[..., ::-1], extent=ext)
+        axs[0].set_title('photo')
+        axs[1].imshow(np.where(mask, 0.78, 1.0), extent=ext, cmap='gray', vmin=0, vmax=1)
+        for name, x, h in cs:
+            axs[1].plot(x, h, color='#c45c36', lw=1.4)
+        axs[1].set_title(f'thread found in the photo (grey) and the motif; overlap {iou:.2f}')
+        print(f'overlap (IoU of the filled motif and the photo\'s thread): {iou:.3f}')
+    ax = axs[-1]
+    for name, x, h in cs:
+        ax.plot(x, h, color='#c45c36', lw=2.2, solid_joinstyle='round')
+    ax.set_title('the motif as Arch draws it')
+    for ax in axs:
+        ax.set_aspect('equal')
+        ax.set_xlim(-0.24, 0.28)
+        ax.set_ylim(-0.03, 0.99)
+    fig.tight_layout()
+    fig.savefig(a.o, dpi=110)
