@@ -9,11 +9,22 @@ TB = 0.09                                # how far down a lock eases from turnin
 T0 = 1 / (1 + (ZHC - ZBOT) / (HDZ * math.pi / 2))   # part of a lock's length that lies on the dome
 VF = HDZ * math.pi / 2 / T0              # how fast z falls with t below the dome
 
-# ARM_ENV, ARM_PSI (arms.py): how far out the sleeves, cuffs and hands reach by height, and round which angles
+# the book in her left hand, which the side hair clears
 _bk = BOOK[2]
 BOOK_Z = (min(P[2] for P in _bk) - 0.05, max(P[2] for P in _bk) + 0.05)
 BOOK_R = max(math.hypot(P[0], P[1] - 0.03) for P in _bk) + 0.04
 BOOK_PSI = (min(math.atan2(P[0], P[1] - 0.03) for P in _bk) - 0.1, max(math.atan2(P[0], P[1] - 0.03) for P in _bk) + 0.1)
+
+
+# HAIR_ARM_R: how far out from the body axis the arms and hands reach round each angle from the back (every 0.05) and
+# at each height (every 0.1 from z 5), both arms folded onto one side, from arms.py's points: the side hair clears
+# the arms' own outline, not a band at their furthest reach round every angle they cover (ARM_ENV, ARM_PSI)
+_harm_p = arm_points()
+HAIR_ARM_R = np.zeros((65, 45))
+np.maximum.at(HAIR_ARM_R, (np.clip(np.round(np.arctan2(np.abs(_harm_p[:, 0]), _harm_p[:, 1] - 0.03) / 0.05).astype(int), 0, 64),
+                           np.clip(np.round((_harm_p[:, 2] - 5.0) / 0.1).astype(int), 0, 44)),
+              np.hypot(_harm_p[:, 0], _harm_p[:, 1] - 0.03) + 0.05)
+HAIR_ARM_R = np.maximum.reduce([np.roll(np.roll(HAIR_ARM_R, a, 0), b, 1) for a in (-1, 0, 1) for b in (-1, 0, 1)])
 
 
 def ell_r(a, b, psi):
@@ -34,8 +45,8 @@ def envelope(psi, z):
         for th_b, z_b in ((OV_B, BOW_ZB), (OV_F, BOW_ZF)):     # the bows, their tails and tassels
             if abs(th - th_b) < 0.4 and z_b - 1.0 < z < z_b + 0.35:
                 r = max(r, (OSR(z_b) + 0.1) * math.hypot(math.sin(th_b), DK(sk_s(z_b), th_b) * math.cos(th_b)) + 0.3)
-    if ARM_PSI[0] < abs(psi) < ARM_PSI[1] and ARM_ENV[-1][0] < z < ARM_ENV[0][0]:      # arms and hands below the capelet
-        r = max(r, float(np.interp(z, [e[0] for e in ARM_ENV[::-1]], [e[1] for e in ARM_ENV[::-1]])))
+    if 5.0 <= z <= 9.4:                                 # arms and hands below the capelet, round their own angles
+        r = max(r, float(HAIR_ARM_R[min(64, int(round(abs(psi) / 0.05))), int(round((z - 5.0) / 0.1))]))
     if BOOK_PSI[0] < psi < BOOK_PSI[1] and BOOK_Z[0] < z < BOOK_Z[1]:   # the book in her left hand
         r = max(r, BOOK_R)
     return r
@@ -60,7 +71,7 @@ def interp_bezier(P):
 # ---------- how far out the falling hair must hang to clear the body ----------
 US = np.linspace(0, 1 - T0, 300)
 ZS = ZHC - VF * US
-PSIS = np.linspace(0, 2.4, 40)
+PSIS = np.linspace(0, 1.85, 32)      # round to the side, as far as the long locks hang (not round to the book in front)
 
 
 def clear_factor(rx, ry, z, margin):
@@ -74,16 +85,19 @@ def clear_factor(rx, ry, z, margin):
     return k
 
 
+# The locks at her sides (the only ones below the nape) lie as close to her clothes as they can (the user's choice;
+# on the sheet's back view they fall over the arms within 1.45 to 2.8 of her middle): the shell clears the shoulders,
+# capelet, arms and hands by a little, does not flare, and below the capelet takes the depth of her back.
 side_req, back_req = [], []
 for z in ZS:
-    rx = max(HDX, max(envelope(p_, z) for p_ in (1.45, 1.6, 1.75)) + 0.1)
+    rx = max(HDX, max(envelope(p_, z) for p_ in (1.45, 1.6, 1.75)) + 0.06)
     ry = max(HDY, max(envelope(p_, z) for p_ in (0.0, 0.3)) + 0.0)
-    k = clear_factor(rx, ry, z, 0.08)
-    flare = 0.5 * max(0, (8.0 - z) / 2.7) ** 1.3
-    side_req.append(rx * k + flare)
-    back_req.append(ry * k + flare * 0.8)
+    k = clear_factor(rx, ry, z, 0.04)
+    side_req.append(rx * k)
+    back_req.append(ry * k)
 side_req = np.maximum.accumulate(np.array(side_req))
-back_req = np.maximum.accumulate(np.array(back_req))
+back_req = np.array(back_req)
+back_req = np.where(ZS > 9.0, np.maximum.accumulate(back_req), back_req)
 KNOTS = [0, 0.03, 0.06, 0.09, 0.115, 0.14, 0.165, 0.19, 0.215, 0.24, 0.27, 0.31, 0.36, 0.43, 0.52, 0.62, 0.72]
 
 
@@ -329,16 +343,18 @@ BK_STRANDS = {
             (-0.36, 8.5, .04), (-0.33, 8.2, .04), (-0.31, 7.85, .04), (-0.33, 7.6, .04), (-0.4, 7.35, .035), (-0.45, 7.15, .03),
             (-0.47, 7.02, 0)],
 }
-# the curls: ringlets, each a helix about an upright axis (through x cx and dy behind where the strand's hanging
-# part ends, or the axis of another strand's curl), starting where the hanging part ends; r1 the radius it closes
-# to, turns, how far it drops (about 0.6 a turn, so that the turns of two strands round one axis stand apart), and
-# the sense of the turn (seen from above: 1 anticlockwise). On her right the sheet draws the ringlet as loops from
-# x -1.44 to -0.47 and z 7.3 down to 6.44: BR3 comes in along its front, BR1 down its outside.
+# the curls: ringlets, each a helix about an upright axis through x cx, starting where the strand's hanging part
+# ends; r0 the radius it starts at (where the strand ends at least that far from the axis across, it starts beside
+# the axis, else in front of it), r1 the radius it closes to, turns, how far it drops (about 0.6 a turn, so that the
+# turns of two strands round one axis stand apart), and the sense of the turn (seen from above: 1 anticlockwise).
+# The strands of a lock with the same cx share the axis, set back far enough for every turn to clear the skirt
+# (ringlet_axes). On her right the sheet draws the ringlet as loops from x -1.44 to -0.47 and z 7.3 down to 6.44:
+# BR3 comes in along its front, BR1 down its outside.
 BK_CURL = {
-    'BL4': dict(cx=0.55, r1=0.15, turns=1.5, drop=0.85, sense=1),
-    'BL3': dict(cx=0.55, r1=0.16, turns=1.75, drop=1.0, sense=1),
-    'BR3': dict(cx=-0.95, dy=0.3, r1=0.15, turns=1.5, drop=0.9, sense=-1),
-    'BR1': dict(axis_of='BR3', r1=0.2, turns=1.25, drop=0.75, sense=-1),
+    'BL4': dict(cx=0.55, r0=0.26, r1=0.15, turns=1.5, drop=0.85, sense=1),
+    'BL3': dict(cx=0.55, r0=0.27, r1=0.16, turns=1.75, drop=1.0, sense=1),
+    'BR3': dict(cx=-0.95, r0=0.32, r1=0.15, turns=1.5, drop=0.9, sense=-1),
+    'BR1': dict(cx=-0.95, r0=0.5, r1=0.2, turns=1.25, drop=0.75, sense=-1),
 }
 # colour and thickness, in the order they are laid on
 BK_LOOK = {'BL8': (HAIR, 0.04), 'BL7': (HAIR_DK, 0.045), 'BL5': (HAIR_LT, 0.045), 'BL6': (HAIR, 0.05),
@@ -362,43 +378,85 @@ BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3,
                             # each strand is drawn as these, side by side across it, each with its own wander, depth,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
-# The outline of the back hair on the sheet's side view, traced by the user (its crop found on the sheet by template
-# matching, scale 0.114): how far back (y) the hair reaches at each height. It hugs the back of the head and the
-# nape, follows the capelet's back and heads back below it; below z 9 the locks fall straight (the user's choice).
-# The outermost strands of each back lock lie just under it, the others at their places in the lock's depth
-# between it and the body (BK_DEPTH).
-BK_SIDE = ((9.0, 2.4), (9.1, 2.36), (9.2, 2.24), (9.3, 2.14), (9.4, 2.02), (9.5, 1.93), (9.7, 1.87), (9.9, 1.79),
-           (10.1, 1.73), (10.3, 1.63), (10.5, 1.56), (10.7, 1.47), (10.9, 1.36), (11.1, 1.29), (11.3, 1.25),
-           (11.5, 1.22), (11.8, 1.2), (12.0, 1.17))
-BK_DEPTH = (0.3, 1.0)       # where a lock's strands lie between the body and the outline: the first laid (the
-                            # fillers) at 0.3 of the way, the last laid (the traced, on top) at the outline
+BK_DRAPE = 2.5             # the back locks lie as close to the clothes as they can (the user's choice; the back view is
+                            # the reference): where the clothes fall away (under the capelet's hem) a strand comes in
+                            # toward them by at most this much a unit of height
+
+
+_KG = (-2.8, 4.8, 0.02, 281, 341)       # the clothes grid: x from -2.8, z from 4.8, every 0.02
+
+
+def _clothes_back():
+    """How far back (largest y) her clothes reach at each (x, z) of the grid _KG, from the clothes' own surfaces:
+    the generator run for the clothes alone (sheetfit.model_surfaces, about 3 s), each surface sampled about every
+    0.012, so that the hair is the same whichever parts are drawn. Gaps in the cloth across a row (between the
+    corset and the arms) take the depth across them, between the cloth on either side; outside it, -9."""
+    import sheetfit, contextlib, io
+    x0, z0, st, nx, nz = _KG
+    G = np.full((nx, nz), -9.0)
+    with contextlib.redirect_stdout(io.StringIO()):        # its own report of the expanded formulas
+        clothes = sheetfit.model_surfaces('body,cape,corset,skirt,arms,book')
+    for _, _, f, lim in clothes:
+        P = sheetfit._grid(f, lim, 20, 20)
+        Q = P[np.isfinite(P).all(-1)]
+        if not len(Q) or Q[:, 2].max() < z0 or Q[:, 2].min() > z0 + st * nz or Q[:, 1].max() < -0.3:
+            continue
+        lu = np.nanmax(np.nansum(np.linalg.norm(np.diff(P, axis=0), axis=-1), axis=0))
+        lv = np.nanmax(np.nansum(np.linalg.norm(np.diff(P, axis=1), axis=-1), axis=1))
+        P = sheetfit._grid(f, lim, int(np.clip(lu / 0.012, 8, 500)), int(np.clip(lv / 0.012, 8, 500))).reshape(-1, 3)
+        P = P[np.isfinite(P).all(1)]
+        i, j = np.round((P[:, 0] - x0) / st).astype(int), np.round((P[:, 2] - z0) / st).astype(int)
+        ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
+        np.maximum.at(G, (i[ok], j[ok]), P[ok, 1])
+    for _ in range(2):
+        G = np.maximum.reduce([np.roll(np.roll(G, a, 0), b, 1) for a in (-1, 0, 1) for b in (-1, 0, 1)])
+    for j in range(nz):
+        on = np.nonzero(G[:, j] > -9)[0]
+        if len(on) > 1:
+            G[on[0]:on[-1] + 1, j] = np.interp(np.arange(on[0], on[-1] + 1), on, G[on, j])
+    return G
+
+
+CLOTHES_BACK = _clothes_back()
+
+
+def clothes_y(x, z):
+    """How far back her clothes reach at (x, z) (arrays), -9 where there are none."""
+    x0, z0, st, nx, nz = _KG
+    i, j = np.round((np.asarray(x) - x0) / st).astype(int), np.round((np.asarray(z) - z0) / st).astype(int)
+    ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
+    return np.where(ok, CLOTHES_BACK[np.clip(i, 0, nx - 1), np.clip(j, 0, nz - 1)], -9.0)
 
 
 def body_back(x, z):
-    """How far back (+y) what the back locks hang on reaches at (x, z): the capelet, the corset, the high collar,
-    and the hair above the nape (the back locks, which end at BK_NAPE)."""
-    f = float(_grid_at(CAPE_BACK, x, z))
-    if 7.9 < z < 9.15:                                # corset_ab holds only on the corset
-        a, b = corset_ab(z)
-        if abs(x) < a:
-            f = max(f, b * math.sqrt(1 - (x / a) ** 2))
-    if 10.4 <= z <= 11.05:
-        r = 0.41 if z > 10.83 else 0.26
-        if abs(x) < r:
-            f = max(f, CP_Y0 + math.sqrt(r * r - x * x))
-    if BK_NAPE - 0.05 < z < 11.5:
-        t = t_of_z(z)
-        ax, ay = hrx_py(t) + 0.14, hry_py(t) + 0.14
-        if abs(x) < ax:
-            f = max(f, HY0 + ay * math.sqrt(1 - (x / ax) ** 2))
-    return f
+    """How far back (+y) what the back locks hang on reaches at (x, z) (arrays): her clothes, and the hair above
+    the nape (the back locks, which end at BK_NAPE)."""
+    x, z = np.asarray(x, float), np.asarray(z, float)
+    f = clothes_y(x, z)
+    t = T0 + (ZHC - z) / VF
+    hp = lambda c: sum(a * np.maximum(0.0, t - T0 - k) ** 2 for a, k in zip(c, KNOTS))
+    ax, ay = HDX + hp(HP_X[2]) + 0.14, HDY + hp(HP_Y[2]) + 0.14
+    nape = HY0 + ay * np.sqrt(np.maximum(0, 1 - (x / ax) ** 2))
+    return np.where((z > BK_NAPE - 0.05) & (z < 11.5) & (np.abs(x) < ax), np.maximum(f, nape), f)
 
 
-_ok = (_cy > CP_Y0) & (np.abs(_cx) < 1.5) & (_cz > 8.5) & (_cz < 11.5)
-CAPE_BACK = np.zeros((301, 301))
-np.maximum.at(CAPE_BACK, (np.round((_cx[_ok] - _CG[0]) / _CG[2]).astype(int), np.round((_cz[_ok] - _CG[1]) / _CG[2]).astype(int)), _cy[_ok])
-for _ in range(2):
-    CAPE_BACK = np.maximum.reduce([np.roll(np.roll(CAPE_BACK, i, 0), j, 1) for i in (-1, 0, 1) for j in (-1, 0, 1)])
+_UG = (-1.6, 5.5, 0.01, 321, 621)      # the grid of how far back the back strands already laid reach
+
+
+def ringlet_axes():
+    """The ringlets' axes (x, y), one for each lock's strands with the same cx: as close to the clothes as every turn
+    of every one of them allows (its radius closing from r0 to r1 as it drops, 0.07 for its ribbon and a gap)."""
+    need = {}
+    for key, c in BK_CURL.items():
+        z1 = BK_STRANDS[key][-1][1]
+        zz = np.linspace(z1 - c['drop'] - 0.1, z1 + 0.05, 40)
+        rr = np.interp(zz, [z1 - c['drop'], z1], [c['r1'], c['r0']])
+        X = c['cx'] + np.linspace(-1, 1, 41)[None, :] * rr[:, None]
+        Z = zz[:, None] + 0 * X
+        y = clothes_y(X, Z) + np.sqrt(np.maximum(0, rr[:, None] ** 2 - (X - c['cx']) ** 2)) + 0.07
+        g = (key[1], c['cx'])
+        need[g] = max(need.get(g, -9.0), float(y.max()))
+    return {key: (c['cx'], need[(key[1], c['cx'])]) for key, c in BK_CURL.items()}
 
 
 def _lin(terms):
@@ -526,12 +584,18 @@ def back_strands():
     """Each back strand as parts for Arch: ('poly', [C, U, V], pieces) for the hanging part, polynomials in t
     (-1..1) for the centre line, side and thickness vectors, in as many pieces as keep it within 0.006 (joined
     exactly); ('curl', xyz, pieces) for a ringlet, written exactly (curl_xyz); a list of these for each sub-strand
-    (BK_SUBS), with their colours. The hanging part lies on what is behind it and falls straight below the fullest
-    point (how far back it is never decreases going down), like the chest locks. Each strand wanders, varies in width
-    and thickness (BK_NOISE) and twists about its own line below the nape (BK_TWIST), lifted where it twists so that
-    its edges (and its sub-strands') stay clear of what it lies on."""
-    under = np.zeros((301, 301))
-    out, axes = {}, {}
+    (BK_SUBS), with their colours. The hanging part lies as close to the clothes as it can (BK_DRAPE) and on the
+    strands beneath. Each strand wanders, varies in width and thickness (BK_NOISE) and twists about its own line below
+    the nape (BK_TWIST), lifted where it twists so that its edges (and its sub-strands') stay clear of what it lies on.
+    A strand that ends in a ringlet rises over its last 0.6 to where the ringlet starts (ringlet_axes)."""
+    ux0, uz0, ust, unx, unz = _UG
+    under = np.zeros((unx, unz))
+    out, axes = {}, ringlet_axes()
+
+    def at_under(px, pz):
+        i, j = np.round((px - ux0) / ust).astype(int), np.round((pz - uz0) / ust).astype(int)
+        ok = (i >= 0) & (i < unx) & (j >= 0) & (j < unz)
+        return i, j, ok
     for key, (col, th) in BK_LOOK.items():
         sd, n_ = (1 if key[1] == 'L' else -1), list(BK_STRANDS).index(key)      # its noise and wave are its own
         D = np.array(BK_STRANDS[key], float) * [1, 1, BK_WIDE]
@@ -555,42 +619,46 @@ def back_strands():
             u = np.clip((s - s[low[0]]) / (s[-1] - s[low[0]]), 0, 1)
             phi = 2 * np.pi * BK_TWIST[key] * u * u * (3 - 2 * u) + 0.25 * np.sin(np.pi * u) * _bk_wobble(s, n_, 4)
         lift = 0.6 * hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # a twisted strand rises from what it lies on
-        fb, fh = np.zeros(len(s)), np.zeros(len(s))
+        fb, fh = np.full(len(s), -9.0), np.zeros(len(s))
         for k in np.linspace(-1, 1, 7):
             px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
-            fb = np.maximum(fb, [body_back(a, b) for a, b in zip(px, pz)])
-            fh = np.maximum(fh, _grid_at(under, px, pz))
-        # its depth: at its place in the lock (BK_DEPTH) between the body, below whose fullest point it falls
-        # straight, and the side view's outline (BK_SIDE), never beyond the outline; and on the strands beneath
-        # where they are (easing onto them over its first 0.4, under the braid, where they all begin)
-        body = np.maximum.accumulate(np.r_[BK_TOP, fb + CH_GAP])[1:]
+            fb = np.maximum(fb, body_back(px, pz))
+            i, j, ok = at_under(px, pz)
+            fh = np.maximum(fh, np.where(ok, under[np.clip(i, 0, unx - 1), np.clip(j, 0, unz - 1)], 0))
+        # its depth: on the clothes, coming in toward them where they fall away by at most BK_DRAPE a unit of
+        # height, and on the strands beneath where they are (easing onto them over its first 0.4, under the braid,
+        # where they all begin)
+        zq, body = np.r_[Q[0, 1], Q[:, 1]], np.r_[BK_TOP, fb + CH_GAP]
+        for i in range(1, len(body)):
+            body[i] = max(body[i], body[i - 1] - BK_DRAPE * max(0.0, zq[i - 1] - zq[i]))
+        curl = BK_CURL.get(key)
+        tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
+        body = body[1:] + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2   # its line over the clothes
         ker = np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
-        cap = np.interp(Q[:, 1], *np.array(BK_SIDE).T) - 0.6 * th - 0.06      # its top and twist inside the outline
-        cap = np.maximum(np.convolve(np.pad(cap, 24, mode='edge'), ker / ker.sum(), 'valid'), body)
-        lock = [k for k in BK_LOOK if k[1] == key[1]]
-        f = BK_DEPTH[0] + (BK_DEPTH[1] - BK_DEPTH[0]) * lock.index(key) / max(1, len(lock) - 1)
-        fh = BK_TOP + np.maximum(fh - BK_TOP, 0) * np.clip(s / 0.4, 0, 1) ** 2
+        fh = np.where(fh > BK_TOP, BK_TOP + (fh - BK_TOP) * np.clip(s / 0.4, 0, 1) ** 2, fh)
         g = fh + CH_ON
         g = np.max([np.roll(np.pad(g, 20, mode='edge'), i)[20:-20] for i in range(-20, 21)], axis=0)  # rounded off
         g = np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid')                    # without sinking
-        lo = np.minimum(np.maximum(body + f * (cap - body), g), cap)
-        g = lo.copy()
-        for _ in range(60):
-            g = np.maximum(np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
-        g = np.minimum(g, cap)
-        curl = BK_CURL.get(key)
-        tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
-        y = g + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2
+        lo = np.maximum(body, np.where(fh > 0, g, -9.0))
+        y = lo.copy()
+        for _ in range(12):                                  # smoothed a little, so as to stay close
+            y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
+        if curl:
+            # where the ringlet starts: beside its axis if the strand ends at least r0 from it across, else in front
+            ox, oy = axes[key]
+            dx = abs(Q[-1, 0] - ox)
+            ye = oy - math.sqrt(max(0.0, curl['r0'] ** 2 - dx * dx)) if dx < 0.9 * curl['r0'] else oy
+            f = np.clip((s - (s[-1] - 0.6)) / 0.6, 0, 1)
+            y = y + (max(ye, y[-1]) - y[-1]) * f * f * (3 - 2 * f)
         for k in np.linspace(-1.2, 1.2, 11):                 # across the twisted section and its sub-strands
             kc = k * hw * np.cos(phi)
             px, pz = Q[:, 0] + kc * N2[:, 0], Q[:, 1] + kc * N2[:, 1]
-            i, j = np.round((px - _CG[0]) / _CG[2]).astype(int), np.round((pz - _CG[1]) / _CG[2]).astype(int)
-            ok = (i >= 0) & (i < 301) & (j >= 0) & (j < 301)
-            np.maximum.at(under, (i[ok], j[ok]), (y + 0.35 * thv * tip * (1 - 0.5 * k * k))[ok])   # the strands over it sink
-                                                    # into it a little rather than pile up
+            i, j, ok = at_under(px, pz)
+            np.maximum.at(under, (i[ok], j[ok]), (y + 0.1 * thv * tip)[ok])    # the strands over it lie just above
+                                                    # its line, sinking into it rather than piling up
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
         root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
@@ -624,8 +692,7 @@ def back_strands():
             # each sub-strand's ringlet starts exactly where its hanging part's polynomials end
             ev = lambda cs, d=0: np.array([np.polynomial.polynomial.polyval(1.0, np.polynomial.polynomial.polyder(c, d)) for c in cs])
             Pe, Te, Se, Ne = ev(prev[0][0]), ev(prev[0][0], 1), ev(prev[0][1]), ev(prev[0][2])
-            at = axes[curl['axis_of']] if 'axis_of' in curl else (curl['cx'], Pe[1] + curl.get('dy', 0.0))
-            axes[key] = at
+            at = axes[key]
             ends = []
             for sb, pc in zip(subs, prev[1:]):
                 lat, dep, wk, tk = _sub_at(sb, sig[-1], 1.0)
@@ -642,8 +709,8 @@ def run_hair():
     sc.comment(f"""Her hair flows from the crown. A lock is described by t, from the crown (0) down to the end of
 the longest hair (1): up to t = {fmt(T0)} it lies on a dome around the head (ha is the angle from the
 crown), below that it falls. hzz(t) is the height, hrx(t) and hry(t) are the half-axes of the ellipse the
-hair lies on at that height: they follow the dome, then keep clear of the shoulders, capelet, arms, book
-and skirt and flare out toward the ends (fitted by the generator). hu(t) is 0 on the dome and grows to 1
+hair lies on at that height: they follow the dome, then keep just clear of the shoulders, capelet, arms, book
+and skirt, so that the locks at her sides lie close to her clothes (fitted by the generator). hu(t) is 0 on the dome and grows to 1
 down the fall. hdw keeps a lock's width steady as the hair spreads.""")
     (gx, m1, cx_), (gy, m2, cy_) = HP_X, HP_Y
     # hdw = min(1, 1.54 / (hrx + hry)), exactly: on the dome hrx + hry = 1.54 sin(ha) and the profiles' knot terms

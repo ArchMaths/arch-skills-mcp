@@ -112,14 +112,18 @@ where the sheet draws it as a loop facing the viewer) and drops as it turns; str
 wander, vary in width and twist gently about their own lines, about half a turn); the user calls a whole lock a
 "strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
 gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
-model's hair in the back view, drawn with hidden parts removed), then place strands through them and check that none touches a
-ringlet (nearest-point distance between the surfaces). Check every hair change from the side as well: the
-hair's outline (its largest y at each height) against the sheet's side view. Laying each strand on its full
-thickness over the ones beneath piled the eight strands of a lock up to 1.6 behind the back, which no back view
-shows and the user saw in Arch. The back locks' depth now comes from the user's tracing of the side view's
-outline (`BK_SIDE`): each strand has its place between the body and the outline (`BK_DEPTH`), never beyond it,
-and strands over others sink into them a little rather than pile up. Below z 9 the locks fall straight (the
-user's choice; the sheet's side view keeps trailing them back).
+model's hair in the back view (drawn with hidden parts removed), then place strands through them and check that
+none touches a ringlet (nearest-point distance between the surfaces).
+
+The back view is the only reference for the hair's depth (the user's choice: the side view draws the long hair
+trailing far back, which the back view's corset between the locks rules out). So the hair lies as close to her
+clothes as it can: the back locks on the clothes' own surfaces (`clothes_y`: the generator run for the clothes
+alone inside `hair.py`, sampled into a grid), coming in under the capelet's hem as fast as `BK_DRAPE` allows, the
+strands over others only just above them; the long locks at her sides on a shell that clears the arms' own outline
+(`HAIR_ARM_R`) without flaring. Check every hair change from the side and in cross-sections as well (its gap to the
+nearest cloth by height): laying each strand on its full thickness over the ones beneath once piled the eight
+strands of a lock up to 1.6 behind the back, and a floor left in the easing near the braid held them 0.6 off the
+corset, neither of which a back view shows.
 
 Curls: write a helix as it is (cos and sin of its angle, `curl_xyz`), never fit one. A least-squares fit of
 polynomials times cos and sin to a helix that starts steeply gave coefficients near 10^8 that cancel each other;

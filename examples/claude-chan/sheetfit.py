@@ -105,7 +105,7 @@ def model_surfaces(parts, ref=None, skip=None):
         sys.argv = argv
     ns = dict(sin=np.sin, cos=np.cos, tan=np.tan, sqrt=np.sqrt, exp=np.exp, abs=np.abs, ln=np.log, log=np.log10,
               sign=np.sign, atan=np.arctan, asin=np.arcsin, acos=np.arccos, floor=np.floor, ceil=np.ceil,
-              pi=math.pi, max=np.maximum, min=np.minimum)
+              pi=math.pi, max=np.maximum, min=np.minimum, tanh=np.tanh, sinh=np.sinh, cosh=np.cosh)
     surfs = []
     np.seterr(all='ignore')
     for line in g['sc'].out:
