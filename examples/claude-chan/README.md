@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (830 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (834 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -46,8 +46,11 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   the tip, a calm closed smile and a faint blush. Skin, iris and hair colours are sampled from the sheet.
 - **Hair**: every lock starts at the crown, lies on the head, and falls from there, so the top of the
   hair and the long hair are the same surfaces. Down the back the locks fall straight in three layers;
-  at the sides they fan out over the shoulders and arms; in front of the ears thinner locks fall over
-  the chest. Locks wave more toward their ends and finish in a curled tip. The bangs follow the
+  at the sides they fan out over the shoulders and arms. Locks wave more toward their ends and finish in a
+  curled tip. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
+  the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
+  a band that fans into four strands, the inner one hooking in toward the jabot; on her left a narrower
+  band that fans into three that curl inward. The bangs follow the
   portrait: one wide lock sweeps down to the bridge of the nose, the forehead shows in a tall triangle
   above her left eye, a lock sweeps over her left temple, and a smaller gap above her right eye is
   framed by the locks at the side. The wide lock and the temple lock are made of narrow, rounded strands
@@ -212,6 +215,14 @@ listed in `generate.py`.
   margin). Each lock has its own angle, drift, wave, layer, width and length. Its tip turns through
   three quarters of a circle with the cross-section turning along, either sideways (a hook) or outward
   (a scroll), and is a separate surface so the curl gets a fine mesh.
+- **The chest locks** (`chest_strands` in `hair.py`) are drawn from the user's tracing over the third
+  expression portrait, registered on the sheet and put into model units by the capelet's emblems (across)
+  and the chin, brooch and emblems (down). Each strand's centre line and half-width follow the tracing in
+  the front view; its depth is worked out so it hangs: it lies on the capelet, blouse, corset and collar
+  (and on the strands laid before it) and, below the fullest point, falls straight. Above the tracing it
+  rises from under the jaw into the head. Centre line, side and thickness vectors are one polynomial each
+  in `t` (degree 20, within 0.005), and the lower half is a second surface so the curled tip gets a fine
+  mesh.
 - **Head turn.** The generator draws the head's parts inside a turned block: each coordinate is
   replaced by a fixed combination of all three (a rotation about the top of the neck). The long locks
   use the same rotation with an angle that eases from the head's to zero down the lock, hb(t), so they

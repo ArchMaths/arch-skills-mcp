@@ -96,6 +96,17 @@ borders with a whole layered model, draw the model as a surface-id map (z-buffer
 take its borders where the visible surface changes, and match each stroke pixel to its nearest border
 (`cv2.distanceTransformWithLabels`): the distance per border pair shows which part is off.
 
+Strokes traced over an expression portrait (the chest locks): find the portrait on the sheet by template
+matching (the marked-up crop was panel 3 at 4.2x), and put it into model units by landmarks the model already
+has: the capelet's emblems across (x +-1.10), the chin, brooch and emblems down (z 10.96, 10.5, 9.67, which
+agree to 0.01). The portraits draw the chest about 9% wider than the full-body front view, so the scales
+across and down differ; parts placed this way sit right against the emblems and the jabot. Hair drawn this
+way only gives x and z: `chest_strands` in `hair.py` works out the depth so a strand hangs on what is under it.
+
+All the modules run in one namespace (generate.py execs them), so a module-level name in one file replaces the
+same name in another: `boots.py` once reused `_tz`, which broke `outfit.py`'s `torso_ab` for anything that
+called it after the boots were built. Give module-level helpers names that are unique to their file.
+
 ## Patterns from close-up photos
 
 Embroidery and woven borders are measured on the user's close-ups with Python: threshold the thread's colour,

@@ -106,6 +106,154 @@ def fit_profile(req, base):
 FRONT_BLADES = []      # the locks in front of the face, for the brows drawn over them
 
 
+# ---------- the two locks that fall over the chest ----------
+# Traced by the user over the sheet's third expression panel and read as numbers: the strokes-only drawing
+# registered onto the marked-up panel (ECC), the panel onto the sheet (template matching, 4.2x), and into model
+# units by the capelet emblems for x (+-1.10, 318 panel px a unit) and the chin, brooch and emblems for z (10.96,
+# 10.5, 9.67, 290 px a unit, consistent to 0.01): the panel draws the chest about 9% wider than the full-body
+# front view, so the locks are placed by the emblems and the jabot. Each lock is drawn as sub-strands along the
+# inner lines of the tracing: (x, z, half-width) down each centre line, from where the panel's frame cuts it
+# below the jaw to the tip.
+CH_STRANDS = {
+    # her right: R1 thin and outermost, R2 curls in at the bottom, R3 hooks in toward the jabot, R4 a short
+    # strand on top that ends in a point
+    'R1': [(-0.475, 11.27, .025), (-0.48, 11.0, .025), (-0.51, 10.6, .028), (-0.60, 10.3, .03), (-0.70, 10.05, .03), (-0.80, 9.8, .03),
+           (-0.875, 9.6, .028), (-0.945, 9.4, .027), (-0.99, 9.2, .03), (-1.02, 9.05, .02), (-1.04, 8.95, 0)],
+    'R2': [(-0.44, 11.27, .04), (-0.45, 11.0, .045), (-0.47, 10.6, .045), (-0.565, 10.3, .05), (-0.665, 10.05, .055), (-0.74, 9.8, .06),
+           (-0.81, 9.6, .045), (-0.845, 9.4, .07), (-0.86, 9.2, .08), (-0.84, 9.03, .06), (-0.77, 8.93, .04), (-0.66, 8.9, .025), (-0.54, 8.91, 0)],
+    'R3': [(-0.39, 11.27, .03), (-0.39, 11.0, .03), (-0.395, 10.6, .03), (-0.42, 10.3, .03), (-0.52, 10.0, .04), (-0.62, 9.8, .05),
+           (-0.70, 9.65, .04), (-0.74, 9.45, .033), (-0.735, 9.25, .03), (-0.70, 9.11, .035), (-0.62, 9.035, .03), (-0.53, 9.02, .02), (-0.44, 9.035, 0)],
+    'R4': [(-0.40, 11.27, .035), (-0.40, 11.0, .035), (-0.405, 10.75, .035), (-0.43, 10.5, .035), (-0.50, 10.3, .03), (-0.56, 10.12, .025), (-0.61, 9.97, 0)],
+    # her left: L1 outermost, curls in at the bottom; L2 sweeps out and curls back in; L3 innermost, curls in
+    'L1': [(0.465, 11.3, .03), (0.47, 11.0, .03), (0.475, 10.6, .03), (0.51, 10.3, .03), (0.575, 10.0, .03), (0.635, 9.8, .03),
+           (0.695, 9.6, .03), (0.735, 9.4, .035), (0.75, 9.2, .04), (0.76, 9.02, .03), (0.745, 8.9, .03), (0.69, 8.8, .025), (0.62, 8.75, .02), (0.54, 8.71, 0)],
+    'L2': [(0.435, 11.3, .04), (0.435, 11.0, .04), (0.43, 10.6, .04), (0.45, 10.3, .04), (0.52, 10.0, .04), (0.56, 9.8, .05),
+           (0.60, 9.6, .07), (0.62, 9.4, .083), (0.655, 9.2, .06), (0.69, 9.05, .045), (0.655, 8.92, .045), (0.585, 8.83, .035), (0.50, 8.785, 0)],
+    'L3': [(0.40, 11.3, .025), (0.40, 11.0, .025), (0.395, 10.6, .025), (0.41, 10.3, .03), (0.465, 10.0, .025), (0.47, 9.8, .03),
+           (0.48, 9.6, .04), (0.49, 9.4, .048), (0.53, 9.22, .045), (0.595, 9.05, .06), (0.54, 8.92, .045), (0.48, 8.83, .025), (0.425, 8.78, 0)],
+}
+# colour and thickness; they are laid on in this order, each on the body and the strands already laid
+CH_LOOK = {'R2': (HAIR, 0.04), 'R1': (HAIR_LT, 0.03), 'R3': (HAIR_DK, 0.035), 'R4': (HAIR_LT, 0.032),
+           'L2': (HAIR, 0.04), 'L1': (HAIR_LT, 0.03), 'L3': (HAIR_DK, 0.035)}
+CH_GAP = 0.02           # between a strand's underside and the cloth it lies on
+CH_ON = 0.006           # and a strand it lies on
+CH_JAW = 0.12           # how far forward of the body's centre line a strand is where it comes out from under the jaw
+CH_ROOT = (0.34, 0.0, 11.66)   # where a strand starts, hidden inside the head behind the cheek (|x|, y, z)
+CH_DEG = 20             # degree of the polynomials (in t from -1 to 1) that Arch draws a strand with
+CH_DENSE = 0.5          # the strand's mesh is (1 + CH_DENSE) / (1 - CH_DENSE) times finer at the tip than at the top
+
+
+def _nat_spline(d, P, s):
+    """Natural cubic spline through the rows of P at the knots d, evaluated at s."""
+    n, h = len(d), np.diff(d)
+    A, B = np.zeros((n, n)), np.zeros((n, P.shape[1]))
+    A[0, 0] = A[-1, -1] = 1
+    for i in range(1, n - 1):
+        A[i, i - 1:i + 2] = h[i - 1], 2 * (h[i - 1] + h[i]), h[i]
+        B[i] = 6 * ((P[i + 1] - P[i]) / h[i] - (P[i] - P[i - 1]) / h[i - 1])
+    M = np.linalg.solve(A, B)
+    k = np.clip(np.searchsorted(d, s) - 1, 0, n - 2)
+    a, b, hk = (d[k + 1] - s)[:, None], (s - d[k])[:, None], h[k][:, None]
+    return (M[k] * a ** 3 + M[k + 1] * b ** 3) / (6 * hk) + (P[k] / hk - M[k] * hk / 6) * a + (P[k + 1] / hk - M[k + 1] * hk / 6) * b
+
+
+# how far forward (-y) the capelet reaches, on a 0.01 grid of (x, z), from its point model (folds included)
+_CG = (-1.5, 8.5, 0.01)
+_cu, _cq = np.meshgrid(np.linspace(0, 1, 320), np.linspace(0, 1, 1400), indexing='ij')
+_cx, _cy, _cz = kp_point(_cu, kp_q(_cu, _cq))
+CAPE_FWD = np.zeros((301, 301))
+_ok = (_cy < CP_Y0) & (np.abs(_cx) < 1.5) & (_cz > 8.5) & (_cz < 11.5)
+np.maximum.at(CAPE_FWD, (np.round((_cx[_ok] - _CG[0]) / _CG[2]).astype(int), np.round((_cz[_ok] - _CG[1]) / _CG[2]).astype(int)), -_cy[_ok])
+for _ in range(2):      # close the gaps between samples
+    CAPE_FWD = np.maximum.reduce([np.roll(np.roll(CAPE_FWD, i, 0), j, 1) for i in (-1, 0, 1) for j in (-1, 0, 1)])
+
+
+def _grid_at(G, x, z):
+    i, j = np.round((np.asarray(x) - _CG[0]) / _CG[2]).astype(int), np.round((np.asarray(z) - _CG[1]) / _CG[2]).astype(int)
+    ok = (i >= 0) & (i < G.shape[0]) & (j >= 0) & (j < G.shape[1])
+    return np.where(ok, G[np.clip(i, 0, G.shape[0] - 1), np.clip(j, 0, G.shape[1] - 1)], 0.0)
+
+
+def body_fwd(x, z):
+    """How far forward (-y) the outfit reaches at (x, z) where the chest locks hang: the capelet, the blouse over
+    the bust, the corset and the high collar with its ruffle."""
+    f = float(_grid_at(CAPE_FWD, x, z))
+    if 9.1 <= z <= 10.45:
+        f = max(f, -chest_y(x, z))
+    if z < 9.15 and abs(x) < corset_ab(z)[0]:
+        f = max(f, -corset_front(x, z))
+    if 10.4 <= z <= 11.05:
+        r = 0.41 if z > 10.83 else 0.26
+        if abs(x) < r:
+            f = max(f, math.sqrt(r * r - x * x) - CP_Y0)
+    return f
+
+
+def chest_strands():
+    """Each strand's centre line, side and thickness vectors as polynomials in t (-1..1), and the fit errors.
+    Down the tracing the strand hangs: it lies on whatever is under it and, below the fullest point, falls
+    straight (how far forward it is never decreases going down), smoothed; above the tracing it rises from under
+    the jaw into the head, behind the cheek."""
+    under = np.zeros((301, 301))      # how far forward the strands already laid reach
+    out = {}
+    for key, (col, th) in CH_LOOK.items():
+        sd = 1 if key[0] == 'L' else -1
+        D = np.array(CH_STRANDS[key], float)
+        d = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
+        s = np.linspace(0, d[-1], 500)
+        Q = _nat_spline(d, D, s)
+        T2 = np.gradient(Q[:, :2], axis=0)
+        T2 /= np.linalg.norm(T2, axis=1)[:, None]
+        N2 = np.c_[-T2[:, 1], T2[:, 0]]                       # across the strand in the front view
+        hw = np.maximum(Q[:, 2], 0)
+        fb, fh = np.zeros(len(s)), np.zeros(len(s))
+        for k in np.linspace(-1, 1, 7):
+            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
+            fb = np.maximum(fb, [body_fwd(a, b) for a, b in zip(px, pz)])
+            fh = np.maximum(fh, _grid_at(under, px, pz))
+        lo = np.maximum.accumulate(np.r_[CH_JAW, np.maximum(fb + CH_GAP, fh + CH_ON)])[1:]
+        g, ker = lo.copy(), np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
+        for _ in range(60):
+            g = np.maximum(np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
+        tip = np.minimum(1, (d[-1] - s) / 0.15) ** 0.6           # the thickness tapers over the last 0.15
+        y = -(g + 0.3 * th * tip)
+        # lay it down: the strand's front, for the strands laid on it
+        for k in np.linspace(-1, 1, 9):
+            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
+            i, j = np.round((px - _CG[0]) / _CG[2]).astype(int), np.round((pz - _CG[1]) / _CG[2]).astype(int)
+            np.maximum.at(under, (i, j), -y + th * tip * (1 - 0.8 * k * k))
+        # one smooth curve, from inside the head behind the cheek, out under the jaw and down the traced part: a
+        # natural cubic spline through that point and the traced part every 0.05 (with the width and thickness)
+        idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
+        root = [[CH_ROOT[0] * sd, CH_ROOT[1], CH_ROOT[2]]]
+        K = np.c_[np.r_[root, np.c_[Q[idx, 0], y[idx], Q[idx, 1]]], np.r_[hw[0], hw[idx]], np.r_[th, th * tip[idx]]]
+        dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
+        Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
+        P, W, TH = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0)
+        sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+        # resample by t, finer toward the tip, and build the side (across, in the cloth) and thickness (outward) vectors
+        t = np.linspace(-1, 1, 1201)
+        u = (t + 1) / 2
+        st = sig[-1] * (u + CH_DENSE * u * (1 - u))
+        Pt = np.c_[[np.interp(st, sig, P[:, i]) for i in range(3)]].T
+        Wt, THt = np.interp(st, sig, W), np.interp(st, sig, TH)
+        T = np.gradient(Pt, axis=0)
+        T /= np.linalg.norm(T, axis=1)[:, None]
+        n = np.array([0, -1.0, 0]) + T[:, 1:2] * T
+        n /= np.linalg.norm(n, axis=1)[:, None]
+        side = np.cross(T, n)
+        side /= np.linalg.norm(side, axis=1)[:, None]
+        polys, err = [], 0.0
+        for V in (Pt, side * Wt[:, None], n * THt[:, None]):
+            cs = [np.polynomial.chebyshev.Chebyshev.fit(t, V[:, i], CH_DEG).convert(kind=np.polynomial.Polynomial).coef for i in range(3)]
+            cs = [np.round(c, 5) for c in cs]        # as written
+            fit = np.c_[[np.polynomial.polynomial.polyval(t, c) for c in cs]].T
+            err = max(err, float(np.max(np.linalg.norm(fit - V, axis=1))))
+            polys.append(cs)
+        out[key] = (polys, err, col, Pt, sig[-1])
+    return out
+
+
 def run_hair():
     sc.blank()
     sc.note('Hair')
@@ -211,11 +359,18 @@ layer, thin lighter strands on top); at the sides they fan out over the shoulder
                 continue
             la_, th_ = {'U': (0.0, 0.05), 'M': (0.04, 0.055), 'T': (0.085, 0.04)}[lay]
             lock(f'side{tag}{i + 1}', sd * p0, 0.25, -sd * (0.1 + 0.1 * R()), hw_, 0.74 + 0.16 * R(), la_, th_, 0.1 + 0.06 * R(), 9 + 4 * R(), 6.28 * R(), col, curl=cdir(0.13))
-    sc.comment("Locks in front of the ears that fall over the chest.")
-    for ref, p0, hw_, te, col in (('frontR1', -1.93, 0.13, 0.69, HAIR), ('frontR2', -2.08, 0.08, 0.6, HAIR_LT), ('frontR3', -1.84, 0.07, 0.74, HAIR_DK),
-                                  ('frontL1', 1.9, 0.12, 0.67, HAIR), ('frontL2', 2.05, 0.08, 0.58, HAIR_LT)):
-        sd = 1 if p0 > 0 else -1
-        lock(ref, p0, 1.25, 0.04 * (R() - 0.5), hw_, te, 0.05, 0.04, 0.05 + 0.03 * R(), 8 + 3 * R(), 6.28 * R(), col, curl=('side', sd if R() < 0.7 else -sd, 0.09), pb=sd * math.pi)
+    sc.comment("""The two locks that fall over the chest, from under the jaw to curled tips at the top of the corset, as
+traced on the sheet's portrait: each is several strands, a centre line with side and thickness vectors written
+as polynomials in t (-1..1) and the crescent section lcs(w) (fitted by the generator: they lie on the capelet
+and the blouse, fall straight below the bust and rise from under the jaw into the head). The lower half of each is
+a separate surface so that its curl gets a fine mesh.""")
+    CH = chest_strands()
+    print(f"  chest locks: degree {CH_DEG}, largest fit error {max(v[1] for v in CH.values()):.4f}", file=sys.stderr)
+    for key, (polys, err, col, _, _) in CH.items():
+        C, U, V = polys
+        xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
+        sc.surface(xyz, ('t', -1, 0), ('w', 0, '2*pi'), col, f'chestLock{key}', ('tube', 'u'))
+        sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), col, f'chestLock{key}Tip', ('tube', 'u'))
 
     # ---------- bangs and the locks that frame the face ----------
     sc.blank()
