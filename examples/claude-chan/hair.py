@@ -103,6 +103,20 @@ def fit_profile(req, base):
     return ''.join(f"+{fmt(c)}*max(0,t-{fmt(T0 + k)})^2" for c, k in zip(coef, KNOTS)), margin, coef
 
 
+HP_X, HP_Y = fit_profile(side_req, HDX), fit_profile(back_req, HDY)    # the falling hair's ellipse (Arch text, margin, coefficients)
+
+
+def _hp(t, coef):
+    return sum(c * max(0.0, t - T0 - k) ** 2 for c, k in zip(coef, KNOTS))
+
+
+def hrx_py(t): return HDX * math.sin(1.5708 * min(1, t / T0)) + _hp(t, HP_X[2])
+def hry_py(t): return HDY * math.sin(1.5708 * min(1, t / T0)) + _hp(t, HP_Y[2])
+def hdw_py(t): return 1.54 / (1.54 + _hp(t, HP_X[2] + HP_Y[2]))
+def hu_py(t): return max(0.0, t - T0) / (1 - T0)
+def t_of_z(z): return T0 + (ZHC - z) / VF          # down the fall, where the hair no longer turns with the head
+
+
 FRONT_BLADES = []      # the locks in front of the face, for the brows drawn over them
 
 
@@ -254,6 +268,239 @@ def chest_strands():
     return out
 
 
+# ---------- the two locks down the back ----------
+# Traced by the user over the sheet's back view (a crop at 9.3x, found by template matching; the strokes-only
+# drawing registered onto it by ECC) and put into model units by the back view's calibration (sheetfit.py). On
+# the sheet these two locks are nearly all the hair down the middle of her back: they part below the braid,
+# the corset shows between them and the capelet's back beside them, and the rest of the hair falls over the
+# arms. Each lock is drawn as sub-strands along the inner lines of the tracing: (x, z, half-width) in the back
+# view down each centre line, from under the braid to where its curl starts (or its tip).
+BK_STRANDS = {
+    # her left: BL1 and BL2 spread out at the bottom (BL2 hooks back in), BL3 and BL4 bend in S-curves and wind
+    # together into a corkscrew ringlet
+    'BL4': [(0.04, 11.35, .035), (0.05, 10.9, .04), (0.08, 10.3, .045), (0.18, 9.75, .05), (0.33, 9.25, .055), (0.44, 8.8, .055),
+            (0.47, 8.4, .05), (0.6, 8.08, .05), (0.76, 7.9, .05), (0.6, 7.79, .05), (0.52, 7.64, .05), (0.55, 7.47, .05),
+            (0.66, 7.3, .05), (0.81, 7.17, .05)],
+    'BL3': [(0.12, 11.45, .04), (0.15, 11.0, .05), (0.21, 10.4, .06), (0.3, 9.85, .065), (0.42, 9.35, .07), (0.52, 8.95, .07),
+            (0.6, 8.55, .065), (0.68, 8.26, .06), (0.53, 8.0, .06), (0.34, 7.82, .055), (0.27, 7.6, .055), (0.28, 7.32, .05)],
+    'BL2': [(0.2, 11.5, .04), (0.25, 11.0, .05), (0.33, 10.4, .06), (0.43, 9.85, .065), (0.56, 9.35, .07), (0.67, 8.95, .07),
+            (0.8, 8.55, .065), (0.83, 8.25, .06), (0.75, 7.97, .055), (0.73, 7.76, .05), (0.86, 7.5, .05), (1.03, 7.22, .045),
+            (1.15, 7.0, .04), (1.14, 6.82, .035), (1.04, 6.7, .025), (0.94, 6.67, 0)],
+    'BL1': [(0.27, 11.55, .035), (0.33, 11.05, .045), (0.44, 10.45, .05), (0.54, 9.85, .05), (0.68, 9.35, .05), (0.81, 8.95, .05),
+            (0.94, 8.55, .05), (0.98, 8.2, .045), (1.0, 7.95, .045), (1.08, 7.75, .045), (1.19, 7.52, .04), (1.3, 7.3, .04),
+            (1.39, 7.08, .035), (1.42, 6.9, .025), (1.4, 6.78, 0)],
+    # her right: BR3 runs down the parting and along the bottom of the lock into the spiral, BR2 sweeps out and
+    # hooks up, BR1 comes down the outside and coils into a spiral that faces back; BR0 a short strand by the braid
+    'BR3': [(-0.01, 11.3, .035), (-0.02, 10.8, .04), (-0.06, 10.1, .045), (-0.2, 9.65, .05), (-0.33, 9.3, .05), (-0.39, 8.95, .05),
+            (-0.4, 8.5, .05), (-0.36, 8.2, .05), (-0.33, 7.85, .05), (-0.34, 7.6, .05), (-0.4, 7.43, .05), (-0.52, 7.34, .05),
+            (-0.68, 7.31, .05), (-0.84, 7.33, .05)],
+    'BR2': [(-0.04, 11.35, .04), (-0.06, 11.0, .05), (-0.15, 10.45, .06), (-0.3, 10.05, .07), (-0.45, 9.65, .075), (-0.6, 9.2, .08),
+            (-0.72, 8.8, .08), (-0.77, 8.45, .075), (-0.8, 8.1, .07), (-0.82, 7.85, .065), (-0.9, 7.62, .06), (-1.02, 7.5, .05),
+            (-1.12, 7.5, .035), (-1.18, 7.58, 0)],
+    'BR1': [(-0.07, 11.4, .035), (-0.11, 11.0, .045), (-0.25, 10.45, .05), (-0.43, 10.05, .05), (-0.62, 9.65, .05), (-0.76, 9.2, .05),
+            (-0.92, 8.8, .05), (-1.01, 8.45, .05), (-1.04, 8.1, .05), (-1.12, 7.85, .05), (-1.17, 7.6, .05), (-1.23, 7.35, .05),
+            (-1.3, 7.12, .05), (-1.34, 6.95, .05)],
+    'BR0': [(-0.42, 11.35, .03), (-0.45, 11.1, .04), (-0.47, 10.85, .03), (-0.47, 10.74, 0)],
+}
+# the curls, in 3D: a helix about an axis through the given centre (x, and z for an axis that is not upright),
+# starting where the hanging part ends; r1 the radius it closes to, turns, drop (along a vertical axis) or advance
+# (along a horizontal one), and the sense of the turn
+BK_CURL = {
+    'BL4': dict(axis=(0, 0, 1), cx=0.55, r1=0.15, turns=1.75, drop=0.75, sense=1),
+    'BL3': dict(axis=(0, 0, 1), cx=0.55, r1=0.16, turns=2.0, drop=0.9, sense=1),
+    'BR3': dict(axis=(0, 1, 0), cx=-0.92, cz=6.88, r1=0.13, turns=1.5, drop=0.1, sense=-1),
+    'BR1': dict(axis=(0, 1, 0), cx=-0.92, cz=6.88, r1=0.2, turns=1.75, drop=0.16, sense=-1),
+}
+# colour and thickness, in the order they are laid on
+BK_LOOK = {'BL4': (HAIR_DK, 0.05), 'BL3': (HAIR, 0.055), 'BL2': (HAIR_LT, 0.05), 'BL1': (HAIR, 0.045),
+           'BR3': (HAIR_DK, 0.05), 'BR2': (HAIR, 0.055), 'BR1': (HAIR_LT, 0.05), 'BR0': (HAIR_LT, 0.04)}
+BK_ROOT = (0.88, 11.87)     # the strands start inside the braid at the back of the head (y, z; measured: the braid's
+                            # outside is at y 0.96 and z 11.84 to 11.9 in the middle)
+BK_TOP = 0.96               # how far back a strand is where it comes out under the braid
+BK_NAPE = 10.45             # the hair down the back above the two locks ends here (back locks, hairUnder)
+BK_WIDE = 1.5               # the traced lines are the strands' borders, drawn apart; the strands overlap their
+                            # neighbours so that each lock reads as one
+BK_WAVE = (0.06, 0.7, 8.6)  # below z 8.6 the strands wave back and forth by 0.06, 0.7 a wave, so they curl in 3D
+
+
+def body_back(x, z):
+    """How far back (+y) what the back locks hang on reaches at (x, z): the capelet, the corset, the high collar,
+    and the hair above the nape (the back locks, which end at BK_NAPE)."""
+    f = float(_grid_at(CAPE_BACK, x, z))
+    if 7.9 < z < 9.15:                                # corset_ab holds only on the corset
+        a, b = corset_ab(z)
+        if abs(x) < a:
+            f = max(f, b * math.sqrt(1 - (x / a) ** 2))
+    if 10.4 <= z <= 11.05:
+        r = 0.41 if z > 10.83 else 0.26
+        if abs(x) < r:
+            f = max(f, CP_Y0 + math.sqrt(r * r - x * x))
+    if BK_NAPE - 0.05 < z < 11.5:
+        t = t_of_z(z)
+        ax, ay = hrx_py(t) + 0.14, hry_py(t) + 0.14
+        if abs(x) < ax:
+            f = max(f, HY0 + ay * math.sqrt(1 - (x / ax) ** 2))
+    return f
+
+
+_ok = (_cy > CP_Y0) & (np.abs(_cx) < 1.5) & (_cz > 8.5) & (_cz < 11.5)
+CAPE_BACK = np.zeros((301, 301))
+np.maximum.at(CAPE_BACK, (np.round((_cx[_ok] - _CG[0]) / _CG[2]).astype(int), np.round((_cz[_ok] - _CG[1]) / _CG[2]).astype(int)), _cy[_ok])
+for _ in range(2):
+    CAPE_BACK = np.maximum.reduce([np.roll(np.roll(CAPE_BACK, i, 0), j, 1) for i in (-1, 0, 1) for j in (-1, 0, 1)])
+
+
+def _lin(terms):
+    """Sum of coefficient * expression, leaving out the zero terms."""
+    out = [f"{fmt(c)}*{e}" if e else fmt(c) for c, e in terms if abs(c) > 5e-6]
+    return '+'.join(out) if out else '0'
+
+
+def curl_xyz(P, T, Sv, Nv, spec):
+    """A curl written exactly for Arch, as a function of t from -1 to 1 (its angle th = Th (t + 1) / 2), starting at
+    the end P of the hanging part with its tangent T, side vector Sv and thickness vector Nv. Upright axis: a
+    corkscrew ringlet hanging from P, falling fast as it leaves the hanging part (matching its slope, at most 0.8 a
+    radian) and then evenly; its section turns to face out from the axis over the first half turn and its width
+    turns to lie along the axis. Axis facing back: a spiral in the plane of the back view whose section keeps
+    facing back, drifting back as it closes. The radius closes linearly; width and thickness taper over the last
+    half turn."""
+    e3 = np.array(spec['axis'], float)
+    up = e3[2] > 0.5
+    Th = 2 * math.pi * spec['turns']
+    O = np.array([spec['cx'], P[1], P[2] if up else spec['cz']])
+    n0 = P - O
+    n0 -= e3 * (n0 @ e3)
+    r0 = float(np.linalg.norm(n0))
+    n0 /= r0
+    m0 = spec['sense'] * np.cross(e3, n0)
+    hw, th = float(np.linalg.norm(Sv)), float(np.linalg.norm(Nv))
+    sh, nh = Sv / hw, Nv / th
+    TH = f"({fmt(Th / 2)}*(t+1))"
+    CS, SN = f"cos{TH}", f"sin{TH}"
+    R = f"({fmt(r0)}+{fmt((spec['r1'] - r0) / Th)}*{TH})"
+    if up:
+        ps = min(0.8, r0 * abs(T @ e3) / max(abs(T @ m0), 1e-3))
+        k = 0.6
+        ex = k * (1 - math.exp(-Th / k))
+        pt = max(0.0, (spec['drop'] - ps * ex) / (Th - ex))
+        A = f"(-({fmt(pt)}*{TH}+{fmt((ps - pt) * k)}*(1-exp(-{TH}/{fmt(k)}))))"
+        B = f"(0.5+0.5*tanh(({TH}-1.5708)/0.6283))"
+    else:
+        A = f"({fmt(spec['drop'] / Th)}*{TH})"
+    TP = f"tanh({fmt(Th / 2)}*(1-t)/1.5708)^0.6"         # (Th - th), written so it never goes below 0 at t = 1
+    xyz = []
+    for i in range(3):
+        rad = f"({_lin([(n0[i], CS), (m0[i], SN)])})"
+        centre = _lin([(O[i], ''), (1.0, f"{R}*{rad}") if abs(n0[i]) + abs(m0[i]) > 5e-6 else (0, ''), (e3[i], A)])
+        if up:
+            side = f"{fmt(hw)}*{TP}*((1-{B})*{fmt(sh[i])}+{B}*{fmt(e3[i])})"
+            thick = f"{fmt(th)}*(0.3+0.7*{TP})*((1-{B})*{fmt(nh[i])}+{B}*{rad})"
+        else:
+            side = f"{fmt(hw * np.sign(sh @ n0))}*{TP}*{rad}"
+            thick = f"{fmt(th * nh[i])}*(0.3+0.7*{TP})"
+        xyz.append(f"{centre}+cos(w)*({side})+lcs(w)*({thick})")
+    return tuple(xyz)
+
+
+def _poly_fit(t, V, deg):
+    cs = [np.round(np.polynomial.chebyshev.Chebyshev.fit(t, V[:, i], deg).convert(kind=np.polynomial.Polynomial).coef, 5) for i in range(V.shape[1])]
+    fit = np.c_[[np.polynomial.polynomial.polyval(t, c) for c in cs]].T
+    return cs, fit, float(np.max(np.linalg.norm(fit - V, axis=1)))
+
+
+def _hang_pieces(n_seg, t, sig, P, W, TH, joined):
+    """The hanging part fitted in n_seg polynomial pieces that join exactly; returns the parts, their errors and
+    (the last piece's coefficients, its samples)."""
+    parts, errs, prev = [], [], None
+    for k_ in range(n_seg):
+        st = sig[-1] * (k_ + (t + 1) / 2) / n_seg
+        Pt = np.c_[[np.interp(st, sig, P[:, i]) for i in range(3)]].T
+        Wt, THt = np.interp(st, sig, W), np.interp(st, sig, TH)
+        T = np.gradient(Pt, axis=0)
+        T /= np.linalg.norm(T, axis=1)[:, None]
+        nrm = np.array([0, 1.0, 0]) - T[:, 1:2] * T
+        nrm /= np.linalg.norm(nrm, axis=1)[:, None]
+        side = np.cross(T, nrm)
+        side /= np.linalg.norm(side, axis=1)[:, None]
+        fits = [_poly_fit(t, V, CH_DEG) for V in (Pt, side * Wt[:, None], nrm * THt[:, None])]
+        cs = [f[0] for f in fits]
+        if prev is not None:
+            cs = [joined(c, [np.polynomial.polynomial.polyval(1.0, q) for q in pc], [np.polynomial.polynomial.polyval(-1.0, q) for q in c])
+                  for c, pc in zip(cs, prev)]
+        parts.append(('poly', cs, max(1, int(math.ceil(sig[-1] / n_seg / 1.5)))))
+        errs.append(max(f[2] for f in fits))
+        prev = cs
+    return parts, errs, (prev, (Pt, T, nrm, side, Wt, THt))
+
+
+def back_strands():
+    """Each back strand as parts for Arch: ('poly', [C, U, V], pieces) for the hanging part, polynomials in t
+    (-1..1) for the centre line, side and thickness vectors, in as many pieces as keep it within 0.006 (joined
+    exactly); ('curl', xyz, pieces) for a curl, written exactly (curl_xyz). The hanging part lies on what is behind it and falls straight below the fullest
+    point (how far back it is never decreases going down), like the chest locks."""
+    under = np.zeros((301, 301))
+    out = {}
+    for key, (col, th) in BK_LOOK.items():
+        sd = 1 if key[1] == 'L' else -1
+        D = np.array(BK_STRANDS[key], float) * [1, 1, BK_WIDE]
+        d = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
+        s = np.linspace(0, d[-1], 600)
+        Q = _nat_spline(d, D, s)
+        T2 = np.gradient(Q[:, :2], axis=0)
+        T2 /= np.linalg.norm(T2, axis=1)[:, None]
+        N2 = np.c_[-T2[:, 1], T2[:, 0]]
+        hw = np.maximum(Q[:, 2], 0)
+        fb, fh = np.zeros(len(s)), np.zeros(len(s))
+        for k in np.linspace(-1, 1, 7):
+            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
+            fb = np.maximum(fb, [body_back(a, b) for a, b in zip(px, pz)])
+            fh = np.maximum(fh, _grid_at(under, px, pz))
+        lo = np.maximum.accumulate(np.r_[BK_TOP, np.maximum(fb + CH_GAP, fh + CH_ON)])[1:]
+        g, ker = lo.copy(), np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
+        for _ in range(60):
+            g = np.maximum(np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
+        curl = BK_CURL.get(key)
+        tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
+        y = g + 0.3 * th * tip
+        amp, lam, zw = BK_WAVE
+        ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
+        y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * len(out))      # each strand its own phase
+        for k in np.linspace(-1, 1, 9):
+            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
+            i, j = np.round((px - _CG[0]) / _CG[2]).astype(int), np.round((pz - _CG[1]) / _CG[2]).astype(int)
+            ok = (i >= 0) & (i < 301) & (j >= 0) & (j < 301)
+            np.maximum.at(under, (i[ok], j[ok]), (y + th * tip * (1 - 0.8 * k * k))[ok])
+        # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
+        idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
+        root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
+        K = np.c_[np.r_[root, np.c_[Q[idx, 0], y[idx], Q[idx, 1]]], np.r_[hw[0], hw[idx]], np.r_[th, th * tip[idx]]]
+        dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
+        Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
+        P, W, TH = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0)
+        sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+        t = np.linspace(-1, 1, 1201)
+        fade = np.polynomial.polynomial.polypow([0.5, -0.5], 3)      # ((1 - t) / 2)^3: 1 at t = -1, 0 at t = 1
+
+        def joined(cs, end, start):
+            """Polynomials moved so that they start exactly where the previous part ends, the move fading out."""
+            return [np.round(np.polynomial.polynomial.polyadd(c, (e - s0) * fade), 5) for c, e, s0 in zip(cs, end, start)]
+
+        # the hanging part, in two polynomial pieces (the lower one bends in S-curves) that join exactly
+        for n_seg in range(1 if sig[-1] < 2.5 else 2, 5):      # as few pieces as keep the fit within 0.006
+            parts, errs, prev = _hang_pieces(n_seg, t, sig, P, W, TH, joined)
+            if max(errs) < 0.006:
+                break
+        Pt, T, nrm, side, Wt, THt = prev[1]
+        prev = prev[0]
+        if curl:
+            # starts exactly where the hanging part's polynomials end
+            ev = lambda cs, d=0: np.array([np.polynomial.polynomial.polyval(1.0, np.polynomial.polynomial.polyder(c, d)) for c in cs])
+            Te = ev(prev[0], 1)
+            parts.append(('curl', curl_xyz(ev(prev[0]), Te / np.linalg.norm(Te), ev(prev[1]), ev(prev[2]), curl), int(math.ceil(curl['turns']))))
+        out[key] = (parts, max(errs), col, errs)
+    return out
+
+
 def run_hair():
     sc.blank()
     sc.note('Hair')
@@ -263,8 +510,7 @@ crown), below that it falls. hzz(t) is the height, hrx(t) and hry(t) are the hal
 hair lies on at that height: they follow the dome, then keep clear of the shoulders, capelet, arms, book
 and skirt and flare out toward the ends (fitted by the generator). hu(t) is 0 on the dome and grows to 1
 down the fall. hdw keeps a lock's width steady as the hair spreads.""")
-    gx, m1, cx_ = fit_profile(side_req, HDX)
-    gy, m2, cy_ = fit_profile(back_req, HDY)
+    (gx, m1, cx_), (gy, m2, cy_) = HP_X, HP_Y
     # hdw = min(1, 1.54 / (hrx + hry)), exactly: on the dome hrx + hry = 1.54 sin(ha) and the profiles' knot terms
     # are 0; on the fall sin(ha) = 1. So hdw = 1.54 / (1.54 + both profiles' knot terms), one spline (their
     # coefficients summed, the knots are shared) instead of min(...), which Arch writes with both profiles twice.
@@ -334,20 +580,42 @@ eye and a little higher above her right eye, where the forehead shows between th
                ('u', 0, 1), ('v', '-pi', 'pi'), HAIR_DK, 'hairCap', ('point', (0, HY0, ZHC)))
     with sc.turned(**HEAD_TURN, blend=HB):
         sc.surface(("(hrx(t)-0.03)*sin(k*(1-0.64*(1-hdw(t))))", f"{fmt(HY0)}+(hry(t)-0.03)*cos(k*(1-0.64*(1-hdw(t))))", "hzz(t)"),
-                   ('t', T0 * 0.9, 0.7), ('k', -1.2, 1.2), HAIR_DK, 'hairUnder', ('point', (0, 0, 9)))
+                   ('t', T0 * 0.9, t_of_z(BK_NAPE) - 0.03), ('k', -1.2, 1.2), HAIR_DK, 'hairUnder', ('point', (0, 0, 9)))
 
     rng = np.random.default_rng(11)
     R = rng.random
     def cdir(rc):
         return ('out', rc) if R() < 0.3 else ('side', 1 if R() < 0.5 else -1, rc)
-    sc.comment("""Long locks. Down the back they fall straight in three layers (wide ones underneath, the main
-layer, thin lighter strands on top); at the sides they fan out over the shoulders and arms.""")
-    for i, p0 in enumerate((-1.0, -0.68, -0.34, 0.0, 0.34, 0.68, 1.0)):
-        lock(f'backU{i + 1}', p0, 0.66, 0.05 * (R() - 0.5), 0.28, 0.86 + 0.1 * R(), 0.0, 0.05, 0.07 + 0.04 * R(), 8 + 3 * R(), 6.28 * R(), HAIR_DK, curl=cdir(0.11))
-    for i, p0 in enumerate((-0.85, -0.51, -0.17, 0.17, 0.51, 0.85)):
-        lock(f'back{i + 1}', p0, 0.68, 0.06 * (R() - 0.5), 0.24, 0.9 + 0.1 * R(), 0.04, 0.055, 0.09 + 0.05 * R(), 9 + 4 * R(), 6.28 * R(), HAIR, curl=cdir(0.13))
-    for i, p0 in enumerate((-0.7, -0.3, 0.1, 0.45, 0.8)):
-        lock(f'backT{i + 1}', p0, 0.68, 0.12 * (R() - 0.5), 0.1, 0.8 + 0.18 * R(), 0.085, 0.04, 0.12 + 0.06 * R(), 10 + 5 * R(), 6.28 * R(), HAIR_LT, curl=cdir(0.12))
+    T_NAPE = t_of_z(BK_NAPE)
+
+    def nape_lock(ref, p0, sg, hw, la, th, am, kk, ph, col):
+        """A lock from the crown that ends at the nape, closing in as it falls so that it ends under the two back locks."""
+        p_c = p0 * (1 - sg * (1 - hdw_py(T_NAPE)))
+        dr = (math.copysign(min(abs(p_c), 0.42), p0) - p_c) / hu_py(T_NAPE)
+        lock(ref, p0, sg, dr, hw, T_NAPE, la, th, am, kk, ph, col, curl=None)
+
+    sc.comment(f"""Long locks. On the sheet's back view two locks (drawn below) are nearly all the hair down the middle of
+her back, with the corset showing between them and the capelet's back beside them. So the locks from the crown
+down the back (three layers: wide ones underneath, the main layer, thin lighter strands on top) end at the
+nape (z {fmt(BK_NAPE)}), closing in under those two, except the outermost of each layer, which fall over the
+arms with the locks at the sides that fan out over the shoulders.""")
+    # the random draws are made as before the back was parted, so the side locks keep theirs. The outermost locks of
+    # each layer stay long and are moved out over the arms, at least 1.32 from the back so they pass outside the
+    # capelet's back emblems (which the sheet shows), where the sheet's back view shows the rest of the hair falling.
+    def back_layer(tag, p0s, sg, hw, la, th, col, draw, arms):
+        for i, p0 in enumerate(p0s):
+            dr_, te_, am_, kk_, ph_, cd_ = draw()
+            rank = sorted((abs(p) for p in p0s if p * p0 > 0), reverse=True).index(abs(p0)) if p0 != 0 else 99
+            if rank < len(arms):        # the outermost: long, out over the arms (beyond the capelet's back emblems)
+                lock(f'{tag}{i + 1}', math.copysign(arms[rank], p0), 0.3, dr_, hw, te_, la, th, am_, kk_, ph_, col, curl=cd_)
+            else:
+                nape_lock(f'{tag}{i + 1}', p0, sg, hw, la, th, am_, kk_, ph_, col)
+    back_layer('backU', (-1.0, -0.68, -0.34, 0.0, 0.34, 0.68, 1.0), 0.66, 0.28, 0.0, 0.05, HAIR_DK,
+               lambda: (0.05 * (R() - 0.5), 0.86 + 0.1 * R(), 0.07 + 0.04 * R(), 8 + 3 * R(), 6.28 * R(), cdir(0.11)), (1.5, 1.36))
+    back_layer('back', (-0.85, -0.51, -0.17, 0.17, 0.51, 0.85), 0.68, 0.24, 0.04, 0.055, HAIR,
+               lambda: (0.06 * (R() - 0.5), 0.9 + 0.1 * R(), 0.09 + 0.05 * R(), 9 + 4 * R(), 6.28 * R(), cdir(0.13)), (1.44, 1.32))
+    back_layer('backT', (-0.7, -0.3, 0.1, 0.45, 0.8), 0.68, 0.1, 0.085, 0.04, HAIR_LT,
+               lambda: (0.12 * (R() - 0.5), 0.8 + 0.18 * R(), 0.12 + 0.06 * R(), 10 + 5 * R(), 6.28 * R(), cdir(0.12)), (1.4,))
     side = [  # p0 (her right; mirrored for her left), layer, half-width, colour
         (1.3, 'U', 0.3, HAIR_DK), (1.62, 'U', 0.28, HAIR_DK), (1.18, 'M', 0.24, HAIR), (1.5, 'M', 0.24, HAIR), (1.8, 'M', 0.2, HAIR),
         (1.35, 'T', 0.1, HAIR_LT), (1.68, 'T', 0.1, HAIR_LT)]
@@ -371,6 +639,26 @@ a separate surface so that its curl gets a fine mesh.""")
         xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
         sc.surface(xyz, ('t', -1, 0), ('w', 0, '2*pi'), col, f'chestLock{key}', ('tube', 'u'))
         sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), col, f'chestLock{key}Tip', ('tube', 'u'))
+    sc.comment("""The two locks down the back, from under the braid, as traced on the sheet's back view: on her left four
+strands, two spreading out at the bottom and two winding together into a corkscrew ringlet; on her right
+strands that sweep out and coil into a spiral facing back. The hanging part of each strand is written like the
+chest locks (in pieces); a curl is a helix written as it is, in its angle th = Th (t + 1) / 2, its radius closing
+as it turns, one surface a turn.""")
+    BK = back_strands()
+    print(f"  back locks: largest fit error {max(v[1] for v in BK.values()):.4f}", file=sys.stderr)
+    for key, (parts, err, col, _) in BK.items():
+        letters = iter('abcdefgh')
+        for part in parts:
+            if part[0] == 'poly':
+                _, (C, U, V), n = part
+                xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
+                name = f'backLock{key[2:]}{key[1]}'
+            else:
+                _, xyz, n = part
+                name = f'backLock{key[2:]}{key[1]}Curl'
+            for j in range(n):
+                tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
+                sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), col, f'{name}{tag}', ('tube', 'u'))
 
     # ---------- bangs and the locks that frame the face ----------
     sc.blank()

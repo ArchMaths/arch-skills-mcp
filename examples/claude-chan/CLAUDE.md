@@ -64,8 +64,9 @@ draws the arms 0.1 to 0.2 closer to the body; the lacing is drawn facing whichev
 The capelet: unlike the arms, the side view draws it as a true profile (its front edge reaches the bust where
 the front view's front edge, on a section hugging the chest, puts it), but it draws its upper front edge at
 the side of the neck and cuts its lower front higher than the front view; its emblem there (y 0.8) fits no
-single place on it, so the emblems follow the front and back views. On the back view the hair falls in a
-narrower band than the model's hair, leaving the capelet's sides and back emblems visible.
+single place on it, so the emblems follow the front and back views. On the back view the hair parts down the
+middle and leaves the capelet's sides and back emblems visible; the model follows it (`back_strands`, the back
+locks ending at the nape).
 
 The dress, traced: the side view draws the overskirt's hem as if turned too (high at the front, low at the
 back, where the front and back views put it low at the side), so the hem was fitted on the front and back
@@ -102,6 +103,15 @@ has: the capelet's emblems across (x +-1.10), the chin, brooch and emblems down 
 agree to 0.01). The portraits draw the chest about 9% wider than the full-body front view, so the scales
 across and down differ; parts placed this way sit right against the emblems and the jabot. Hair drawn this
 way only gives x and z: `chest_strands` in `hair.py` works out the depth so a strand hangs on what is under it.
+The back view needs no landmarks (`back_strands`: it is calibrated in `sheetfit.py`). Read the colour runs of the
+hair on the sheet against the model's hair (by height, in model units) before changing which locks cover what:
+that is how the parting down her back was found.
+
+Curls: write a helix as it is (cos and sin of its angle, `curl_xyz`), never fit one. A least-squares fit of
+polynomials times cos and sin to a helix that starts steeply gave coefficients near 10^8 that cancel each other;
+the error looked small in numpy and the surface came apart in the preview. In Arch, write what goes under a
+fractional power so it cannot go negative by rounding (`(Th/2)*(1-t)`, not `Th-(Th/2)*(t+1)`): a negative base
+gives NaN. `corset_ab` holds only on the corset (z 7.9 to 9.35); below it the flare term explodes.
 
 All the modules run in one namespace (generate.py execs them), so a module-level name in one file replaces the
 same name in another: `boots.py` once reused `_tz`, which broke `outfit.py`'s `torso_ab` for anything that
