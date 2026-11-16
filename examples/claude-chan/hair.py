@@ -273,8 +273,9 @@ def chest_strands():
 # drawing registered onto it by ECC) and put into model units by the back view's calibration (sheetfit.py). On
 # the sheet these two locks are nearly all the hair down the middle of her back: they part below the braid,
 # the corset shows between them and the capelet's back beside them, and the rest of the hair falls over the
-# arms. Each lock is drawn as sub-strands along the inner lines of the tracing: (x, z, half-width) in the back
-# view down each centre line, from under the braid to where its curl starts (or its tip).
+# arms. Each lock is drawn as strands along the inner lines of the tracing, each strand split into sub-strands
+# (BK_SUBS, ten a lock): (x, z, half-width) in the back view down each strand's centre line, from under the braid
+# to where its curl starts (or its tip).
 BK_STRANDS = {
     # her left: BL1 and BL2 spread out at the bottom (BL2 hooks back in), BL3 and BL4 bend in S-curves and wind
     # together into a corkscrew ringlet
@@ -325,8 +326,11 @@ BK_WIDE = 1.5               # the traced lines are the strands' borders, drawn a
 BK_WAVE = (0.06, 0.7, 8.6)  # below z 8.6 the strands wave back and forth by 0.06, 0.7 a wave, so they curl in 3D
 BK_NOISE = (0.025, 0.25, 0.2, 0.015)   # so that no strand is machine-smooth: each wanders across by up to 0.025, its
                             # width and thickness vary by up to 25% and 20%, and it lifts off what it lies on by up to 0.015
-BK_TWIST = {'BL4': 1, 'BL3': -1, 'BL2': 1.5, 'BL1': -1, 'BR3': 1, 'BR2': -1.5, 'BR1': 1}   # turns each strand twists
-                            # about its own line below the nape (whole turns into a ringlet, so it starts as untwisted)
+BK_TWIST = {'BL4': 0.5, 'BL3': -0.5, 'BL2': 0.6, 'BL1': -0.5, 'BR3': 0.5, 'BR2': -0.6, 'BR1': 0.5}   # turns each
+                            # strand twists about its own line below the nape
+BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1}   # sub-strands, ten a lock:
+                            # each strand is drawn as these, side by side across it, each with its own wander, depth,
+                            # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
 
 
@@ -363,14 +367,17 @@ def _lin(terms):
     return '+'.join(out) if out else '0'
 
 
-def curl_xyz(P, T, Sv, Nv, spec):
+def curl_xyz(P, T, Sv, Nv, spec, subs):
     """A ringlet written exactly for Arch, as a function of t from -1 to 1 (its angle th = Th (t + 1) / 2): a helix
-    about the upright axis through spec['at'] (x, y), starting at the end P of the hanging part with its tangent T,
-    side vector Sv and thickness vector Nv. It falls fast as it leaves the hanging part (matching its slope, at most
-    0.8 a radian, but over no more than 35% of the drop) and then evenly, spec['drop'] in all. Its section turns to
-    face out from the axis over the first half turn and its width turns to lie along the axis, narrowing to 0.7 so
-    that the turns stand apart. The radius closes linearly to r1 and wanders a little (by up to 2 BK_WOB, starting
-    smoothly); width and thickness taper over the last half turn."""
+    about the upright axis through spec['at'] (x, y), starting at the end P of the strand's hanging part with its
+    tangent T, side vector Sv and thickness vector Nv. It falls fast as it leaves the hanging part (matching its
+    slope, at most 0.8 a radian, but over no more than 35% of the drop) and then evenly, spec['drop'] in all. Its
+    section turns (the short way) to face out from the axis over the first half turn and its width turns to lie
+    along the axis, narrowing to 0.7 so that the turns stand apart. The radius closes linearly to r1; width and
+    thickness taper over the last half turn. Returns one (x, y, z) for each sub-strand in subs: placed across the
+    strand (d, in its half-widths) and out from it (dep, in its thicknesses) as it is where its hanging part ends,
+    starting exactly there (the rest r of its offset fades out over the first half turn), with its own width w,
+    thickness t and a radius that wanders a little (by up to 2 BK_WOB at its own rate wob)."""
     e3 = np.array([0, 0, 1.0])
     Th = 2 * math.pi * spec['turns']
     O = np.array([spec['at'][0], spec['at'][1], P[2]])
@@ -381,24 +388,31 @@ def curl_xyz(P, T, Sv, Nv, spec):
     m0 = spec['sense'] * np.cross(e3, n0)
     hw, th = float(np.linalg.norm(Sv)), float(np.linalg.norm(Nv))
     sh, nh = Sv / hw, Nv / th
+    sgs, sgn = (1.0 if sh @ e3 >= 0 else -1.0), (1.0 if nh @ n0 >= 0 else -1.0)
     TH = f"({fmt(Th / 2)}*(t+1))"
     CS, SN = f"cos{TH}", f"sin{TH}"
-    R = f"({fmt(r0)}+{fmt((spec['r1'] - r0) / Th)}*{TH}+{fmt(BK_WOB)}*(1-cos({fmt(spec.get('wob', 1.9))}*{TH})))"
     ps = min(0.8, r0 * abs(T @ e3) / max(abs(T @ m0), 1e-3))
     k = min(0.6, 0.35 * spec['drop'] / max(ps, 1e-3))      # the steep start takes at most 35% of the drop
     ex = k * (1 - math.exp(-Th / k))
     pt = max(0.0, (spec['drop'] - ps * ex) / (Th - ex))
     A = f"(-({fmt(pt)}*{TH}+{fmt((ps - pt) * k)}*(1-exp(-{TH}/{fmt(k)}))))"
-    B = f"(0.5+0.5*tanh(({TH}-1.5708)/0.6283))"
+    b0 = 0.5 + 0.5 * math.tanh(-2.5)
+    B = f"({fmt((0.5 - b0) / (1 - b0))}+{fmt(0.5 / (1 - b0))}*tanh(({TH}-1.5708)/0.6283))"   # 0 at the start, 1 a half turn on
     TP = f"tanh({fmt(Th / 2)}*(1-t)/1.5708)^0.6"         # (Th - th), written so it never goes below 0 at t = 1
-    xyz = []
-    for i in range(3):
-        rad = f"({_lin([(n0[i], CS), (m0[i], SN)])})"
-        centre = _lin([(O[i], ''), (1.0, f"{R}*{rad}") if abs(n0[i]) + abs(m0[i]) > 5e-6 else (0, ''), (e3[i], A)])
-        side = f"{fmt(hw)}*{TP}*((1-{B})*{fmt(sh[i])}+{B}*{fmt(0.7 * e3[i])})"
-        thick = f"{fmt(th)}*(0.3+0.7*{TP})*((1-{B})*{fmt(nh[i])}+{B}*{rad})"
-        xyz.append(f"{centre}+cos(w)*({side})+lcs(w)*({thick})")
-    return tuple(xyz)
+    TK = f"(0.3+0.7*{TP})"
+    out = []
+    for sb in subs:
+        R = f"({fmt(r0)}+{fmt((spec['r1'] - r0) / Th)}*{TH}+{fmt(BK_WOB)}*(1-cos({fmt(sb['wob'])}*{TH})))"
+        xyz = []
+        for i in range(3):
+            rad = f"({_lin([(n0[i], CS), (m0[i], SN)])})"
+            S = f"((1-{B})*{fmt(sh[i])}+{B}*{fmt(0.7 * sgs)})" if i == 2 else f"(1-{B})*{fmt(sh[i])}"
+            N = f"((1-{B})*{fmt(nh[i])}+{B}*{fmt(sgn)}*{rad})"
+            centre = _lin([(O[i], ''), (1.0, f"{R}*{rad}") if abs(n0[i]) + abs(m0[i]) > 5e-6 else (0, ''), (e3[i], A),
+                           (sb['r'][i], f"(1-{B})"), (sb['d'] * hw, f"{TP}*{S}"), (sb['dep'] * th, f"{TK}*{N}")])
+            xyz.append(f"{centre}+cos(w)*({fmt(sb['w'] * hw)}*{TP}*{S})+lcs(w)*({fmt(sb['t'] * th)}*{TK}*{N})")
+        out.append(tuple(xyz))
+    return out
 
 
 def _poly_fit(t, V, deg):
@@ -407,30 +421,41 @@ def _poly_fit(t, V, deg):
     return cs, fit, float(np.max(np.linalg.norm(fit - V, axis=1)))
 
 
-def _hang_pieces(n_seg, t, sig, P, W, TH, PH, joined):
-    """The hanging part fitted in n_seg polynomial pieces that join exactly; returns the parts, their errors and
-    (the last piece's coefficients, its samples). The section faces back, turned about the strand's line by PH."""
-    parts, errs, prev = [], [], None
+def _hang_pieces(n_seg, t, sig, P, W, TH, PH, TS, joined, subs):
+    """The hanging part fitted in n_seg polynomial pieces that join exactly, for the strand itself (not drawn: its
+    ringlet starts from its end) and for each of its sub-strands (_sub_at); returns the sub-strands' parts, the
+    largest error of each piece and the last coefficients of the strand and of each sub-strand. The section faces
+    back, square to the smoothed tangent TS (so that it does not swing at every small kink of the line), turned
+    about the strand's line by PH."""
+    parts, errs, prev = [[] for _ in subs], [], [None] * (len(subs) + 1)
     for k_ in range(n_seg):
         st = sig[-1] * (k_ + (t + 1) / 2) / n_seg
         Pt = np.c_[[np.interp(st, sig, P[:, i]) for i in range(3)]].T
         Wt, THt, PHt = np.interp(st, sig, W), np.interp(st, sig, TH), np.interp(st, sig, PH)[:, None]
-        T = np.gradient(Pt, axis=0)
+        T = np.c_[[np.interp(st, sig, TS[:, i]) for i in range(3)]].T
         T /= np.linalg.norm(T, axis=1)[:, None]
         nrm = np.array([0, 1.0, 0]) - T[:, 1:2] * T
         nrm /= np.linalg.norm(nrm, axis=1)[:, None]
         side = np.cross(T, nrm)
         side /= np.linalg.norm(side, axis=1)[:, None]
         nrm, side = np.cos(PHt) * nrm + np.sin(PHt) * side, np.cos(PHt) * side - np.sin(PHt) * nrm     # the twist
-        fits = [_poly_fit(t, V, CH_DEG) for V in (Pt, side * Wt[:, None], nrm * THt[:, None])]
-        cs = [f[0] for f in fits]
-        if prev is not None:
-            cs = [joined(c, [np.polynomial.polynomial.polyval(1.0, q) for q in pc], [np.polynomial.polynomial.polyval(-1.0, q) for q in c])
-                  for c, pc in zip(cs, prev)]
-        parts.append(('poly', cs, max(1, int(math.ceil(sig[-1] / n_seg / 1.5)))))
-        errs.append(max(f[2] for f in fits))
-        prev = cs
-    return parts, errs, (prev, (Pt, T, nrm, side, Wt, THt))
+        series = [(Pt, side * Wt[:, None], nrm * THt[:, None])]
+        for sb in subs:
+            lat, dep, wk, tk = _sub_at(sb, st, st / sig[-1])
+            series.append((Pt + (lat * Wt)[:, None] * side + (dep * THt)[:, None] * nrm, side * (wk * Wt)[:, None], nrm * (tk * THt)[:, None]))
+        err = 0.0
+        for m, ser in enumerate(series):
+            fits = [_poly_fit(t, V, CH_DEG) for V in ser]
+            cs = [f[0] for f in fits]
+            if prev[m] is not None:
+                cs = [joined(c, [np.polynomial.polynomial.polyval(1.0, q) for q in pc], [np.polynomial.polynomial.polyval(-1.0, q) for q in c])
+                      for c, pc in zip(cs, prev[m])]
+            prev[m] = cs
+            if m:
+                parts[m - 1].append(('poly', cs, max(1, int(math.ceil(sig[-1] / n_seg / 1.5)))))
+            err = max(err, max(f[2] for f in fits))
+        errs.append(err)
+    return parts, errs, prev
 
 
 def _bk_wobble(s, n, j):
@@ -440,13 +465,31 @@ def _bk_wobble(s, n, j):
                for i, (lam, a) in enumerate(((0.9, 0.55), (0.53, 0.3), (0.31, 0.15))))
 
 
+def _sub_at(sb, s, u):
+    """Where a sub-strand is in its strand at arc length s (u: the fraction of the strand's length): across it, in
+    the strand's half-widths (its place d, fanning out over the last fifth of a free strand, and a wander of up to
+    0.3 of the spacing); out from it, in its thicknesses (0 to 0.5, never into what the strand lies on); and its
+    width and thickness as fractions of the strand's. Below the end of a free strand, a sub-strand ends a little
+    early (at u = end)."""
+    j = sb['j']
+    if sb['free']:
+        f = np.clip((u - 0.8) / 0.2, 0, 1)
+        fan, tip = f * f * (3 - 2 * f), np.clip((sb['end'] - u) / 0.04, 0, 1) ** 0.6
+    else:
+        fan, tip = 0.0, 1.0
+    lat = sb['d'] * (1 + 0.6 * fan) + 0.3 * sb['sp'] * _bk_wobble(s, j, 5)
+    dep = 0.25 * (1 + _bk_wobble(s, j, 6))
+    return lat, dep, sb['w'] * (1 + 0.2 * _bk_wobble(s, j, 7)) * tip, (0.8 + 0.2 * _bk_wobble(s, j, 8)) * tip
+
+
 def back_strands():
     """Each back strand as parts for Arch: ('poly', [C, U, V], pieces) for the hanging part, polynomials in t
     (-1..1) for the centre line, side and thickness vectors, in as many pieces as keep it within 0.006 (joined
-    exactly); ('curl', xyz, pieces) for a ringlet, written exactly (curl_xyz). The hanging part lies on what is behind
-    it and falls straight below the fullest point (how far back it is never decreases going down), like the chest
-    locks. Each strand wanders, varies in width and thickness (BK_NOISE) and twists about its own line below the nape
-    (BK_TWIST), lifted where it twists so that its edges stay clear of what it lies on."""
+    exactly); ('curl', xyz, pieces) for a ringlet, written exactly (curl_xyz); a list of these for each sub-strand
+    (BK_SUBS), with their colours. The hanging part lies on what is behind it and falls straight below the fullest
+    point (how far back it is never decreases going down), like the chest locks. Each strand wanders, varies in width
+    and thickness (BK_NOISE) and twists about its own line below the nape (BK_TWIST), lifted where it twists so that
+    its edges (and its sub-strands') stay clear of what it lies on."""
     under = np.zeros((301, 301))
     out, axes = {}, {}
     for key, (col, th) in BK_LOOK.items():
@@ -470,8 +513,8 @@ def back_strands():
         low = np.nonzero(Q[:, 1] < BK_NAPE - 0.1)[0]
         if key in BK_TWIST and len(low):
             u = np.clip((s - s[low[0]]) / (s[-1] - s[low[0]]), 0, 1)
-            phi = 2 * np.pi * BK_TWIST[key] * u * u * (3 - 2 * u) + 0.35 * np.sin(np.pi * u) * _bk_wobble(s, n_, 4)
-        lift = hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # how far a twisted strand's edge turns in
+            phi = 2 * np.pi * BK_TWIST[key] * u * u * (3 - 2 * u) + 0.25 * np.sin(np.pi * u) * _bk_wobble(s, n_, 4)
+        lift = 1.2 * hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # how far a twisted strand's edge turns in
         fb, fh = np.zeros(len(s)), np.zeros(len(s))
         for k in np.linspace(-1, 1, 7):
             px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
@@ -492,12 +535,12 @@ def back_strands():
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
-        for k in np.linspace(-1, 1, 9):                      # its back, across the twisted section
+        for k in np.linspace(-1.2, 1.2, 11):                 # its back, across the twisted section and its sub-strands
             kc = k * hw * np.cos(phi)
             px, pz = Q[:, 0] + kc * N2[:, 0], Q[:, 1] + kc * N2[:, 1]
             i, j = np.round((px - _CG[0]) / _CG[2]).astype(int), np.round((pz - _CG[1]) / _CG[2]).astype(int)
             ok = (i >= 0) & (i < 301) & (j >= 0) & (j < 301)
-            np.maximum.at(under, (i[ok], j[ok]), (y + np.abs(k * hw * np.sin(phi)) + thv * tip * (1 - 0.8 * k * k))[ok])
+            np.maximum.at(under, (i[ok], j[ok]), (y + np.abs(k * hw * np.sin(phi)) + thv * tip * (1.5 - 0.55 * k * k))[ok])
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
         root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
@@ -507,6 +550,9 @@ def back_strands():
         Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
         P, W, TH, PH = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0), Kd[:, 5]
         sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+        h = int(0.1 / (sig[-1] / len(sig)))                 # the line smoothed over about 0.1, for the section's turn
+        ker = np.exp(-0.5 * (np.arange(-3 * h, 3 * h + 1) / h) ** 2)
+        TS = np.gradient(np.c_[[np.convolve(np.pad(P[:, i], 3 * h, mode='edge'), ker / ker.sum(), 'valid') for i in range(3)]].T, axis=0)
         t = np.linspace(-1, 1, 1201)
         fade = np.polynomial.polynomial.polypow([0.5, -0.5], 3)      # ((1 - t) / 2)^3: 1 at t = -1, 0 at t = 1
 
@@ -514,21 +560,29 @@ def back_strands():
             """Polynomials moved so that they start exactly where the previous part ends, the move fading out."""
             return [np.round(np.polynomial.polynomial.polyadd(c, (e - s0) * fade), 5) for c, e, s0 in zip(cs, end, start)]
 
+        # the sub-strands, side by side across the strand, each with its own wander, depth, width and thickness
+        n = BK_SUBS[key]
+        subs = [dict(j=10 * n_ + k, d=0.8 * (2 * k - (n - 1)) / n, sp=1.6 / n if n > 1 else 0.0, w=min(1.0, 1.2 / n + 0.13),
+                     free=not curl, end=1 - 0.06 * ((0.618 * (k + n_)) % 1)) for k in range(n)]
+        cols = [col] + [c for c in (HAIR, HAIR_LT, HAIR_DK) if c != col]
         # the hanging part, in as few polynomial pieces as keep the fit within 0.006, joined exactly
         for n_seg in range(1 if sig[-1] < 2.5 else 2, 7):
-            parts, errs, prev = _hang_pieces(n_seg, t, sig, P, W, TH, PH, joined)
+            parts, errs, prev = _hang_pieces(n_seg, t, sig, P, W, TH, PH, TS, joined, subs)
             if max(errs) < 0.006:
                 break
-        prev = prev[0]
         if curl:
-            # starts exactly where the hanging part's polynomials end
+            # each sub-strand's ringlet starts exactly where its hanging part's polynomials end
             ev = lambda cs, d=0: np.array([np.polynomial.polynomial.polyval(1.0, np.polynomial.polynomial.polyder(c, d)) for c in cs])
-            Pe, Te = ev(prev[0]), ev(prev[0], 1)
+            Pe, Te, Se, Ne = ev(prev[0][0]), ev(prev[0][0], 1), ev(prev[0][1]), ev(prev[0][2])
             at = axes[curl['axis_of']] if 'axis_of' in curl else (curl['cx'], Pe[1] + curl.get('dy', 0.0))
             axes[key] = at
-            parts.append(('curl', curl_xyz(Pe, Te / np.linalg.norm(Te), ev(prev[1]), ev(prev[2]), dict(curl, at=at, wob=1.7 + 0.37 * n_)),
-                          int(math.ceil(curl['turns']))))
-        out[key] = (parts, max(errs), col, errs)
+            ends = []
+            for sb, pc in zip(subs, prev[1:]):
+                lat, dep, wk, tk = _sub_at(sb, sig[-1], 1.0)
+                ends.append(dict(r=ev(pc[0]) - (Pe + lat * Se + dep * Ne), d=lat, dep=dep, w=wk, t=tk, wob=1.7 + 0.37 * n_ + 0.29 * sb['j'] % 1.3))
+            for part, xyz in zip(parts, curl_xyz(Pe, Te / np.linalg.norm(Te), Se, Ne, dict(curl, at=at), ends)):
+                part.append(('curl', xyz, int(math.ceil(curl['turns']))))
+        out[key] = (parts, max(errs), [cols[k % len(cols)] for k in range(n)], errs)
     return out
 
 
@@ -672,25 +726,27 @@ a separate surface so that its curl gets a fine mesh.""")
         sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), col, f'chestLock{key}Tip', ('tube', 'u'))
     sc.comment("""The two locks down the back, from under the braid, as traced on the sheet's back view: on her left four
 strands, two spreading out at the bottom and two winding together into a ringlet; on her right strands that
-sweep out and wind into a second ringlet. The hanging part of each strand is written like the chest locks (in
-pieces); each strand wanders a little, varies in width and thickness, and twists about its own line below the
-nape. A ringlet is a helix about an upright axis written as it is, in its angle th = Th (t + 1) / 2, its radius
-closing as it turns and dropping as it goes, one surface a turn.""")
+sweep out and wind into a second ringlet. Each strand is drawn as two or three sub-strands side by side, ten a
+lock. Their hanging parts are written like the chest locks (in pieces); each strand wanders a little, varies in
+width and thickness, and twists about its own line below the nape, and each sub-strand has its own wander, depth,
+width and shade, fanning out at a free tip. A ringlet is a helix about an upright axis written as it is, in its
+angle th = Th (t + 1) / 2, its radius closing as it turns and dropping as it goes, one surface a turn.""")
     BK = back_strands()
     print(f"  back locks: largest fit error {max(v[1] for v in BK.values()):.4f}", file=sys.stderr)
-    for key, (parts, err, col, _) in BK.items():
-        letters = iter('abcdefgh')
-        for part in parts:
-            if part[0] == 'poly':
-                _, (C, U, V), n = part
-                xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
-                name = f'backLock{key[2:]}{key[1]}'
-            else:
-                _, xyz, n = part
-                name = f'backLock{key[2:]}{key[1]}Curl'
-            for j in range(n):
-                tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
-                sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), col, f'{name}{tag}', ('tube', 'u'))
+    for key, (subparts, err, cols, _) in BK.items():
+        for k, parts in enumerate(subparts):
+            letters = iter('abcdefghijklmnop')
+            for part in parts:
+                if part[0] == 'poly':
+                    _, (C, U, V), n = part
+                    xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
+                    name = f'backLock{key[2:]}{key[1]}{k + 1}'
+                else:
+                    _, xyz, n = part
+                    name = f'backLock{key[2:]}{key[1]}{k + 1}Curl'
+                for j in range(n):
+                    tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
+                    sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), cols[k], f'{name}{tag}', ('tube', 'u'))
 
     # ---------- bangs and the locks that frame the face ----------
     sc.blank()

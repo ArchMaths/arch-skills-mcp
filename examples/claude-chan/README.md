@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (870 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (958 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -50,8 +50,9 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   the corset showing between them and the capelet's back and its emblems beside them; the outermost locks
   and the locks at the sides fan out over the shoulders and arms. Of the two back locks, her left one is
   four strands, two spreading out at the bottom and two winding together into a loose corkscrew ringlet;
-  her right one sweeps out and winds into a second ringlet that drops as it turns. Their strands wander a
-  little, vary in width and twist about their own lines below the nape. Locks wave more toward their ends and
+  her right one sweeps out and winds into a second ringlet that drops as it turns. Each back lock is ten
+  sub-strands; they wander a little, vary in width and shade, and twist about their own lines below the
+  nape. Locks wave more toward their ends and
   finish in a curled tip. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
   the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
   a band that fans into four strands, the inner one hooking in toward the jabot; on her left a narrower
@@ -233,13 +234,17 @@ listed in `generate.py`.
   hair above the nape, the capelet's back and the corset; below the capelet they fall straight and wave
   back and forth a little, so they curl in 3D too. So that no strand is machine-smooth, each wanders across
   by up to 0.025 and varies in width and thickness (sums of three waves of incommensurate lengths, their
-  phases a formula in the strand's number), and below the nape it twists about its own line, one turn or
-  one and a half; where it twists it is lifted so its edges stay clear of what it lies on, and the strands
-  over it lie on its twisted section. A long strand is fitted in as many polynomial pieces as keep it
+  phases a formula in the strand's number), and below the nape it twists about its own line, about half a
+  turn; where it twists it is lifted so its edges stay clear of what it lies on, and the strands over it
+  lie on its twisted section. Each strand is drawn as two or three sub-strands side by side across it (ten
+  a lock), each with its own wander, depth, width, thickness and shade; at a free tip they fan out and end
+  one after another. The section is turned square to the line smoothed over about 0.1, so that it does not
+  swing at every small kink. A long strand is fitted in as many polynomial pieces as keep every sub-strand
   within 0.006, joined exactly. The ringlets are not fitted: each is a helix about an upright axis written
-  as it is, in its angle, its section turning to face out from the axis, its radius closing (and wandering
-  a little) as it turns and dropping as it goes, one surface a turn; the two strands of the right-hand
-  ringlet wind about one axis. (Fitting a fast-starting helix with polynomials times sines gave
+  as it is, in its angle, its section turning the short way to face out from the axis, its radius closing
+  (and wandering a little) as it turns and dropping as it goes, one surface a turn; a strand's sub-strands
+  turn with its section, so in the ringlet they lie one above another along the axis, and the two strands
+  of the right-hand ringlet wind about one axis. (Fitting a fast-starting helix with polynomials times sines gave
   coefficients near 10^8 that cancel each other, and the surface came apart.)
 - **Head turn.** The generator draws the head's parts inside a turned block: each coordinate is
   replaced by a fixed combination of all three (a rotation about the top of the neck). The long locks

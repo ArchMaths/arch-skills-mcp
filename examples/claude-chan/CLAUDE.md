@@ -109,7 +109,8 @@ that is how the parting down her back was found.
 
 The user's rules for hair: a curl at the end of a lock winds about an upright axis (its normal is the z-axis, even
 where the sheet draws it as a loop facing the viewer) and drops as it turns; strands are never machine-smooth (they
-wander, vary in width and twist about their own lines). Lay a strand on the strand beneath as that one really is
+wander, vary in width and twist gently about their own lines, about half a turn); the user calls a whole lock a
+"strand" and its parts "sub-strands", and wants ten sub-strands a lock (`BK_SUBS`). Lay a strand on the strand beneath as that one really is
 (its twisted section), rounded off, not with a running maximum: a running maximum carries every twist's edge all
 the way down and piles the strands up.
 
