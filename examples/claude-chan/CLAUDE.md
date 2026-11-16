@@ -107,6 +107,12 @@ The back view needs no landmarks (`back_strands`: it is calibrated in `sheetfit.
 hair on the sheet against the model's hair (by height, in model units) before changing which locks cover what:
 that is how the parting down her back was found.
 
+The user's rules for hair: a curl at the end of a lock winds about an upright axis (its normal is the z-axis, even
+where the sheet draws it as a loop facing the viewer) and drops as it turns; strands are never machine-smooth (they
+wander, vary in width and twist about their own lines). Lay a strand on the strand beneath as that one really is
+(its twisted section), rounded off, not with a running maximum: a running maximum carries every twist's edge all
+the way down and piles the strands up.
+
 Curls: write a helix as it is (cos and sin of its angle, `curl_xyz`), never fit one. A least-squares fit of
 polynomials times cos and sin to a helix that starts steeply gave coefficients near 10^8 that cancel each other;
 the error looked small in numpy and the surface came apart in the preview. In Arch, write what goes under a
