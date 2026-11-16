@@ -6,8 +6,9 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1079 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1107 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
+| [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
 
@@ -155,6 +156,17 @@ parametric surface precision* slider recomputes the scene faster and coarser.
 ```sh
 python3 examples/claude-chan/generate.py         # writes claude-chan-3d.arch (needs numpy)
 node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan/claude-chan-3d.txt --lean --timeout 3600
+```
+
+### Posterior hair-root regression tests
+
+The lower back locks start on the actual upper-hair surface, with its tangent plane,
+while keeping their traced lateral attachment positions. Their sections open beneath
+the braid and clear the actual under-layer rather than a fixed depth floor. The
+original ringlet entrances are retained when the hanging surfaces are refitted.
+
+```sh
+python3 -B -W error::RuntimeWarning -m unittest discover -s examples/claude-chan -p 'test_hair*.py'
 ```
 
 ### Checking against the sheet

@@ -487,14 +487,86 @@ def braid_back(x):
 
 _HG = (-1.0, 10.2, 0.02, 101, 96)      # the grid of the hair already on the back of the head
 HEAD_BACK = None
+HEAD_ROOT_SURFACES = []
+HEAD_CONTACT = None
+HEAD_UNDER_CONTACT = None
+BK_JOIN_DIAGNOSTICS = {}
 
 
 def head_back_grid():
     """How far back the hair already drawn on the back of the head reaches (the under-layer, cap, crown and side
     locks: the generator's own lines so far, evaluated by sheetfit), so that the back locks lie on what is there."""
-    import sheetfit
+    import sheetfit, re
     hair = sheetfit.surfaces_from_lines(sc.out, ref=r'(hairUnder|hairCap|back[UT]?\d+|side[LR]\d+|tuck\d+)(Curl)?')
+    global HEAD_ROOT_SURFACES, HEAD_CONTACT, HEAD_UNDER_CONTACT
+    HEAD_ROOT_SURFACES = [s for s in hair if re.fullmatch(r'back[UT]?\d+', s[0])]
+    from haircontact import CrownContact
+    HEAD_CONTACT = CrownContact(hair, zmin=10.7)
+    HEAD_UNDER_CONTACT = CrownContact([s for s in hair if s[0]=='hairUnder'], zmin=10.7)
     return _back_grid(hair, _HG)
+
+
+def head_root(x, z):
+    """Actual crown-hair point and downward tangent near a braid attachment.
+
+    Seed the flow from a nearby crown crest, but retain the traced X/Z wherever
+    actual hair supports it. Evaluate depth and tangent plane on that actual
+    outer envelope, not a dilated depth grid; UV records the flow seed.
+    """
+    import sheetfit
+    solutions = []
+    for name, _, f, lim in HEAD_ROOT_SURFACES:
+        # w in [0, pi] is the outer crescent of a crown lock.
+        # Attach to the crest of an upper strand, never a nearly vertical cut
+        # edge of its crescent. An edge's X/Z inverse is ill-conditioned and can
+        # make a lower strand visibly grow sideways before it drops.
+        tt = np.linspace(lim[0]+1e-5, lim[1]-1e-5, 160)
+        P = np.array(np.broadcast_arrays(*f(tt, np.full_like(tt, math.pi/2)))).T
+        score = (P[:, 0]-x)**2 + (P[:, 2]-z)**2
+        uv = np.array([tt[np.nanargmin(score)], math.pi/2])
+        def point(v): return np.array(f(float(v[0]), float(v[1])), float)
+        def deriv(v, axis):
+            d = np.zeros(2); d[axis] = 1e-5
+            return (point(v+d)-point(v-d))/(2e-5)
+        for _ in range(8):
+            p, du = point(uv), deriv(uv, 0)
+            if abs(du[2]) < 1e-6: break
+            uv[0] = np.clip(uv[0]-(p[2]-z)/du[2], lim[0]+1e-5, lim[1]-1e-5)
+        p, tangent = point(uv), deriv(uv, 0)
+        if tangent[2] < -0.01:
+            normal = np.cross(tangent, deriv(uv, 1)); normal /= np.linalg.norm(normal)
+            if normal[1] < 0: normal = -normal
+            solutions.append((float(np.linalg.norm(p[[0, 2]]-[x, z])), p, tangent, normal, name, uv))
+    if not solutions:
+        raise ValueError('No downward crown hair surface at braid root')
+    best = min(s[0] for s in solutions)
+    _, p, tangent, normal, name, uv = max((s for s in solutions if s[0] <= best+0.008), key=lambda s: s[1][1])
+    # Keep the traced attachment's X/Z when actual upper hair exists there.
+    # Snapping every filler to a nearby crest clusters their roots and leaves
+    # whole uncovered bands (e.g. x=.48 and -.50) below the braid.
+    if np.isfinite(HEAD_CONTACT.depth_smooth(x, z)):
+        p[[0, 2]] = [x, z]
+    # Avoid an X/Z silhouette cell with no two-dimensional neighbourhood: a
+    # root can be on the actual surface yet its depth graph be singular there.
+    # Move at most a few grid cells inward, then reproject to the actual hair.
+    for inset in (0., .004, .008, .012, .02, .03):
+        px = math.copysign(max(0., abs(p[0])-inset), p[0])
+        if np.isfinite(HEAD_CONTACT.depth_smooth(px, p[2])):
+            p[0] = px
+            break
+    else:
+        raise ValueError(f'No regular crown neighbourhood near {(x,z)}')
+    # A cap/side patch can lie outside the chosen crown strand. Anchor to the
+    # full visible envelope, not to a patch hidden underneath it.
+    H = HEAD_CONTACT.depth(p[0], p[2])
+    hx, hz = HEAD_CONTACT.gradient(p[0], p[2])
+    if np.all(np.isfinite([H, hx, hz])):
+        p[1] = H
+        tangent[1] = hx*tangent[0]+hz*tangent[2]
+        normal = np.array([-hx, 1., -hz]); normal /= np.linalg.norm(normal)
+    else:
+        raise ValueError(f'Non-finite native crown jet at {p.tolist()}')
+    return p, tangent, normal, name, uv
 
 
 def body_back(x, z, head=True):
@@ -600,45 +672,165 @@ def curl_xyz(P, T, Sv, Nv, spec, subs):
     return out
 
 
-def _poly_fit(t, V, deg):
-    cs = [np.round(np.polynomial.chebyshev.Chebyshev.fit(t, V[:, i], deg).convert(kind=np.polynomial.Polynomial).coef, 5) for i in range(V.shape[1])]
-    fit = np.c_[[np.polynomial.polynomial.polyval(t, c) for c in cs]].T
-    return cs, fit, float(np.max(np.linalg.norm(fit - V, axis=1)))
+def _poly_fit(t, V, deg, start_derivative=None):
+    from hairjoin import fit_c1
+    return fit_c1(t, V, deg, start_derivative=start_derivative)
 
 
-def _hang_pieces(n_seg, t, sig, P, W, TH, PH, TS, joined, subs):
+def _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig):
+    """Build finite sections from a native crown root onto the actual hair base.
+
+    As the new section gains thickness its centre moves into the old section's
+    depth, rather than piling another layer on top. Whole-section contact with
+    hairUnder prevents a tangent crest from leaving bare patches underneath.
+    """
+    T = TS / np.linalg.norm(TS, axis=1)[:, None]
+    nrm = np.array([0., 1., 0.]) - T[:, 1:2]*T
+    nrm /= np.linalg.norm(nrm, axis=1)[:, None]
+    # W is a traced back-view (XZ) half-width, not a geodesic width on the
+    # tilted crown. Preserve its projection; using T x native_normal here
+    # would narrow outer roots by 10-40% and uncover the under-layer.
+    side = np.cross(T, nrm); side /= np.linalg.norm(side, axis=1)[:, None]
+    u = np.clip(sig/root_length, 0, 1)
+    b = (6*u**5 - 15*u**4 + 10*u**3)[:, None]
+    normal = (1-b)*root_normal + b*nrm
+    nrm = normal - np.sum(normal*T, axis=1)[:, None]*T
+    nrm /= np.linalg.norm(nrm, axis=1)[:, None]
+    nrm, side = np.cos(PH[:, None])*nrm+np.sin(PH[:, None])*side, np.cos(PH[:, None])*side-np.sin(PH[:, None])*nrm
+    series = [(P.copy(), side*W[:, None], nrm*TH[:, None])]
+    for sb in subs:
+        lat, dep, wk, tk = _sub_at(sb, material_sig, material_sig/material_sig[-1])
+        series.append((P+(lat*W)[:, None]*side+(dep*TH)[:, None]*nrm, side*(wk*W)[:, None], nrm*(tk*TH)[:, None]))
+    root = sig < root_length
+    anchor = P[0]
+    base0 = HEAD_UNDER_CONTACT.depth(anchor[0], anchor[2])
+    gx, gz = HEAD_UNDER_CONTACT.gradient(anchor[0], anchor[2])
+    regular_base = np.all(np.isfinite([base0, gx, gz]))
+    if not regular_base:
+        # Some outer crests extend beyond the under-layer's angular domain.
+        # There is no support to invent there; keep their native Hermite flow.
+        base0 = anchor[1]
+        gx, gz = -root_normal[[0, 2]]/root_normal[1]
+    gradient_delta = -root_normal[[0, 2]]/root_normal[1] - [gx, gz]
+    beta = b[root, 0]
+    entry = np.clip(sig[root]/0.06, 0, 1)
+    entry = 6*entry**5-15*entry**4+10*entry**3
+    thick = np.clip(sig[root]/.08, 0, 1)
+    thick = 6*thick**5-15*thick**4+10*thick**3
+    for C, Uv, V in series:
+        original_y = C[root, 1].copy()
+        B = HEAD_UNDER_CONTACT.depth(C[root, 0], C[root, 2])
+        valid = np.isfinite(B)
+        # Continue freely beyond the silhouette, not on a fabricated y floor.
+        B = np.interp(sig[root], sig[root][valid], B[valid]) if valid.any() else original_y.copy()
+        dx, dz = C[root, 0]-anchor[0], C[root, 2]-anchor[2]
+        offset = anchor[1]-base0 + (dx*gradient_delta[0]+dz*gradient_delta[1])*np.exp(-(dx*dx+dz*dz)/0.2**2)
+        # Replace the upper lock's thickness, rather than adding a new layer on
+        # top or flattening the entire lower lock into a paper-thin crest.
+        # The actual crown height provides the available root section depth.
+        available = np.maximum(offset, 0)*(1-thick)+thick*V[root, 1]
+        scale = np.minimum(1., np.maximum(0., available/np.maximum(V[root, 1], 1e-12)))
+        if regular_base:
+            V[root] *= scale[:, None]
+            C[root, 1] = B + (1-beta)*(offset-V[root, 1]) + beta*(original_y-B)
+        plus, minus = C[root]+Uv[root], C[root]-Uv[root]
+        hp = HEAD_UNDER_CONTACT.depth(plus[:, 0], plus[:, 2])
+        hm = HEAD_UNDER_CONTACT.depth(minus[:, 0], minus[:, 2])
+        ok = np.isfinite(hp) & np.isfinite(hm)
+        if ok.any():
+            # Continue a slope per unit width, not an absolute height offset.
+            # An outer root may enter this support only later; carrying that
+            # later offset backwards would give its zero-width root a y span.
+            width = np.linalg.norm(Uv[root], axis=1)
+            rate = .5*(hp[ok]-hm[ok])/np.maximum(width[ok], 1e-12)
+            slope = np.interp(sig[root], sig[root][ok], rate)*width
+            Uv[root, 1] = (1-beta)*slope + beta*Uv[root, 1]
+        # Enforce contact on the whole outer section, not just its centre peak.
+        # Missing projections are ignored: no head means no artificial floor.
+        needed = np.zeros(root.sum())
+        for angle in np.linspace(0, math.pi, 17):
+            cs = (0.65*math.sin(angle)+0.35*abs(math.sin(angle)))*(0.78+0.22*math.cos(2*math.pi*math.cos(angle)))
+            S = C[root] + math.cos(angle)*Uv[root]+cs*V[root]
+            H = HEAD_UNDER_CONTACT.depth(S[:, 0], S[:, 2])
+            required = np.where(np.isfinite(H), H+0.012*entry-S[:, 1], 0.)
+            needed = np.maximum(needed, required)
+        # A support's angular boundary can appear abruptly under a wide lock.
+        # Anticipate contact with a smooth majorant instead of introducing a
+        # vertical step there. Padded max growth, never cyclic np.roll.
+        su = np.linspace(sig[root][0], sig[root][-1], len(needed))
+        nu = np.interp(su, sig[root], needed)
+        radius = max(1, int(math.ceil(.06/(su[1]-su[0]))))
+        expanded = np.lib.stride_tricks.sliding_window_view(np.pad(nu, radius, mode='edge'), 2*radius+1).max(axis=1)
+        kernel = np.exp(-.5*(np.arange(-radius, radius+1)/(radius/3))**2)
+        majorant = np.convolve(np.pad(expanded, radius, mode='edge'), kernel/kernel.sum(), 'valid')
+        needed = np.interp(sig[root], su, majorant)
+        leave = np.clip((root_length-sig[root])/.12, 0, 1)
+        leave = 6*leave**5-15*leave**4+10*leave**3
+        needed *= entry*leave
+        # C2 positive-part ramp, at most .001 below the strict desired clearance.
+        eps = .002
+        v = np.clip(needed/eps, 0., 1.)
+        lift = np.where(needed>=eps, needed-.5*eps, eps*(v**3-.5*v**4))
+        if lift[0] > 1e-8:
+            raise ValueError('Under-layer contact would move the native root')
+        C[root, 1] += lift
+        if not all(np.all(np.isfinite(v)) for v in (C, Uv, V)):
+            raise ValueError('Non-finite back strand contact section')
+    return series
+
+
+def _hang_pieces(n_seg, t, sig, prepared, joined, subs, end_targets=None, end_span=1, root_tangent=None):
     """The hanging part fitted in n_seg polynomial pieces that join exactly, for the strand itself (not drawn: its
     ringlet starts from its end) and for each of its sub-strands (_sub_at); returns the sub-strands' parts, the
-    largest error of each piece and the last coefficients of the strand and of each sub-strand. The section faces
-    back, square to the smoothed tangent TS (so that it does not swing at every small kink of the line), turned
-    about the strand's line by PH."""
+    largest error of each piece and the last coefficients of the strand and of each sub-strand. The precomputed
+    sections already include the crown contact and gradual transition to the old hanging/twisting frame."""
     parts, errs, prev = [[] for _ in subs], [], [None] * (len(subs) + 1)
     for k_ in range(n_seg):
         st = sig[-1] * (k_ + (t + 1) / 2) / n_seg
-        Pt = np.c_[[np.interp(st, sig, P[:, i]) for i in range(3)]].T
-        Wt, THt, PHt = np.interp(st, sig, W), np.interp(st, sig, TH), np.interp(st, sig, PH)[:, None]
-        T = np.c_[[np.interp(st, sig, TS[:, i]) for i in range(3)]].T
-        T /= np.linalg.norm(T, axis=1)[:, None]
-        nrm = np.array([0, 1.0, 0]) - T[:, 1:2] * T
-        nrm /= np.linalg.norm(nrm, axis=1)[:, None]
-        side = np.cross(T, nrm)
-        side /= np.linalg.norm(side, axis=1)[:, None]
-        nrm, side = np.cos(PHt) * nrm + np.sin(PHt) * side, np.cos(PHt) * side - np.sin(PHt) * nrm     # the twist
-        series = [(Pt, side * Wt[:, None], nrm * THt[:, None])]
-        for sb in subs:
-            lat, dep, wk, tk = _sub_at(sb, st, st / sig[-1])
-            series.append((Pt + (lat * Wt)[:, None] * side + (dep * THt)[:, None] * nrm, side * (wk * Wt)[:, None], nrm * (tk * THt)[:, None]))
+        series = [tuple(np.array([np.interp(st, sig, V[:, i]) for i in range(3)]).T for V in ser) for ser in prepared]
         err = 0.0
         for m, ser in enumerate(series):
-            fits = [_poly_fit(t, V, CH_DEG) for V in ser]
+            if k_ == 0 and root_tangent is not None:
+                # The native jet is known analytically; do not estimate it
+                # from samples across the short, braid-hidden width ramp.
+                jet = np.asarray(root_tangent)/np.linalg.norm(root_tangent) * (sig[-1]/(2*n_seg))
+                fits = [_poly_fit(t, V, CH_DEG, jet if j == 0 else np.zeros(3)) for j, V in enumerate(ser)]
+            else:
+                fits = [_poly_fit(t, V, CH_DEG) for V in ser]
             cs = [f[0] for f in fits]
             if prev[m] is not None:
                 cs = [joined(c, [np.polynomial.polynomial.polyval(1.0, q) for q in pc], [np.polynomial.polynomial.polyval(-1.0, q) for q in c])
                       for c, pc in zip(cs, prev[m])]
+            if end_targets is not None and k_ == n_seg-1:
+                # Only the head-side join changes. Preserve the old ringlet's
+                # entrance point/frame/tangent instead of letting a new fit
+                # alter its entire exponential drop profile.
+                scale = (sig[-1]/n_seg)/end_span
+                fixed = []
+                for cc, old in zip(cs, end_targets[m]):
+                    corrected = []
+                    for c, q in zip(cc, old):
+                        value = np.polynomial.polynomial.polyval(1., q)-np.polynomial.polynomial.polyval(1., c)
+                        derivative = scale*np.polynomial.polynomial.polyval(1., np.polynomial.polynomial.polyder(q))-np.polynomial.polynomial.polyval(1., np.polynomial.polynomial.polyder(c))
+                        c = np.pad(c, (0, max(0, 20-len(c))))
+                        c[:4] += value*np.array([.5,.75,0,-.25])
+                        # Preserve the old entrance derivative only very near
+                        # the end. A cubic correction spreads its old fit noise
+                        # over a whole piece and unnecessarily deforms the hair.
+                        bump = np.polynomial.polynomial.polymul([-1.,1.], np.polynomial.polynomial.polypow([.5,.5],18))
+                        c[:len(bump)] += derivative*bump
+                        corrected.append(np.round(c, 5))
+                    fixed.append(corrected)
+                cs = fixed
             prev[m] = cs
             if m:
                 parts[m - 1].append(('poly', cs, max(1, int(math.ceil(sig[-1] / n_seg / 1.5)))))
-            err = max(err, max(f[2] for f in fits))
+            # Validate the final rounded, joined surface, not only the three
+            # independent fits before seam correction.
+            delta = [np.array([np.polynomial.polynomial.polyval(t, c) for c in cc]).T - V for cc, V in zip(cs, ser)]
+            for w_check in np.linspace(0, 2*math.pi, 17):
+                crescent = (0.65*math.sin(w_check)+0.35*abs(math.sin(w_check)))*(0.78+0.22*math.cos(2*math.pi*math.cos(w_check)))
+                err = max(err, float(np.max(np.linalg.norm(delta[0]+math.cos(w_check)*delta[1]+crescent*delta[2], axis=1))))
         errs.append(err)
     return parts, errs, prev
 
@@ -762,13 +954,47 @@ def back_strands():
                   np.r_[0, phi[idx]]]
         dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
         Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
+        old_values = Kd.copy()
+        old_section = Kd[:, 3:5].copy()
+        old_sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(Kd[:, :3], axis=0), axis=1))]
+        old_h = int(0.1 / (old_sig[-1] / len(old_sig)))
+        old_ker = np.exp(-0.5 * (np.arange(-3*old_h, 3*old_h+1) / old_h)**2)
+        old_ts = np.gradient(np.array([np.convolve(np.pad(Kd[:, i], 3*old_h, mode='edge'), old_ker/old_ker.sum(), 'valid') for i in range(3)]).T, axis=0)
+        old_ts_raw = old_ts.copy()
+        old_ts /= np.linalg.norm(old_ts, axis=1)[:, None]
+        # Replace the hidden fixed root and its outward step, not the traced tail.
+        # The new root lies on the actual crown surface under the braid, with
+        # that surface's own downward tangent; its section grows from zero.
+        from hairjoin import attach_root
+        root_z = float(braid_back(D[0, 0])[2]) + 0.06
+        anchor, root_tangent, root_normal, root_ref, root_uv = head_root(D[0, 0], root_z)
+        Kd, old_end, tangent = attach_root(Kd, anchor, root_tangent)
         P, W, TH, PH = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0), Kd[:, 5]
         sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+        bridge_end = len(Kd) - (4000-old_end)
+        root_length = sig[bridge_end]
+        # Preserve the old material coordinate: changing a root must not shift
+        # the wobble, free tips or curl phase all the way down an unchanged lock.
+        material_sig = np.r_[np.linspace(0, old_sig[old_end], bridge_end+1), old_sig[old_end+1:]]
+        # Restore width quickly for coverage; the crest, not a piled-up full
+        # thickness, is what is kept tangent to the upper hair below.
+        entry = np.clip(sig/0.06, 0, 1)
+        entry = 6*entry**5 - 15*entry**4 + 10*entry**3
+        W = np.maximum(0, np.interp(material_sig, old_sig, old_section[:, 0]))*entry
+        TH = np.maximum(0, np.interp(material_sig, old_sig, old_section[:, 1]))*entry
+        BK_JOIN_DIAGNOSTICS[key] = dict(anchor=anchor, tangent=tangent, normal=root_normal, source=root_ref,
+                                        uv=root_uv, root_length=root_length, end=P[bridge_end].copy())
         h = int(0.1 / (sig[-1] / len(sig)))                 # the line smoothed over about 0.1, for the section's turn
         ker = np.exp(-0.5 * (np.arange(-3 * h, 3 * h + 1) / h) ** 2)
         TS = np.gradient(np.c_[[np.convolve(np.pad(P[:, i], 3 * h, mode='edge'), ker / ker.sum(), 'valid') for i in range(3)]].T, axis=0)
+        TS /= np.linalg.norm(TS, axis=1)[:, None]
+        restore = np.clip((sig-root_length)/0.15, 0, 1)[:, None]
+        restore = restore*restore*(3-2*restore)
+        tail_ts = np.array([np.interp(material_sig, old_sig, old_ts[:, i]) for i in range(3)]).T
+        TS = (1-restore)*TS + restore*tail_ts
+        TS /= np.linalg.norm(TS, axis=1)[:, None]
         t = np.linspace(-1, 1, 1201)
-        fade = np.polynomial.polynomial.polypow([0.5, -0.5], 3)      # ((1 - t) / 2)^3: 1 at t = -1, 0 at t = 1
+        fade = np.array([0.5, -0.75, 0, 0.25])     # 1 -> 0, zero derivative at both endpoints
 
         def joined(cs, end, start):
             """Polynomials moved so that they start exactly where the previous part ends, the move fading out."""
@@ -779,19 +1005,48 @@ def back_strands():
         subs = [dict(j=10 * n_ + k, d=0.8 * (2 * k - (n - 1)) / n, sp=1.6 / n if n > 1 else 0.0, w=min(1.0, 1.2 / n + 0.13),
                      free=not curl, end=1 - 0.06 * ((0.618 * (k + n_)) % 1)) for k in range(n)]
         cols = [col] + [c for c in (HAIR, HAIR_LT, HAIR_DK) if c != col]
+        # Prepare contact once; trying different polynomial partitions must not
+        # repeat the surface inversion or shift the material texture.
+        prepared = _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig)
+        end_targets, end_span = None, 1.
+        if curl:
+            # Reconstruct the original fitted ringlet entrance from the unchanged
+            # old samples. Preserving only their XYZ is insufficient: a different
+            # high-order endpoint tangent changes the helix's drop everywhere.
+            from hairjoin import legacy_end_jets
+            def original_at(st):
+                vals = np.array([np.interp(st, old_sig, old_values[:, i]) for i in range(6)]).T
+                Ot = np.array([np.interp(st, old_sig, old_ts_raw[:, i]) for i in range(3)]).T
+                Ot /= np.linalg.norm(Ot, axis=1)[:, None]
+                On = np.array([0., 1., 0.])-Ot[:, 1:2]*Ot
+                On /= np.linalg.norm(On, axis=1)[:, None]
+                Os = np.cross(Ot, On); Os /= np.linalg.norm(Os, axis=1)[:, None]
+                ph = vals[:, 5:6]
+                On, Os = np.cos(ph)*On+np.sin(ph)*Os, np.cos(ph)*Os-np.sin(ph)*On
+                ow, oh = np.maximum(vals[:, 3], 0), np.maximum(vals[:, 4], 0)
+                result = [(vals[:, :3], Os*ow[:, None], On*oh[:, None])]
+                for sb in subs:
+                    la, de, wk, tk = _sub_at(sb, st, st/old_sig[-1])
+                    result.append((vals[:, :3]+(la*ow)[:, None]*Os+(de*oh)[:, None]*On, Os*(wk*ow)[:, None], On*(tk*oh)[:, None]))
+                return result
+            end_targets, old_segments = legacy_end_jets(old_sig[-1], original_at, CH_DEG)
+            end_span = old_sig[-1]/old_segments
         # the hanging part, in as few polynomial pieces as keep the fit within 0.006, joined exactly
-        for n_seg in range(1 if sig[-1] < 2.5 else 2, 9):
-            parts, errs, prev = _hang_pieces(n_seg, t, sig, P, W, TH, PH, TS, joined, subs)
+        for n_seg in range(1 if sig[-1] < 2.5 else 2, 17):
+            parts, errs, prev = _hang_pieces(n_seg, t, sig, prepared, joined, subs, end_targets, end_span, root_tangent)
             if max(errs) < 0.006:
                 break
+        if max(errs) >= 0.006:
+            raise ValueError(f'{key}: joined surface fit error {max(errs):.6f} exceeds 0.006')
+        BK_JOIN_DIAGNOSTICS[key]['fit_error'] = max(errs)
         if curl:
             # each sub-strand's ringlet starts exactly where its hanging part's polynomials end
             ev = lambda cs, d=0: np.array([np.polynomial.polynomial.polyval(1.0, np.polynomial.polynomial.polyder(c, d)) for c in cs])
-            Pe, Te, Se, Ne = ev(prev[0][0]), ev(prev[0][0], 1), ev(prev[0][1]), ev(prev[0][2])
+            Pe, Te, Se, Ne = ev(end_targets[0][0]), ev(end_targets[0][0], 1), ev(end_targets[0][1]), ev(end_targets[0][2])
             at = axes[key]
             ends = []
-            for sb, pc in zip(subs, prev[1:]):
-                lat, dep, wk, tk = _sub_at(sb, sig[-1], 1.0)
+            for sb, pc in zip(subs, end_targets[1:]):
+                lat, dep, wk, tk = _sub_at(sb, material_sig[-1], 1.0)
                 ends.append(dict(r=ev(pc[0]) - (Pe + lat * Se + dep * Ne), d=lat, dep=dep, w=wk, t=tk, wob=1.7 + 0.37 * n_ + 0.29 * sb['j'] % 1.3))
             for part, xyz in zip(parts, curl_xyz(Pe, Te / np.linalg.norm(Te), Se, Ne, dict(curl, at=at), ends)):
                 part.append(('curl', xyz, int(math.ceil(curl['turns']))))
