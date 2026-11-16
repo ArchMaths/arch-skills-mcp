@@ -11,7 +11,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
 
-Opening the file takes a few minutes. It is about 3.1 MB: it is built with `--lean`, and Arch rebuilds the
+Opening the file takes a few minutes. It is about 3.0 MB: it is built with `--lean`, and Arch rebuilds the
 expanded formulas left out of it as it opens it. It is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
 surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
