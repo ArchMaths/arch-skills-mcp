@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1049 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1079 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -51,8 +51,9 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   and the locks at the sides fan out over the shoulders and arms. Of the two back locks, her left one is
   four strands, two spreading out at the bottom and two winding together into a loose corkscrew ringlet;
   her right one sweeps out and winds into a second ringlet that drops as it turns. Four more strands in
-  each lock, under the traced ones, fill the gaps between them and end in free tips. Each back lock is 18
-  sub-strands; they wander a little, vary in width and shade, and twist about their own lines below the
+  each lock, under the traced ones, fill the gaps between them and end in free tips, and short strands
+  from under the braid cover the back of the head beside the locks down to the capelet. Each back lock is 18
+  sub-strands, with 8 or 10 more under the braid; they wander a little, vary in width and shade, and twist about their own lines below the
   nape. Locks wave more toward their ends and
   finish in a curled tip. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
   the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
@@ -247,7 +248,12 @@ listed in `generate.py`.
   one after another. Besides the four traced strands, each lock has four that fill its gaps: they were
   placed from a coverage count (the outline at each height against the model's hair in the back view, which
   was 33 to 60% covered below the capelet and is now 79 to 100% above the ringlets) and checked against the
-  ringlets so that none runs through one. The section is turned square to the line smoothed over about 0.1, so that it does not
+  ringlets so that none runs through one. Under the braid, nine short strands (`_under_braid`, 0.12 apart)
+  start right under the braid's lower edge at their own x (worked out from its ring, `braid_back`) and lie on
+  the hair already drawn on the back of the head (the generator's own lines so far, sampled into a grid like
+  the clothes, `head_back_grid`), the middle of their width resting on it so that their edges follow the head
+  round; the dark under-layer that showed there (where the crown locks close in toward the middle) is now
+  covered from behind. The section is turned square to the line smoothed over about 0.1, so that it does not
   swing at every small kink. A long strand is fitted in as many polynomial pieces as keep every sub-strand
   within 0.006, joined exactly. The ringlets are not fitted: each is a helix about an upright axis written
   as it is, in its angle, its section turning the short way to face out from the axis, its radius closing

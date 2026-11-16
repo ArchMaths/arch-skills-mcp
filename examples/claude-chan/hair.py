@@ -24,7 +24,13 @@ HAIR_ARM_R = np.zeros((65, 45))
 np.maximum.at(HAIR_ARM_R, (np.clip(np.round(np.arctan2(np.abs(_harm_p[:, 0]), _harm_p[:, 1] - 0.03) / 0.05).astype(int), 0, 64),
                            np.clip(np.round((_harm_p[:, 2] - 5.0) / 0.1).astype(int), 0, 44)),
               np.hypot(_harm_p[:, 0], _harm_p[:, 1] - 0.03) + 0.05)
-HAIR_ARM_R = np.maximum.reduce([np.roll(np.roll(HAIR_ARM_R, a, 0), b, 1) for a in (-1, 0, 1) for b in (-1, 0, 1)])
+def _grow(G, pad=0.0):
+    """Each cell the largest of itself and its eight neighbours (padded at the edges, not wrapped round)."""
+    Gp = np.pad(G, 1, constant_values=pad)
+    return np.max([Gp[1 + a:1 + a + G.shape[0], 1 + b:1 + b + G.shape[1]] for a in (-1, 0, 1) for b in (-1, 0, 1)], axis=0)
+
+
+HAIR_ARM_R = _grow(HAIR_ARM_R)
 
 
 def ell_r(a, b, psi):
@@ -355,9 +361,26 @@ BK_CURL = {
     'BR3': dict(cx=-0.95, r0=0.32, r1=0.15, turns=1.5, drop=0.9, sense=-1),
     'BR1': dict(cx=-0.95, r0=0.5, r1=0.2, turns=1.25, drop=0.75, sense=-1),
 }
+
+
+def _under_braid(x0, sd, z_tip):
+    """A short strand under the braid at x0 (sd 1 her left, -1 her right): it starts right under the braid (back_strands
+    adds the top), runs down the back of the head moving out 0.12 a unit of height, and ends in a tip at z_tip."""
+    pts = [(x0 + sd * 0.12 * (11.5 - z), z, hw) for z, hw in zip((11.5, 11.2, 10.9, 10.6, 10.35, 10.1), (.055, .06, .06, .055, .05, .045))
+           if z > z_tip + 0.12]
+    return pts + [(x0 + sd * 0.12 * (11.5 - z_tip), z_tip, 0)]
+
+
+# and short strands under the braid, over the back of the head beside the locks (the user's highlight: the crown locks
+# close in toward the middle there and left the dark under-layer showing at |x| 0.1 to 0.65, from the braid down to
+# the capelet), 0.12 apart, down the locks' outer edges, inside the traced outline, to tips on the capelet
+BK_STRANDS.update({f'BL{9 + i}': _under_braid(x0, 1, zt) for i, (x0, zt) in enumerate(((0.36, 9.95), (0.47, 10.25), (0.58, 10.5), (0.69, 10.6)))})
+BK_STRANDS.update({f'BR{8 + i}': _under_braid(x0, -1, zt) for i, (x0, zt) in enumerate(((-0.14, 9.8), (-0.26, 9.95), (-0.38, 10.2), (-0.5, 10.45), (-0.62, 10.55)))})
 # colour and thickness, in the order they are laid on
-BK_LOOK = {'BL8': (HAIR, 0.04), 'BL7': (HAIR_DK, 0.045), 'BL5': (HAIR_LT, 0.045), 'BL6': (HAIR, 0.05),
+BK_LOOK = {'BL12': (HAIR, 0.04), 'BL11': (HAIR_DK, 0.04), 'BL10': (HAIR_LT, 0.04), 'BL9': (HAIR, 0.045),
+           'BL8': (HAIR, 0.04), 'BL7': (HAIR_DK, 0.045), 'BL5': (HAIR_LT, 0.045), 'BL6': (HAIR, 0.05),
            'BL4': (HAIR_DK, 0.05), 'BL3': (HAIR, 0.055), 'BL2': (HAIR_LT, 0.05), 'BL1': (HAIR, 0.045),
+           'BR12': (HAIR_DK, 0.04), 'BR11': (HAIR, 0.04), 'BR10': (HAIR_LT, 0.04), 'BR9': (HAIR, 0.045), 'BR8': (HAIR_DK, 0.045),
            'BR7': (HAIR, 0.04), 'BR4': (HAIR_LT, 0.045), 'BR5': (HAIR, 0.05), 'BR6': (HAIR_DK, 0.045),
            'BR3': (HAIR_DK, 0.05), 'BR2': (HAIR, 0.055), 'BR1': (HAIR_LT, 0.05), 'BR0': (HAIR_LT, 0.04)}
 BK_ROOT = (0.88, 11.87)     # the strands start inside the braid at the back of the head (y, z; measured: the braid's
@@ -372,8 +395,10 @@ BK_NOISE = (0.025, 0.25, 0.2, 0.015)   # so that no strand is machine-smooth: ea
 BK_TWIST = {'BL4': 0.5, 'BL3': -0.5, 'BL2': 0.6, 'BL1': -0.5, 'BR3': 0.5, 'BR2': -0.6, 'BR1': 0.5,   # turns each
             'BL5': -0.5, 'BL6': 0.5, 'BL7': 0.4, 'BL8': -0.4, 'BR4': -0.5, 'BR5': 0.5, 'BR6': -0.5, 'BR7': 0.4}
                             # strand twists about its own line below the nape
-BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1,   # sub-strands, 18 a lock:
-           'BL5': 2, 'BL6': 2, 'BL7': 2, 'BL8': 2, 'BR4': 2, 'BR5': 2, 'BR6': 2, 'BR7': 2}
+BK_UNDER = ('BL9', 'BL10', 'BL11', 'BL12', 'BR8', 'BR9', 'BR10', 'BR11', 'BR12')   # the strands under the braid
+BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1,   # sub-strands, 18 a lock,
+           'BL5': 2, 'BL6': 2, 'BL7': 2, 'BL8': 2, 'BR4': 2, 'BR5': 2, 'BR6': 2, 'BR7': 2,    # and those under the braid:
+           'BL9': 2, 'BL10': 2, 'BL11': 2, 'BL12': 2, 'BR8': 2, 'BR9': 2, 'BR10': 2, 'BR11': 2, 'BR12': 2}
                             # each strand is drawn as these, side by side across it, each with its own wander, depth,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
@@ -383,17 +408,13 @@ BK_STACK = (0.03, 0.2)      # how far the strands of a lock may rise over each o
 _KG = (-2.8, 4.8, 0.02, 281, 341)       # the clothes grid: x from -2.8, z from 4.8, every 0.02
 
 
-def _clothes_back():
-    """How far back (largest y) her clothes reach at each (x, z) of the grid _KG, from the clothes' own surfaces:
-    the generator run for the clothes alone (sheetfit.model_surfaces, about 3 s), each surface sampled about every
-    0.012, so that the hair is the same whichever parts are drawn. Gaps in the cloth across a row (between the
-    corset and the arms) take the depth across them, between the cloth on either side; outside it, -9."""
-    import sheetfit, contextlib, io
-    x0, z0, st, nx, nz = _KG
+def _back_grid(surfs, spec):
+    """How far back (largest y) the surfaces [(ref, colour, f, lim)] reach at each (x, z) of the grid spec (x0, z0,
+    step, nx, nz), -9 where none: each surface sampled about every 0.012, the grid then closed over two cells."""
+    import sheetfit
+    x0, z0, st, nx, nz = spec
     G = np.full((nx, nz), -9.0)
-    with contextlib.redirect_stdout(io.StringIO()):        # its own report of the expanded formulas
-        clothes = sheetfit.model_surfaces('body,cape,corset,skirt,arms,book')
-    for _, _, f, lim in clothes:
+    for _, _, f, lim in surfs:
         P = sheetfit._grid(f, lim, 20, 20)
         Q = P[np.isfinite(P).all(-1)]
         if not len(Q) or Q[:, 2].max() < z0 or Q[:, 2].min() > z0 + st * nz or Q[:, 1].max() < -0.3:
@@ -406,7 +427,20 @@ def _clothes_back():
         ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
         np.maximum.at(G, (i[ok], j[ok]), P[ok, 1])
     for _ in range(2):
-        G = np.maximum.reduce([np.roll(np.roll(G, a, 0), b, 1) for a in (-1, 0, 1) for b in (-1, 0, 1)])
+        G = _grow(G, -9.0)
+    return G
+
+
+def _clothes_back():
+    """How far back (largest y) her clothes reach at each (x, z) of the grid _KG, from the clothes' own surfaces:
+    the generator run for the clothes alone (sheetfit.model_surfaces, about 3 s), each surface sampled about every
+    0.012, so that the hair is the same whichever parts are drawn. Gaps in the cloth across a row (between the
+    corset and the arms) take the depth across them, between the cloth on either side; outside it, -9."""
+    import sheetfit, contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):        # its own report of the expanded formulas
+        clothes = sheetfit.model_surfaces('body,cape,corset,skirt,arms,book')
+    G = _back_grid(clothes, _KG)
+    x0, z0, st, nx, nz = _KG
     for j in range(nz):
         on = np.nonzero(G[:, j] > -9)[0]
         if len(on) > 1:
@@ -425,16 +459,62 @@ def clothes_y(x, z):
     return np.where(ok, CLOTHES_BACK[np.clip(i, 0, nx - 1), np.clip(j, 0, nz - 1)], -9.0)
 
 
-def body_back(x, z):
-    """How far back (+y) what the back locks hang on reaches at (x, z) (arrays): her clothes, and the hair above
-    the nape (the back locks, which end at BK_NAPE)."""
+BRAID_RING = (68 * math.pi / 180, math.tan(66 * math.pi / 180), math.tan(32 * math.pi / 180))   # the braid's ring (run_hair)
+
+
+def braid_back(x):
+    """Where the braid crosses the back of the head at x (arrays): the height of its centre line, how far back it is,
+    and the height of its lower edge (0.09 below the centre line), from its ring as run_hair draws it, turned with
+    the head."""
+    thc, th_, tv_ = BRAID_RING
+    a = np.linspace(0, 2 * math.pi, 721)
+    d = np.array([th_ * np.cos(a), math.sin(thc) + tv_ * math.cos(thc) * np.sin(a), math.cos(thc) - tv_ * math.sin(thc) * np.sin(a)])
+    d /= np.linalg.norm(d, axis=0)
+    turn = (HEAD_TURN['pivot'], HEAD_TURN['axis'], HEAD_TURN['angle'], None, HEAD_TURN['scale'])
+    P = np.array([sc.turn_point((HDX * 1.13 * d[0, i], HY0 + HDY * 1.13 * d[1, i], ZHC + HDZ * 1.13 * d[2, i]), turn) for i in range(len(a))])
+    P = P[P[:, 1] > HY0]                                 # the half round the back of the head
+    xs = np.arange(-1.0, 1.001, 0.02)
+    low = []                                             # seen from behind the ring is an oval: at each x its lower crossing
+    for xb in xs:
+        m = np.abs(P[:, 0] - xb) < 0.02
+        if m.any():
+            i = np.argmin(np.where(m, P[:, 2], np.inf))
+            low.append((xb, P[i, 1], P[i, 2]))
+    L = np.array(low)
+    z = np.interp(x, L[:, 0], L[:, 2])
+    return z, np.interp(x, L[:, 0], L[:, 1]), z - 0.09
+
+
+_HG = (-1.0, 10.2, 0.02, 101, 96)      # the grid of the hair already on the back of the head
+HEAD_BACK = None
+
+
+def head_back_grid():
+    """How far back the hair already drawn on the back of the head reaches (the under-layer, cap, crown and side
+    locks: the generator's own lines so far, evaluated by sheetfit), so that the back locks lie on what is there."""
+    import sheetfit
+    hair = sheetfit.surfaces_from_lines(sc.out, ref=r'(hairUnder|hairCap|back[UT]?\d+|side[LR]\d+|tuck\d+)(Curl)?')
+    return _back_grid(hair, _HG)
+
+
+def body_back(x, z, head=True):
+    """How far back (+y) what the back locks hang on reaches at (x, z) (arrays): her clothes, and (with head) the
+    hair above the nape (the back locks, which end at BK_NAPE): as drawn (HEAD_BACK), else its shell and a margin."""
     x, z = np.asarray(x, float), np.asarray(z, float)
     f = clothes_y(x, z)
+    if not head:
+        return f
+    if HEAD_BACK is not None:
+        x0, z0, st, nx, nz = _HG
+        i, j = np.round((x - x0) / st).astype(int), np.round((z - z0) / st).astype(int)
+        ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
+        h = np.where(ok, HEAD_BACK[np.clip(i, 0, nx - 1), np.clip(j, 0, nz - 1)], -9.0)
+        return np.where(z > BK_NAPE - 0.05, np.maximum(f, h), f)
     t = T0 + (ZHC - z) / VF
     hp = lambda c: sum(a * np.maximum(0.0, t - T0 - k) ** 2 for a, k in zip(c, KNOTS))
     ax, ay = HDX + hp(HP_X[2]) + 0.1, HDY + hp(HP_Y[2]) + 0.1          # the outside of the hair there (measured)
     nape = HY0 + ay * np.sqrt(np.maximum(0, 1 - (x / ax) ** 2))
-    return np.where((z > BK_NAPE - 0.05) & (z < 11.5) & (np.abs(x) < ax), np.maximum(f, nape), f)
+    return np.where((z > BK_NAPE - 0.05) & (z < 11.95) & (np.abs(x) < ax), np.maximum(f, nape), f)
 
 
 _UG = (-1.6, 5.5, 0.01, 321, 621)      # the grid of how far back the back strands already laid reach
@@ -606,6 +686,8 @@ def back_strands():
     for key, (col, th) in BK_LOOK.items():
         sd, n_ = (1 if key[1] == 'L' else -1), list(BK_STRANDS).index(key)      # its noise and wave are its own
         D = np.array(BK_STRANDS[key], float) * [1, 1, BK_WIDE]
+        if key in BK_UNDER:                                  # it starts right under the braid
+            D = np.r_[[[D[0, 0], float(braid_back(D[0, 0])[2]) - 0.02, 0.8 * D[0, 2]]], D]
         d = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
         s = np.linspace(0, d[-1], 600)
         Q = _nat_spline(d, D, s)
@@ -627,15 +709,16 @@ def back_strands():
             phi = 2 * np.pi * BK_TWIST[key] * u * u * (3 - 2 * u) + 0.25 * np.sin(np.pi * u) * _bk_wobble(s, n_, 4)
         lift = 0.6 * hw * (np.sqrt(np.sin(phi) ** 2 + 0.0025) - 0.05)   # a twisted strand rises from what it lies on
         fb, fh = np.full(len(s), -9.0), np.zeros(len(s))
-        for k in np.linspace(-1, 1, 7):
-            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]
-            fb = np.maximum(fb, body_back(px, pz))
+        for k in np.linspace(-1, 1, 7):                      # on the head only the middle of its width rests on the hair,
+            px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]     # its edges following it round
+            fb = np.maximum(fb, body_back(px, pz, head=abs(k) < 0.4))
             i, j, ok = at_under(px, pz)
             fh = np.maximum(fh, np.where(ok, under[np.clip(i, 0, unx - 1), np.clip(j, 0, unz - 1)], 0))
         # its depth: on the clothes, and where they fall away (under the capelet's hem) it falls straight, as hair
         # does (how far back it is never decreases going down); and on the strands beneath where they are (easing
         # onto them over its first 0.4, under the braid, where they all begin)
-        body = np.maximum.accumulate(np.r_[BK_TOP, fb + CH_GAP])
+        first = fb[fb > -9][0] + CH_GAP if (fb > -9).any() else BK_TOP      # from the first thing it lies on
+        body = np.maximum.accumulate(np.r_[first, np.where(fb > -9, fb + CH_GAP, first)])
         curl = BK_CURL.get(key)
         tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
         body = body[1:] + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2   # its line over the clothes
@@ -670,7 +753,11 @@ def back_strands():
                                                     # its line, sinking into it rather than piling up
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
-        root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
+        if key in BK_UNDER:                                  # its root inside the braid, where the braid crosses it
+            zb, yb, _ = braid_back(0.95 * D[0, 0])
+            root = [[0.95 * D[0, 0], float(yb) - 0.06, float(zb)]]
+        else:
+            root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
         K = np.c_[np.r_[root, np.c_[Q[idx, 0], y[idx], Q[idx, 1]]], np.r_[hw[0], hw[idx]], np.r_[th, (thv * tip)[idx]],
                   np.r_[0, phi[idx]]]
         dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
@@ -857,6 +944,8 @@ free tips. Each strand is drawn as two or three sub-strands side by side, 18 a l
 width and thickness, and twists about its own line below the nape, and each sub-strand has its own wander, depth,
 width and shade, fanning out at a free tip. A ringlet is a helix about an upright axis written as it is, in its
 angle th = Th (t + 1) / 2, its radius closing as it turns and dropping as it goes, one surface a turn.""")
+    global HEAD_BACK
+    HEAD_BACK = head_back_grid()
     BK = back_strands()
     print(f"  back locks: largest fit error {max(v[1] for v in BK.values()):.4f}", file=sys.stderr)
     for key, (subparts, err, cols, _) in BK.items():
@@ -1020,7 +1109,7 @@ beside the face on her right, so the jaw line shows, and over the outer cheek on
 give the direction from the head's centre to the ring at angle a, with ro scaling the ring (1 = its
 centre line). Its three strands weave as sin(tau) across the ring and sin(2 tau) in height, tau a third
 of a turn apart: the classic three-strand braid.""")
-    THC, TH_, TV_ = 68 * math.pi / 180, math.tan(66 * math.pi / 180), math.tan(32 * math.pi / 180)
+    THC, TH_, TV_ = BRAID_RING
     sc.func('bdx(a,ro)', f"ro*{fmt(TH_)}*cos(a)")
     sc.func('bdy(a,ro)', f"{fmt(math.sin(THC))}+ro*{fmt(TV_ * math.cos(THC))}*sin(a)")
     sc.func('bdz(a,ro)', f"{fmt(math.cos(THC))}-ro*{fmt(TV_ * math.sin(THC))}*sin(a)")
@@ -1041,7 +1130,7 @@ if want('hair') or want('ornament'):
     if want('hair'):
         THC, TH_, TV_ = run_hair()
     else:
-        THC, TH_, TV_ = 68 * math.pi / 180, math.tan(66 * math.pi / 180), math.tan(32 * math.pi / 180)
+        THC, TH_, TV_ = BRAID_RING
     # the ornament sits on the side of the head, above and just behind her left ear
     P_ = dome(1.03, 1.5, 1.1)
     ORN_N = unit(add(mul(dome_normal(P_), 0.9), (0.1, -0.4, 0)))

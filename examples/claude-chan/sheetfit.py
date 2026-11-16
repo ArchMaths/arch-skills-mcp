@@ -91,24 +91,15 @@ def _split_top(s):
     return out + [cur]
 
 
-def model_surfaces(parts, ref=None, skip=None):
-    """Run generate.py for these parts; its surfaces (whose ref matches) as numpy functions:
-    [(ref, colour, f(u, v) -> (X, Y, Z), (u0, u1, v0, v1))]."""
-    sys.path.insert(0, HERE)
-    argv = sys.argv
-    sys.argv = ['generate.py', '-o', os.devnull, '--parts', parts, '--prec', '3']
-    g = {'__name__': '__gen__', '__file__': os.path.join(HERE, 'generate.py')}
-    try:
-        with contextlib.redirect_stderr(io.StringIO()):
-            exec(compile(open(os.path.join(HERE, 'generate.py'), encoding='utf-8').read(), 'generate.py', 'exec'), g)
-    finally:
-        sys.argv = argv
+def surfaces_from_lines(lines, ref=None, skip=None):
+    """A scene's lines (Scene.out) as numpy surfaces: [(ref, colour, f(u, v) -> (X, Y, Z), (u0, u1, v0, v1))], those
+    whose ref matches ref and not skip; the custom functions defined above each are evaluated too."""
     ns = dict(sin=np.sin, cos=np.cos, tan=np.tan, sqrt=np.sqrt, exp=np.exp, abs=np.abs, ln=np.log, log=np.log10,
               sign=np.sign, atan=np.arctan, asin=np.arcsin, acos=np.arccos, floor=np.floor, ceil=np.ceil,
               pi=math.pi, max=np.maximum, min=np.minimum, tanh=np.tanh, sinh=np.sinh, cosh=np.cosh)
     surfs = []
     np.seterr(all='ignore')
-    for line in g['sc'].out:
+    for line in lines:
         m = re.match(r'^(\w+)\(([^)]*)\)=(.*)$', line)
         if m and not line.startswith('curve('):
             name, args, body = m.groups()
@@ -126,6 +117,22 @@ def model_surfaces(parts, ref=None, skip=None):
         lim = [float(eval(t.replace('^', '**'), ns)) for t in (u0, u1, v0, v1)]
         f = eval(f"lambda {u},{v}: ({X.replace('^', '**')},{Y.replace('^', '**')},{Z.replace('^', '**')})", ns)
         surfs.append((name, col.group(1) if col else '#888888', f, lim))
+    return surfs
+
+
+def model_surfaces(parts, ref=None, skip=None):
+    """Run generate.py for these parts; its surfaces (whose ref matches) as numpy functions:
+    [(ref, colour, f(u, v) -> (X, Y, Z), (u0, u1, v0, v1))]."""
+    sys.path.insert(0, HERE)
+    argv = sys.argv
+    sys.argv = ['generate.py', '-o', os.devnull, '--parts', parts, '--prec', '3']
+    g = {'__name__': '__gen__', '__file__': os.path.join(HERE, 'generate.py')}
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            exec(compile(open(os.path.join(HERE, 'generate.py'), encoding='utf-8').read(), 'generate.py', 'exec'), g)
+    finally:
+        sys.argv = argv
+    surfs = surfaces_from_lines(g['sc'].out, ref, skip)
     if not surfs:
         sys.exit(f'sheetfit: no surfaces of parts {parts!r} match ref {ref!r}')
     return surfs

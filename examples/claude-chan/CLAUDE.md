@@ -113,7 +113,12 @@ wander, vary in width and twist gently about their own lines, about half a turn)
 "strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
 gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
 model's hair in the back view (drawn with hidden parts removed), then place strands through them and check that
-none touches a ringlet (nearest-point distance between the surfaces).
+none touches a ringlet (nearest-point distance between the surfaces). To find bare patches, count the points of the
+dark under-layer (`hairUnder`) that a z-buffered view can see, from several angles round her back; a colour map of
+the hair by kind (back locks, crown locks, side locks, under-layer, braid) shows where. Grow a grid's cells with
+padding, never `np.roll`: it wraps round the edges, and once carried the skirt's depth (z 4.8) into the grid's top
+row (z 11.6), which pushed every strand starting there 0.7 off the head. A strand starts from the first thing it
+lies on, not a floor of 0.96 (right only by the middle of the braid).
 
 The back view is the only reference for the hair's depth (the user's choice: the side view draws the long hair
 trailing far back, which the back view's corset between the locks rules out). So the hair lies as close to her
