@@ -118,7 +118,8 @@ none touches a ringlet (nearest-point distance between the surfaces).
 The back view is the only reference for the hair's depth (the user's choice: the side view draws the long hair
 trailing far back, which the back view's corset between the locks rules out). So the hair lies as close to her
 clothes as it can: the back locks on the clothes' own surfaces (`clothes_y`: the generator run for the clothes
-alone inside `hair.py`, sampled into a grid), coming in under the capelet's hem as fast as `BK_DRAPE` allows, the
+alone inside `hair.py`, sampled into a grid) and falling straight where they fall away (under the capelet's hem:
+the user saw the hair bend in toward the waist when it followed the clothes in, which hair cannot do), the
 strands over others only just above them, and on the head and nape side by side on the hair as they come out of the
 braid (`BK_STACK`: the user traced their start hugging the back of the head); the long locks at her sides on a shell that clears the arms' own outline
 (`HAIR_ARM_R`) without flaring. Check every hair change from the side and in cross-sections as well (its gap to the

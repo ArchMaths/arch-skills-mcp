@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1023 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1049 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -234,8 +234,8 @@ listed in `generate.py`.
   sheet's back view (calibrated like the full-body views, so no landmarks are needed). They hang on the
   hair above the nape and on her clothes, as close as they can lie (the back view is the reference for
   depth): the generator runs itself for the clothes alone (about 3 s) and samples their surfaces into a grid
-  of how far back the cloth reaches, gaps bridged across; a strand lies just off it, comes in under the
-  capelet's hem by at most 2.5 a unit of height, and lies only just above the strands beneath (on the head
+  of how far back the cloth reaches, gaps bridged across; a strand lies just off it, falls straight where the
+  cloth falls away (under the capelet's hem), and lies only just above the strands beneath (on the head
   and nape the strands lie side by side on the hair as they come out of the braid, as the user traced); below the
   corset they wave back and forth a little, so they curl in 3D too. Each ringlet's axis is set back just far
   enough for every turn to clear the skirt, and its strand rises over its last 0.6 to meet it. So that no strand is machine-smooth, each wanders across

@@ -87,7 +87,7 @@ def clear_factor(rx, ry, z, margin):
 
 # The locks at her sides (the only ones below the nape) lie as close to her clothes as they can (the user's choice;
 # on the sheet's back view they fall over the arms within 1.45 to 2.8 of her middle): the shell clears the shoulders,
-# capelet, arms and hands by a little, does not flare, and below the capelet takes the depth of her back.
+# capelet, arms and hands by a little and does not flare; below its widest it falls straight.
 side_req, back_req = [], []
 for z in ZS:
     rx = max(HDX, max(envelope(p_, z) for p_ in (1.45, 1.6, 1.75)) + 0.06)
@@ -95,9 +95,8 @@ for z in ZS:
     k = clear_factor(rx, ry, z, 0.04)
     side_req.append(rx * k)
     back_req.append(ry * k)
-side_req = np.maximum.accumulate(np.array(side_req))
-back_req = np.array(back_req)
-back_req = np.where(ZS > 9.0, np.maximum.accumulate(back_req), back_req)
+side_req = np.maximum.accumulate(np.array(side_req))      # below its widest the hair falls straight, as hair does
+back_req = np.maximum.accumulate(np.array(back_req))
 KNOTS = [0, 0.03, 0.06, 0.09, 0.115, 0.14, 0.165, 0.19, 0.215, 0.24, 0.27, 0.31, 0.36, 0.43, 0.52, 0.62, 0.72]
 
 
@@ -379,9 +378,6 @@ BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
 BK_STACK = (0.03, 0.2)      # how far the strands of a lock may rise over each other: on the head and nape, and below
-BK_DRAPE = 2.5             # the back locks lie as close to the clothes as they can (the user's choice; the back view is
-                            # the reference): where the clothes fall away (under the capelet's hem) a strand comes in
-                            # toward them by at most this much a unit of height
 
 
 _KG = (-2.8, 4.8, 0.02, 281, 341)       # the clothes grid: x from -2.8, z from 4.8, every 0.02
@@ -446,9 +442,19 @@ _UG = (-1.6, 5.5, 0.01, 321, 621)      # the grid of how far back the back stran
 
 def ringlet_axes():
     """The ringlets' axes (x, y), one for each lock's strands with the same cx: as close to the clothes as every turn
-    of every one of them allows (its radius closing from r0 to r1 as it drops, 0.07 for its ribbon and a gap)."""
+    of every one of them allows (its radius closing from r0 to r1 as it drops, 0.07 for its ribbon and a gap), and
+    far enough back for each strand, falling straight from the fullest point it hangs over, to start its ringlet
+    (beside the axis, or in front of it at radius r0)."""
     need = {}
     for key, c in BK_CURL.items():
+        D = np.array(BK_STRANDS[key], float)
+        dd = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
+        ss = np.linspace(0, dd[-1], 200)
+        px, pz, hw = (np.interp(ss, dd, D[:, i]) for i in range(3))
+        hang = max(BK_TOP, max(float(body_back(px + k * hw * BK_WIDE, pz).max()) for k in (-1, 0, 1)) + CH_GAP) + 0.1
+        dx = abs(D[-1, 0] - c['cx'])
+        g = (key[1], c['cx'])
+        need[g] = max(need.get(g, -9.0), hang + (math.sqrt(c['r0'] ** 2 - dx * dx) if dx < 0.9 * c['r0'] else 0.0))
         z1 = BK_STRANDS[key][-1][1]
         zz = np.linspace(z1 - c['drop'] - 0.1, z1 + 0.05, 40)
         rr = np.interp(zz, [z1 - c['drop'], z1], [c['r1'], c['r0']])
@@ -585,7 +591,7 @@ def back_strands():
     """Each back strand as parts for Arch: ('poly', [C, U, V], pieces) for the hanging part, polynomials in t
     (-1..1) for the centre line, side and thickness vectors, in as many pieces as keep it within 0.006 (joined
     exactly); ('curl', xyz, pieces) for a ringlet, written exactly (curl_xyz); a list of these for each sub-strand
-    (BK_SUBS), with their colours. The hanging part lies as close to the clothes as it can (BK_DRAPE) and on the
+    (BK_SUBS), with their colours. The hanging part lies on the clothes, falls straight where they fall away, and lies on the
     strands beneath. Each strand wanders, varies in width and thickness (BK_NOISE) and twists about its own line below
     the nape (BK_TWIST), lifted where it twists so that its edges (and its sub-strands') stay clear of what it lies on.
     A strand that ends in a ringlet rises over its last 0.6 to where the ringlet starts (ringlet_axes)."""
@@ -626,12 +632,10 @@ def back_strands():
             fb = np.maximum(fb, body_back(px, pz))
             i, j, ok = at_under(px, pz)
             fh = np.maximum(fh, np.where(ok, under[np.clip(i, 0, unx - 1), np.clip(j, 0, unz - 1)], 0))
-        # its depth: on the clothes, coming in toward them where they fall away by at most BK_DRAPE a unit of
-        # height, and on the strands beneath where they are (easing onto them over its first 0.4, under the braid,
-        # where they all begin)
-        zq, body = np.r_[Q[0, 1], Q[:, 1]], np.r_[BK_TOP, fb + CH_GAP]
-        for i in range(1, len(body)):
-            body[i] = max(body[i], body[i - 1] - BK_DRAPE * max(0.0, zq[i - 1] - zq[i]))
+        # its depth: on the clothes, and where they fall away (under the capelet's hem) it falls straight, as hair
+        # does (how far back it is never decreases going down); and on the strands beneath where they are (easing
+        # onto them over its first 0.4, under the braid, where they all begin)
+        body = np.maximum.accumulate(np.r_[BK_TOP, fb + CH_GAP])
         curl = BK_CURL.get(key)
         tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
         body = body[1:] + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2   # its line over the clothes
@@ -647,6 +651,7 @@ def back_strands():
         y = lo.copy()
         for _ in range(12):                                  # smoothed a little, so as to stay close
             y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
+        y = np.maximum.accumulate(y)                         # and past the strands beneath it, it falls straight too
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
