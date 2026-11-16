@@ -378,6 +378,7 @@ BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3,
                             # each strand is drawn as these, side by side across it, each with its own wander, depth,
                             # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
+BK_STACK = (0.03, 0.2)      # how far the strands of a lock may rise over each other: on the head and nape, and below
 BK_DRAPE = 2.5             # the back locks lie as close to the clothes as they can (the user's choice; the back view is
                             # the reference): where the clothes fall away (under the capelet's hem) a strand comes in
                             # toward them by at most this much a unit of height
@@ -435,7 +436,7 @@ def body_back(x, z):
     f = clothes_y(x, z)
     t = T0 + (ZHC - z) / VF
     hp = lambda c: sum(a * np.maximum(0.0, t - T0 - k) ** 2 for a, k in zip(c, KNOTS))
-    ax, ay = HDX + hp(HP_X[2]) + 0.14, HDY + hp(HP_Y[2]) + 0.14
+    ax, ay = HDX + hp(HP_X[2]) + 0.1, HDY + hp(HP_Y[2]) + 0.1          # the outside of the hair there (measured)
     nape = HY0 + ay * np.sqrt(np.maximum(0, 1 - (x / ax) ** 2))
     return np.where((z > BK_NAPE - 0.05) & (z < 11.5) & (np.abs(x) < ax), np.maximum(f, nape), f)
 
@@ -639,7 +640,10 @@ def back_strands():
         g = fh + CH_ON
         g = np.max([np.roll(np.pad(g, 20, mode='edge'), i)[20:-20] for i in range(-20, 21)], axis=0)  # rounded off
         g = np.convolve(np.pad(g, 24, mode='edge'), ker / ker.sum(), 'valid')                    # without sinking
-        lo = np.maximum(body, np.where(fh > 0, g, -9.0))
+        # on the head and the nape the strands lie side by side on the hair, as they come out of the braid (the
+        # user's tracing): over each other they rise by no more than BK_STACK, which grows to its full height below
+        f = np.clip((BK_NAPE - Q[:, 1]) / 0.6, 0, 1)
+        lo = np.minimum(np.maximum(body, np.where(fh > 0, g, -9.0)), body + BK_STACK[0] + (BK_STACK[1] - BK_STACK[0]) * f * f * (3 - 2 * f))
         y = lo.copy()
         for _ in range(12):                                  # smoothed a little, so as to stay close
             y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
@@ -684,7 +688,7 @@ def back_strands():
                      free=not curl, end=1 - 0.06 * ((0.618 * (k + n_)) % 1)) for k in range(n)]
         cols = [col] + [c for c in (HAIR, HAIR_LT, HAIR_DK) if c != col]
         # the hanging part, in as few polynomial pieces as keep the fit within 0.006, joined exactly
-        for n_seg in range(1 if sig[-1] < 2.5 else 2, 7):
+        for n_seg in range(1 if sig[-1] < 2.5 else 2, 9):
             parts, errs, prev = _hang_pieces(n_seg, t, sig, P, W, TH, PH, TS, joined, subs)
             if max(errs) < 0.006:
                 break
