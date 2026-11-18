@@ -11,6 +11,8 @@ import {formatReport} from './report.js';
 import {decompile} from './decompile.js';
 import {readGuide, readGuideTopics, readFullSyntax, GUIDE_TOPICS} from './guide.js';
 import {convertSvg, formatConversion, DEFAULTS as SVG_DEFAULTS} from './svg/index.js';
+import {convertSvgAnimation, formatAnimationConversion, animationOptions} from './svg/animation.js';
+import {parseXml} from './svg/xml.js';
 
 const engine = new ArchEngine({keepWarm: true});
 const abs = path => resolve(process.cwd(), path);
@@ -20,7 +22,7 @@ Workflow: call arch_guide once to learn the script format and Arch syntax (or pa
 Never hand-write Arch save-file JSON: it contains parser-computed fields and will not load correctly.
 Scripts can also define JavaScript operators (@operator), canvas text (@text), frame-by-frame steps (@frames, frame=), dynamic color/line-width math expressions and a global program (@script, test-run for 2 s in an isolated page); see arch_guide.
 For large scenes, raise timeout_seconds (per engine step, default 30) and use lean to omit expanded custom-function formulas while still verifying the saved file reloads correctly.
-To turn an SVG drawing into an Arch file, call arch_svg: it fills every shape with inequalities, drawn in the SVG's order (filters are ignored), and builds the save file.`;
+To turn an SVG drawing into an Arch file, call arch_svg: it fills every shape with inequalities, drawn in the SVG's order (filters are ignored), and builds the save file. For animated SVGs, call arch_svg_animation with duration: it samples SMIL/CSS animation into frame-by-frame playback. The user must press Play in Arch; SVG scripts and external resources are disabled.`;
 
 const server = new McpServer({name: 'arch', version: '0.1.0'}, {instructions: INSTRUCTIONS});
 
@@ -164,6 +166,67 @@ server.registerTool('arch_svg', {
     }
     const report = formatReport(result, {written: args.check ? undefined : (result.ok ? written : null), brief: true});
     return {content: [text(`${formatConversion(conversion, {scriptPath})}\n${report}`), ...images(result)], isError: !result.ok};
+});
+
+server.registerTool('arch_svg_animation', {
+    title: 'Convert an animated SVG to frame-by-frame Arch playback',
+    description: 'Samples SVG SMIL/CSS animation at start+i/fps for ceil(duration*fps) frames (excluding start+duration), converts each frame with the static SVG converter, and writes a frame-tagged scene script and an Arch save file. The user must press Play manually in Arch. Chrome is required; SVG scripts and external resources are disabled. Static SVG unsupported features still apply. File size and conversion/build cost grow with frame count. Returns the conversion summary, build report and initial-frame screenshot.',
+    inputSchema: {
+        ...engineInput,
+        svg_path: z.string().min(1).optional().describe('Path to the animated .svg file.'),
+        svg: z.string().optional().describe('SVG markup, instead of svg_path.'),
+        duration: z.number().positive().describe('Required positive sampling duration in seconds; the end instant is not sampled.'),
+        fps: z.number().int().min(1).max(60).optional().describe('Sampling and playback frames per second (default 12).'),
+        start: z.number().nonnegative().optional().describe('Start time in seconds on the SVG timeline (default 0).'),
+        max_frames: z.number().int().min(1).max(600).optional().describe('Frame budget (default 120, hard maximum 600); fails if ceil(duration*fps) exceeds it.'),
+        output_path: z.string().min(1).optional().describe('Where to write the save file (.txt). Required unless check is true.'),
+        script_path: z.string().min(1).optional().describe('Scene script path (default: output_path with .arch, unless check is true). An explicit path also writes in check mode.'),
+        check: z.boolean().optional().describe('Convert and run in Arch without writing a save or implicit scene script (default false).'),
+        tolerance: z.number().positive().optional().describe(`Curve flattening tolerance in saved-view pixels (default ${SVG_DEFAULTS.tolerance}); larger means fewer edges.`),
+        precision: z.number().min(0.5).max(20).optional().describe(`Arch inequality sampling precision (default ${SVG_DEFAULTS.precision}); higher draws finer detail but costs more.`),
+        gradient_steps: z.number().int().min(1).max(64).optional().describe(`Maximum colour bands per gradient (default ${SVG_DEFAULTS.gradientSteps}).`),
+        max_edges: z.number().int().min(10).optional().describe(`Edges per inequality entry (default ${SVG_DEFAULTS.maxEdges}); larger regions are split.`),
+        title: z.string().optional().describe('File name shown in Arch (default: SVG title).'),
+        axes: z.boolean().optional().describe('Keep Arch axes and grid visible (default false).'),
+        outlines: z.boolean().optional().describe('Trace opaque shapes with exact point-list outlines (default true).'),
+        flatten: z.boolean().optional().describe('Use compatibility conversion for Arch builds before 12202 (default false).'),
+        seams: z.boolean().optional().describe('Hide seams between neighbouring shapes (default true).'),
+        screenshot: z.boolean().optional().describe('Include an initial-frame screenshot (default true).'),
+        screenshot_scale: z.number().min(0.1).max(1).optional().describe('Screenshot scale (default 1 = 1280x800).')
+    }
+}, async args => {
+    if ((args.svg === undefined) === (args.svg_path === undefined)) return {content: [text('Pass either svg_path or svg, not both.')], isError: true};
+    if (!args.check && !args.output_path) return {content: [text('Pass output_path, or check: true to convert without writing a file.')], isError: true};
+    let conversion;
+    try {
+        // Validate the request and read/parse the SVG before starting Chrome.
+        const options = {
+            duration: args.duration, fps: args.fps, start: args.start, maxFrames: args.max_frames,
+            tolerance: args.tolerance, precision: args.precision, gradientSteps: args.gradient_steps,
+            maxEdges: args.max_edges, title: args.title, axes: args.axes, flatten: args.flatten,
+            outlines: args.outlines, seams: args.seams
+        };
+        animationOptions(options);
+        const source = args.svg ?? readFileSync(abs(args.svg_path), 'utf8');
+        parseXml(source);
+        conversion = await convertSvgAnimation(source, {...options, browser: await engine.browser()});
+    } catch (error) {
+        return {content: [text(`Could not convert the SVG animation: ${error.message}`)], isError: true};
+    }
+    const scriptPath = args.script_path ? abs(args.script_path) : (!args.check && args.output_path ? abs(args.output_path).replace(/\.txt$/i, '') + '.arch' : null);
+    if (scriptPath) {
+        mkdirSync(dirname(scriptPath), {recursive: true});
+        writeFileSync(scriptPath, conversion.script);
+    }
+    const result = await engine.run(conversion.script, runOptions(args, args.screenshot !== false));
+    let written;
+    if (result.ok && !args.check) {
+        written = abs(args.output_path);
+        mkdirSync(dirname(written), {recursive: true});
+        writeFileSync(written, result.json);
+    }
+    const report = formatReport(result, {written: args.check ? undefined : (result.ok ? written : null), brief: true});
+    return {content: [text(`${formatAnimationConversion(conversion, {scriptPath})}\n${report}`), ...images(result)], isError: !result.ok};
 });
 
 server.registerTool('arch_decompile', {

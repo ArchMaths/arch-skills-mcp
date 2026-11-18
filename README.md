@@ -8,7 +8,7 @@ The agent writes a short **scene script**: one Arch expression per line, plus st
 - every object with its computed value (coordinates, equations, measurements);
 - a screenshot of the file as a user will see it after opening it.
 
-It can also **convert SVG drawings into Arch files** (`svg2arch`, or the `arch_svg` MCP tool): every shape of the picture becomes an inequality, stacked in the SVG's painting order and traced with an exact outline. See [SVG drawings](#svg-drawings-svg2arch).
+It can also **convert SVG drawings into Arch files** (`svg2arch`, or the `arch_svg` MCP tool): every shape of the picture becomes an inequality, stacked in the SVG's painting order and traced with an exact outline. See [SVG drawings](#svg-drawings-svg2arch). Animated SMIL/CSS SVGs can be sampled into Arch frame playback with `svg2arch-anim` or `arch_svg_animation`; see [Animated SVGs](#animated-svgs-svg2arch-anim).
 
 Why not have the AI write the save JSON directly? Arch's loader trusts parser-computed fields (`plotType`, `processedExpr`, `geometryType`, dependency names, ...). Getting those right means reimplementing Arch's parser, so a hand-written file breaks silently.
 
@@ -92,8 +92,9 @@ Never write Arch save JSON by hand.
 | `arch_build` | Same, and writes the save file to `output_path` (only if there are no errors and the reload check passes). Optional `screenshot_path`; `brief: true` leaves out the object list. |
 | `arch_decompile` | Turns an existing save file into a script, so agents can edit files people made by hand. |
 | `arch_svg` | Converts an SVG drawing (`svg_path` or `svg` text) into a save file at `output_path`, filling every shape with inequalities, and also writes the scene script beside it. Returns the conversion summary, the build report and a screenshot. Options: `tolerance`, `precision`, `gradient_steps`, `title`, `axes`, `outlines`, `flatten` (for Arch before 12202), `check`. `check: true` writes no save or implicit scene script; give `script_path` explicitly to export the script while checking. |
+| `arch_svg_animation` | Converts an animated SVG (`svg_path` or `svg`) into frame-by-frame Arch playback. Required `duration`; optional `fps` (default 12), `start` (default 0), `max_frames` (default 120, maximum 600), plus static conversion/build options. Chrome is required. Users press Play manually in Arch. See [Animated SVGs](#animated-svgs-svg2arch-anim). |
 
-All three engine tools (`arch_check`, `arch_build`, `arch_svg`) accept `timeout_seconds` (positive seconds per engine step, default 30; fractional values allowed) and `lean` (default false: omit expanded function-call formulas for smaller saves; Arch reconstructs them on open). Lean mode still reload-verifies the result; it does not bypass validation.
+All four engine tools (`arch_check`, `arch_build`, `arch_svg`, `arch_svg_animation`) accept `timeout_seconds` (positive seconds per engine step, default 30; fractional values allowed) and `lean` (default false: omit expanded function-call formulas for smaller saves; Arch reconstructs them on open). Lean mode still reload-verifies the result; it does not bypass validation.
 
 ## Scene scripts
 
@@ -180,6 +181,31 @@ How a picture becomes inequalities:
 `--flatten` is the method for Arch builds before 12202, which fill overlapping inequalities in grid-scan order rather than entry order and draw point lists beneath all fills: the converter computes what is visible (Clipper boolean operations), every opaque shape cutting its area out of everything beneath it, and writes regions that never overlap, one per colour, with point lists along shared boundaries to hide the seams between them. Thin strokes become equations `...=0`, which those builds draw above the fills (with automatic breakpoint detection switched on, so the jumps along each open line's "cut" are not drawn). That takes more edges, has no outlines, and leaves small notches where a seam meets a corner.
 
 The conversion reports parts thinner than the sampling grid (they may show gaps; use a higher `--precision` or zoom in), unsupported features, and the approximate redraw time. Arch redraws on every pan and zoom, so drawings with thousands of edges feel slow; `--tolerance 1` or fewer gradient steps help.
+
+## Animated SVGs (svg2arch-anim)
+
+`svg2arch-anim` samples SMIL and CSS animations in Chrome and converts the snapshots into Arch's frame-by-frame playback, with a scene script (`.arch`) and save file (`.txt`):
+
+```sh
+node src/svg2arch-anim.js examples/svg/animated-orbit.svg --duration 2 --fps 12 -o moving.txt
+node src/svg2arch-anim.js moving.svg --duration 1 --start 0.5 --check --png shot.png --png-scale 0.5
+node src/svg2arch-anim.js moving.svg --duration 2 --script-only -s moving.arch
+node src/svg2arch-anim.js moving.svg --duration 5 --fps 30 --max-frames 150 --timeout 120 --json
+```
+
+`--duration` is required and must be positive seconds. `--fps` is an integer from 1 to 60 (default 12); `--start` is nonnegative seconds (default 0). The converter samples **`ceil(duration*fps)` frames at `start+i/fps`**, for `i=0..ceil(duration*fps)-1`: the interval **excludes `start+duration`**, so a 2-second animation at 12 fps samples 0 through 23/12 seconds, not the final instant at 2 seconds. The frame budget defaults to 120; raise `--max-frames` explicitly up to the hard limit of 600. Requests exceeding the budget fail rather than silently dropping frames.
+
+**Open the save file in Arch and press Play manually** to start frame playback; conversion/build screenshots show the initial frame. The output contains converted geometry for each frame, not an embedded SVG or a live browser animation. File size, sampling/conversion work, and Arch build/load cost grow with the frame count and drawing complexity. Start with a short duration, low fps and simple shapes; reduce detail with `--tolerance 1` or fewer `--gradient-steps` when necessary. `--timeout` increases the time allowed per Arch build step.
+
+Chrome is required **even with `--script-only`**, because sampling uses the browser. SVG scripts (including event handlers) and external resources are disabled; script-driven animations and animations depending on remote stylesheets, images or fonts are not supported. SMIL and CSS animation snapshots still pass through the static SVG converter: its supported shapes and limitations above apply (for example, filters are ignored, images/patterns/markers are not drawn, gradients use bands). Text that remains unchanged across all sampled frames is exported once as a shared overlay above the geometry (with a warning), because Arch text boxes do not support frame tags; text that changes between frames is rejected. Convert text to paths first for animated text or exact painting order. Animated nested viewports, use instances and text layout may be approximate. Read the conversion warnings for approximations or skipped content.
+
+The CLI also accepts the static conversion controls `--tolerance`, `--precision`, `--gradient-steps`, `--max-edges`, `--title`, `--axes`, `--flatten`, `--no-seams`, `--no-outlines`, plus `-o`/`--out`, `-s`/`--script`, `--check`, `--png`, `--png-scale`, `--html` and `--json`. `--check` writes no save or implicit script; an explicit `--script` still exports it. `--script-only` cannot be combined with `--check` or `--png`.
+
+For MCP, use `arch_svg_animation` with exactly one of `svg_path` or `svg`, required `duration`, and `output_path` (or `check: true`). Animation options are `fps`, `start`, `max_frames`; conversion options mirror `arch_svg`, with `max_edges` and `seams` also available. `script_path`, `screenshot`, `screenshot_scale`, `timeout_seconds` and `lean` work as on the static tool. For example:
+
+```json
+{"svg_path":"/absolute/path/moving.svg","duration":2,"fps":12,"output_path":"/absolute/path/moving.txt","screenshot_scale":0.5}
+```
 
 ## SVG on 3D surfaces (svgsurf, experimental)
 

@@ -23,9 +23,9 @@ after(async () => {
 
 const textOf = result => result.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
 
-test('lists the five tools with instructions', async () => {
+test('lists the six tools with instructions', async () => {
     const {tools} = await client.listTools();
-    assert.deepEqual(tools.map(t => t.name).sort(), ['arch_build', 'arch_check', 'arch_decompile', 'arch_guide', 'arch_svg']);
+    assert.deepEqual(tools.map(t => t.name).sort(), ['arch_build', 'arch_check', 'arch_decompile', 'arch_guide', 'arch_svg', 'arch_svg_animation']);
     assert.match(client.getInstructions(), /arch_guide/);
     assert.match(client.getInstructions(), /arch_svg/);
     assert.match(client.getInstructions(), /timeout_seconds/);
@@ -118,6 +118,26 @@ test('arch_svg converts an SVG and writes the scene script and save file', async
     assert.match(readFileSync(join(dir, 'out/squares.arch'), 'utf8'), /^cos\(pi\*/m);
     const missing = await client.callTool({name: 'arch_svg', arguments: {svg}});
     assert.equal(missing.isError, true);
+});
+
+test('arch_svg_animation builds sampled frames and respects check mode', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect width="3" height="3" fill="red"><animate attributeName="x" from="0" to="10" dur="1s"/></rect></svg>';
+    const args = {svg, duration: 1, fps: 2, outlines: false, screenshot: false};
+    const built = await client.callTool({name: 'arch_svg_animation', arguments: {...args, output_path: 'out/animated.txt'}});
+    assert.equal(built.isError, false, textOf(built));
+    const save = JSON.parse(readFileSync(join(dir, 'out/animated.txt'), 'utf8'));
+    assert.deepEqual(save.entries.map(e => e.displayFrame), [1, 2]);
+    assert.match(readFileSync(join(dir, 'out/animated.arch'), 'utf8'), /@frames total=2 fps=2 current=1/);
+    const check = await client.callTool({name: 'arch_svg_animation', arguments: {...args, check: true, output_path: 'out/check-animation.txt'}});
+    assert.equal(check.isError, false, textOf(check));
+    assert.equal(existsSync(join(dir, 'out/check-animation.txt')), false);
+    assert.equal(existsSync(join(dir, 'out/check-animation.arch')), false);
+    const budget = await client.callTool({name: 'arch_svg_animation', arguments: {...args, check: true, duration: 100}});
+    assert.equal(budget.isError, true);
+    assert.match(textOf(budget), /maxFrames|frames/i);
+    const both = await client.callTool({name: 'arch_svg_animation', arguments: {...args, svg_path: 'x.svg', check: true}});
+    assert.equal(both.isError, true);
+    assert.match(textOf(both), /not both/);
 });
 
 test('reports input and filesystem errors as MCP tool errors', async () => {
