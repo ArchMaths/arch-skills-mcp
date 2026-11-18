@@ -300,7 +300,8 @@ export function convertSvg(source, options = {}) {
             ...(seamEntries ? ['# Point lists (/-/...) are drawn beneath the fills and only show through seams between regions.'] : [])
         ] : [
             '# Shapes are drawn bottom to top in the order of this file, as the SVG paints them: the @set',
-            "# line switches on Arch's ordered drawing (saved in the file; needs Arch 12202 or later).",
+            '# line enables ordered drawing and disables smart colour inversion (needs Arch 2.0.05).',
+            '# RGB colours and opacity are preserved with standard source-over blending, including white.',
             '# Point lists (/-/...) are drawn exactly: thin strokes, and the outline of each opaque shape',
             '# half a line width inside it, which gives the sampled fill sharp edges and corners.'
         ]),
@@ -311,7 +312,7 @@ export function convertSvg(source, options = {}) {
         '',
         ...(opts.flatten ? textLines : []),
         `@view x=${fmt(view.xmin - pad * w, 7)}..${fmt(view.xmax + pad * w, 7)} y=${fmt(view.ymin - pad * h, 7)}..${fmt(view.ymax + pad * h, 7)}`,
-        `@set implicitPrecision=${opts.precision}${opts.axes ? '' : ' showAxes=false showAxisNumbers=false gridStyle=hidden'}${equationLines ? ' autoBreakpointDetection=true' : ''}${opts.flatten ? '' : ' orderedDrawing=true'}`
+        `@set implicitPrecision=${opts.precision}${opts.axes ? '' : ' showAxes=false showAxisNumbers=false gridStyle=hidden'}${equationLines ? ' autoBreakpointDetection=true' : ''}${opts.flatten ? '' : ' orderedDrawing=true smartColorInversion=false'}`
     ];
     const script = [...header, ...body, ...footer].join('\n') + '\n';
     return {

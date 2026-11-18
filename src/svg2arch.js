@@ -8,7 +8,7 @@ import {formatReport} from './report.js';
 import {convertSvg, formatConversion, DEFAULTS} from './svg/index.js';
 
 const USAGE = `Convert an SVG drawing into an Arch save file: every shape becomes an inequality, stacked in the
-SVG's painting order with Arch's ordered drawing (Arch 12202 or later; --flatten for older builds).
+SVG's painting order with ordered drawing and original colors (Arch 2.0.05; --flatten for older builds).
 
 Usage:
   svg2arch <drawing.svg> [-o drawing.txt] [options]   write drawing.arch (scene script) and drawing.txt

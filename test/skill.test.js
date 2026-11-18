@@ -80,6 +80,35 @@ test('the skill only mentions guide topics and CLI flags that exist', () => {
     assert.ok(skill.length < 9000, `SKILL.md is ${skill.length} bytes`);
 });
 
+test('skill and guide track bundled 2.0.05 syntax and dynamic styles', () => {
+    const skill = readFileSync(SKILL_SOURCE, 'utf8');
+    const guide = readGuide();
+    for (const text of [skill, guide]) {
+        assert.match(text, /appVersion=20005/);
+        assert.match(text, /18982f5/);
+        assert.match(text, /smartColorInversion=false/);
+        assert.match(text, /thickness="2\+3\*/);
+        assert.match(text, /opacity="0\.3\+0\.5\*/);
+        assert.match(text, /color=hsb\(100\*/);
+        assert.match(text, /`f\(x\)=x\^2(?:\+1)?`/);
+        assert.doesNotMatch(text, /cannot be `e x y z`|labels are not drawn/);
+    }
+    assert.match(readGuideTopics('format'), /zero allowed/);
+    assert.match(readGuideTopics('syntax'), /auto-created/);
+    assert.match(readGuideTopics('mistakes'), /label bug[\s\S]*fixed/);
+    assert.match(readGuideTopics('script'), /expression strings/);
+});
+
+test('README records upstream provenance and MCP export controls', () => {
+    const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+    assert.match(readme, /https:\/\/github\.com\/ArchMaths\/arch-skills-mcp\.git/);
+    assert.match(readme, /cf94850a5f03fe074b66fab3af6c2501aa6fa241677bfb242ddbeb89f9065392/);
+    assert.match(readme, /timeout_seconds/);
+    assert.match(readme, /lean/);
+    assert.match(readme, /standard alpha blending/);
+    assert.doesNotMatch(readme, /bundled.*reports version 19999/);
+});
+
 test('install-skill fills in absolute paths and protects foreign skills', () => {
     const dir = mkdtempSync(join(tmpdir(), 'arch-skill-test-'));
     try {

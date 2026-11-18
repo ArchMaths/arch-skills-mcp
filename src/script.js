@@ -14,7 +14,7 @@
 export const PLAY_MODES = {pingpong: 0, bounce: 0, forward: 1, loop: 1, reverse: 2, backward: 2, once: 3, 'once-reverse': 4};
 export const DASHES = ['solid', 'long', 'short', 'dotted'];
 export const PERSISTED_SETTINGS = ['showAxes', 'showAxisNumbers', 'showPointLabels', 'gridStyle', 'tmin', 'tmax',
-    'geometryMeasurementDisplay', 'showHiddenMath', 'showHiddenGeo', 'implicitPrecision', 'autoBreakpointDetection', 'orderedDrawing'];
+    'geometryMeasurementDisplay', 'showHiddenMath', 'showHiddenGeo', 'implicitPrecision', 'autoBreakpointDetection', 'orderedDrawing', 'smartColorInversion'];
 
 const NAMED_COLORS = {
     red: '#e53935', orange: '#fb8c00', yellow: '#fdd835', green: '#43a047', teal: '#00897b', cyan: '#00acc1',
@@ -56,12 +56,39 @@ export function parseColor(value, line) {
         const c = hexToHsb(v);
         if (c) return c;
     }
-    const hsb = /^hsb\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)$/.exec(v);
+    const hsb = /^hsb\((.*)\)$/i.exec(value.trim());
     if (hsb) {
-        const [h, s, b] = hsb.slice(1).map(Number);
-        if ([h, s, b].every(n => Number.isFinite(n) && n >= 0 && n <= 100)) return {h, s, b};
+        // Commas in nested calls (max(a,b), for example) belong to the component.
+        const parts = [];
+        let depth = 0, start = 0;
+        for (let i = 0; i < hsb[1].length; i++) {
+            const c = hsb[1][i];
+            if ('(['.includes(c)) depth++;
+            if (')]'.includes(c)) depth--;
+            if (c === ',' && depth === 0) { parts.push(hsb[1].slice(start, i)); start = i + 1; }
+        }
+        parts.push(hsb[1].slice(start));
+        if (parts.length === 3 && depth === 0)
+            return Object.fromEntries(['h', 's', 'b'].map((key, i) => [key, styleValue(parts[i], line, key, 0, 100)]));
     }
-    throw new ScriptError(line, `Invalid color "${value}". Use a name (${Object.keys(NAMED_COLORS).join(', ')}), #rrggbb, or hsb(h,s,b) with each 0..100.`);
+    throw new ScriptError(line, `Invalid color "${value}". Use a name (${Object.keys(NAMED_COLORS).join(', ')}), #rrggbb, or hsb(h,s,b) (0..100 or math expressions).`);
+}
+
+// Keep expressions as strings for Arch 2.0.05's own style evaluator; do not evaluate JS here.
+function styleValue(raw, line, name, min, max) {
+    const text = raw.trim();
+    if (!text) throw new ScriptError(line, `${name} needs a number or math expression.`);
+    const n = Number(text);
+    if (Number.isNaN(n) && !/^[+-]?(?:NaN|Infinity)$/i.test(text)) return text;
+    if (!Number.isFinite(n) || n < min || n > max)
+        throw new ScriptError(line, `${name} must be between ${min} and ${max}, or a math expression.`);
+    return n;
+}
+
+function opacityValue(raw, line) {
+    const o = styleValue(raw, line, 'opacity', 0, 1);
+    // Arch's a channel is transparency in percent, not opacity.
+    return typeof o === 'number' ? Math.round((1 - o) * 1000) / 10 : `(1-(${o}))*100`;
 }
 
 // Splits "a=1 b=\"two words\" flag" into [['a','1'],['b','two words'],['flag',null]].
@@ -104,15 +131,11 @@ function parseObjectOptions(text, line, {allowRef = true} = {}) {
         }
         case 'color': style.color = {...parseColor(need(), line), ...(style.color && 'a' in style.color ? {a: style.color.a} : {})}; break;
         case 'opacity': {
-            const o = Number(need());
-            if (!(o >= 0 && o <= 1)) throw new ScriptError(line, 'opacity must be between 0 and 1.');
-            style.color = {...(style.color || {}), a: Math.round((1 - o) * 1000) / 10};
+            style.color = {...(style.color || {}), a: opacityValue(need(), line)};
             break;
         }
         case 'thickness': {
-            const t = Number(need());
-            if (!(t >= 1 && t <= 20)) throw new ScriptError(line, 'thickness must be between 1 and 20.');
-            style.thickness = t;
+            style.thickness = styleValue(need(), line, 'thickness', 0, 20);
             break;
         }
         case 'hidden': style.visible = false; break;
@@ -244,7 +267,7 @@ function parseOperatorHeader(name, paramText, line) {
 }
 
 function parseText(rest, line) {
-    const bar = rest.indexOf('|');
+    const bar = optionBar(rest);
     if (bar < 0) throw new ScriptError(line, '@text needs the text after "|", e.g. @text x=-4 y=3 | Hello');
     const content = rest.slice(bar + 1).trim();
     if (!content) throw new ScriptError(line, '@text has no content after "|".');
@@ -273,9 +296,7 @@ function parseText(rest, line) {
         case 'size': text.size = number(raw, 'size', true); break;
         case 'color': text.color = {...parseColor(raw, line), ...(text.color && 'a' in text.color ? {a: text.color.a} : {})}; break;
         case 'opacity': {
-            const o = Number(raw);
-            if (!(o >= 0 && o <= 1)) throw new ScriptError(line, 'opacity must be between 0 and 1.');
-            text.color = {...(text.color || {}), a: Math.round((1 - o) * 1000) / 10};
+            text.color = {...(text.color || {}), a: opacityValue(raw, line)};
             break;
         }
         default:
@@ -313,6 +334,16 @@ function parseFrames(rest, line) {
     if (frames.total !== undefined && frames.current !== undefined && frames.current > frames.total)
         throw new ScriptError(line, '@frames current must not exceed total.');
     return frames;
+}
+
+// A single unquoted bar separates options; logical OR (||) is part of the math.
+function optionBar(text) {
+    let quoted = false;
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === '"') quoted = !quoted;
+        if (!quoted && text[i] === '|' && text[i - 1] !== '|' && text[i + 1] !== '|') return i;
+    }
+    return -1;
 }
 
 // Returns {steps, title, script}. Throws ScriptError with a 1-based line number.
@@ -394,7 +425,7 @@ export function parseScript(source) {
                 steps.push({kind: 'frames', line, frames: parseFrames(rest2, line)});
                 continue;
             case 'style': {
-                const bar = rest2.indexOf('|');
+                const bar = optionBar(rest2);
                 const target = (bar < 0 ? rest2 : rest2.slice(0, bar)).trim();
                 if (!target) throw new ScriptError(line, '@style needs a target: @style <name|ref|last> | color=red');
                 if (bar < 0) throw new ScriptError(line, '@style needs options after "|", e.g. @style P | color=red');
@@ -408,7 +439,7 @@ export function parseScript(source) {
         }
         text = stripComment(text);
         if (!text) continue;
-        const bar = text.indexOf('|');
+        const bar = optionBar(text);
         const expr = (bar < 0 ? text : text.slice(0, bar)).trim();
         if (!expr) throw new ScriptError(line, 'Missing expression before "|".');
         if (/^\$multi/i.test(expr)) throw new ScriptError(line, 'Write one expression per line instead of a $multi string.');

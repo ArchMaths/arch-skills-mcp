@@ -324,18 +324,20 @@ function compareSaved(a, b) {
     const same = (x, y) => JSON.stringify(norm(x)) === JSON.stringify(norm(y));
     const diffs = [];
     if ((a.globalScript || '') !== (b.globalScript || '')) diffs.push('the global script');
-    for (const key of ['showPlaybackControls', 'totalFrames', 'playbackFPS', 'currentFrame', 'frameExpr', 'offset3DZ', 'orderedDrawingEnabled'])
+    for (const key of ['showPlaybackControls', 'totalFrames', 'playbackFPS', 'currentFrame', 'frameExpr', 'offset3DZ', 'orderedDrawingEnabled', 'smartColorInversionEnabled'])
         if (!same(a[key], b[key])) diffs.push(`${key} ${JSON.stringify(a[key])} → ${JSON.stringify(b[key])}`);
     // With ordered drawing, objects are painted in creation order (Arch 12202+ saves it per object).
     const drawOrder = state => [...(state.entries || []).map((x, i) => ['entry', i, x.creationOrder]),
         ...(state.annotations || []).map((x, i) => ['annotation', i, x.creationOrder])]
         .filter(([, , n]) => Number.isFinite(n)).sort((x, y) => x[2] - y[2]).map(([kind, i]) => `${kind}${i}`);
     if (a.orderedDrawingEnabled && !same(drawOrder(a), drawOrder(b))) diffs.push('the drawing order');
+    const styleFormulas = owner => Object.fromEntries(Object.entries(owner.styleExpressions || {}).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, v.expr]));
     const texts = state => (state.annotations || []).filter(t => t.type === 'text')
-        .map(t => [t.content, t.x, t.y, t.width, t.height, t.fontSize, t.color]);
+        .map(t => [t.content, t.x, t.y, t.width, t.height, t.fontSize, t.color, styleFormulas(t)]);
     if (!same(texts(a), texts(b))) diffs.push('text boxes');
     (a.entries || []).forEach((entry, i) => {
         const other = (b.entries || [])[i] || {};
+        if (!same(styleFormulas(entry), styleFormulas(other))) diffs.push(`${entry.expr}: style expressions`);
         for (const key of ['displayFrame', 'bodyJs', 'params', 'parametricParameters'])
             if (!same(entry[key], other[key])) diffs.push(`${entry.expr}: ${key}`);
     });

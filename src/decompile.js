@@ -7,10 +7,16 @@ const MODE_NAMES = Object.fromEntries(Object.entries(PLAY_MODES).filter(([k]) =>
 
 const num = n => String(n);  // shortest exact representation, so decompiled values round-trip
 
-function colorOptions(color) {
+const quoted = value => /\s/.test(value) ? `"${value}"` : value;
+function colorOptions(color, expressions = {}) {
     if (!color || typeof color !== 'object') return [];
-    const out = [`color=hsb(${num(color.h ?? 0)},${num(color.s ?? 0)},${num(color.b ?? 0)})`];
-    if (color.a) out.push(`opacity=${num((100 - color.a) / 100)}`);
+    const components = ['h', 's', 'b'].map(k => expressions[k]?.expr ?? num(color[k] ?? 0));
+    const out = [`color=${quoted(`hsb(${components.join(',')})`)}`];
+    if (expressions.a?.expr) {
+        const alpha = expressions.a.expr;
+        const original = /^\(1-\((.*)\)\)\*100$/s.exec(alpha);
+        out.push(`opacity=${quoted(original ? original[1] : `1-(${alpha})/100`)}`);
+    } else if (color.a) out.push(`opacity=${num((100 - color.a) / 100)}`);
     return out;
 }
 
@@ -37,6 +43,13 @@ export function decompile(saveText) {
     const warnings = [];
     if (state.name) lines.push(`@title ${state.name}`);
     lines.push(`# Decompiled from an Arch save file (version ${state.version ?? 'unknown'}).`, '');
+    // Dimension affects which plots a function definition automatically creates.
+    if (state.is3DMode) {
+        // This persisted preference is only writable while the engine is in 2D.
+        if (typeof state.smartColorInversionEnabled === 'boolean')
+            lines.push(`@set smartColorInversion=${state.smartColorInversionEnabled}`);
+        lines.push('@view 3d');
+    }
 
     const operator = (name, params, body) => {
         const text = String(body ?? '').replace(/\r\n?/g, '\n');
@@ -49,7 +62,13 @@ export function decompile(saveText) {
     for (const def of Array.isArray(state.customAdvancedFunctions) ? state.customAdvancedFunctions : [])
         if (def && def.name && !entryNames.has(String(def.name).toLowerCase())) operator(def.name, def.params, def.bodyJsString);
 
-    for (const entry of state.entries) {
+    // Function definitions can create their plot *before* the definition in saved entry order.
+    // Recreate the definition first, then style that generated plot instead of creating it twice.
+    const autoPlots = state.entries.filter(e => e?.isAutoCreatedPlot);
+    const entries = state.entries.filter(e => !e?.isAutoCreatedPlot).flatMap(entry => [entry,
+        ...autoPlots.filter(p => entry?.type === 'custom_function_definition' &&
+            new RegExp(`^[xyz]\\s*=\\s*${entry.name}\\s*\\(`, 'i').test(p.expr))]);
+    for (const entry of entries) {
         if (!entry || typeof entry !== 'object') continue;
         if (entry.type === 'advanced_custom_function_definition') {
             operator(entry.name, entry.params, entry.bodyJs);
@@ -69,12 +88,13 @@ export function decompile(saveText) {
         const expr = String(entry.originalExprWithPoints || entry.expr || '').trim();
         if (!expr) continue;
         const options = [];
-        if (entry.autoNumber) options.push(`ref=${entry.autoNumber}`);
+        if (entry.autoNumber && !entry.isAutoCreatedPlot) options.push(`ref=${entry.autoNumber}`);
         const c = entry.color;
         const defaultGeometryColor = entry.type === 'geometry' && c && !c.h && !c.s && !c.b && !c.a;
         if (entry.type !== 'variable' && entry.type !== 'constant' && entry.type !== 'custom_function_definition') {
-            if (!defaultGeometryColor) options.push(...colorOptions(entry.color));
-            if (Number.isFinite(entry.thickness) && entry.thickness !== 3) options.push(`thickness=${num(entry.thickness)}`);
+            if (!defaultGeometryColor || entry.styleExpressions) options.push(...colorOptions(entry.color, entry.styleExpressions));
+            if (entry.styleExpressions?.thickness?.expr) options.push(`thickness=${quoted(entry.styleExpressions.thickness.expr)}`);
+            else if (Number.isFinite(entry.thickness) && entry.thickness !== 3) options.push(`thickness=${num(entry.thickness)}`);
             if (entry.visible === false) options.push('hidden');
         }
         if (entry.type === 'geometry') {
@@ -93,7 +113,9 @@ export function decompile(saveText) {
         if (entry.type === 'variable' && entry.isEditableIndependent) options.push(...sliderOptions(entry));
         if (Number.isInteger(entry.displayFrame) && entry.displayFrame > 0) options.push(`frame=${entry.displayFrame}`);
         if (entry.statisticsRegressionId) warnings.push(`"${expr}" is a regression curve tied to a statistics table; it is kept as a plain curve.`);
-        lines.push(options.length ? `${expr}  | ${options.join(' ')}` : expr);
+        if (entry.isAutoCreatedPlot) {
+            if (options.length) lines.push(`@style ${entry.autoNumber} | ${options.join(' ')}`);
+        } else lines.push(options.length ? `${expr}  | ${options.join(' ')}` : expr);
     }
 
     lines.push('');
@@ -112,6 +134,7 @@ export function decompile(saveText) {
     }
     const settings = [];
     const add = (name, value) => { if (value !== undefined && value !== null) settings.push(`${name}=${typeof value === 'number' ? num(value) : value}`); };
+    if (!state.is3DMode) add('smartColorInversion', state.smartColorInversionEnabled);
     add('showAxes', state.showAxes);
     add('showAxisNumbers', state.showAxisNumbers);
     add('showPointLabels', state.showPointLabels);
@@ -145,7 +168,7 @@ export function decompile(saveText) {
         const content = smart ? raw.slice(7) : raw;
         const opts = [`x=${num(a.x)}`, `y=${num(a.y)}`, `width=${num(a.width)}`, `height=${num(a.height)}`, `size=${num(a.fontSize ?? 0.5)}`];
         const c = a.color;
-        if (c && (c.h || c.s || c.b || c.a)) opts.push(...colorOptions(c));
+        if (c && (c.h || c.s || c.b || c.a || a.styleExpressions)) opts.push(...colorOptions(c, a.styleExpressions));
         if (smart) opts.push('smart');
         else if (/\{value\(|\{if\(/.test(content)) opts.push('plain');
         lines.push(`@text ${opts.join(' ')} | ${content}`);

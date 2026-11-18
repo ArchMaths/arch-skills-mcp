@@ -1,0 +1,8 @@
+# Arch 2.0.05: style expressions follow sliders without altering construction dependencies.
+@title Dynamic styles
+@set smartColorInversion=false
+a=0.5 | min=0 max=1 step=0.0025 mode=pingpong play
+circle(c,O,2) | color=hsb(100*a,100,85) opacity="0.3 + 0.7*a" thickness="1 + 7*a"
+point(P,c,a) | color=blue thickness=5
+@text x=-3 y=3 color=hsb(100*a,100,85) | a = {value(a)}
+@view x=-4..4 y=-4..4

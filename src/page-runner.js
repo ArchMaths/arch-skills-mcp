@@ -132,9 +132,9 @@ export async function runSteps({steps, title, script, messages = []}) {
         if (color || visible !== undefined || thickness !== undefined) {
             if (color && !entry.color) throw new Error('this object has no color');
             const args = {target: api.id(entry)};
-            if (color) args.color = color;
+            if (color) args.color = Object.fromEntries(Object.entries(color).map(([k, v]) => [k, typeof v === 'string' ? substituteRefs(v) : v]));
             if (visible !== undefined) args.visible = visible;
-            if (thickness !== undefined) args.thickness = thickness;
+            if (thickness !== undefined) args.thickness = typeof thickness === 'string' ? substituteRefs(thickness) : thickness;
             api.style(entry, args);
         }
         if (dash || label) {
@@ -188,6 +188,10 @@ export async function runSteps({steps, title, script, messages = []}) {
         const declared = step.text ? null : declaredName(expr);
         if (declared && refs.has(lower(declared)) && lower(refs.get(lower(declared))) !== lower(declared))
             return err(line, `"${declared}" is already used as a ref= label; pick a different object name`);
+        // New Arch versions overwrite existing definitions. Scene lines are creations, not edits:
+        // reject collisions before calling Arch so a typo cannot silently replace an earlier object.
+        const holder = declared && e.entries.find(en => [en.name, en.key].some(n => n && lower(n) === lower(declared)));
+        if (holder) return err(line, `The name "${declared}" is already taken${holder.isAutoCreatedVariable ? ` by a variable that line ${lineOf.get(holder) ?? '?'} auto-created` : ''}; use a unique name (names are case-insensitive), or define variables before using them.`);
         const before = new Set(e.entries);
         // Names unknown before the line runs: Arch may auto-create variables for (parts of) them.
         const unknownBefore = step.text ? [] : unknownIdentifiers(expr);
@@ -421,8 +425,15 @@ export async function runSteps({steps, title, script, messages = []}) {
         const round = v => Math.round(v * 1000) / 1000;
         const width = step.width ?? round(em * size * (step.smart ? 1.15 : 1.08) + size * 0.4);
         const height = step.height ?? round(lines.length * size * 1.2 + size * 0.3);
-        e.annotations.push({type: 'text', content, x: step.x, y: step.y, width, height, fontSize: size,
-            color: {h: 0, s: 0, b: 0, a: 0, ...(step.color || {})}});
+        const annotation = {type: 'text', content, x: step.x, y: step.y, width, height, fontSize: size,
+            color: {h: 0, s: 0, b: 0, a: 0}};
+        if (step.color) {
+            const values = Object.fromEntries(Object.entries(step.color).map(([k, v]) => [k, typeof v === 'string' ? substituteRefs(v) : v]));
+            if (typeof e.setStyleParameters === 'function') e.setStyleParameters(annotation, values);
+            else Object.assign(annotation.color, values);
+        }
+        e.annotations.push(annotation);
+        if (annotation.styleExpressions) (e._styledAnnotations ||= new Set()).add(annotation);
         textLines.push(step.line);
         e.annotationBatchesDirty = true;
         e.annotationLayerDirty = true;

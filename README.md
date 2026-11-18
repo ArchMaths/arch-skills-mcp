@@ -17,19 +17,19 @@ Why not have the AI write the save JSON directly? Arch's loader trusts parser-co
 Requires Node 18+ and Google Chrome (or Edge or Chromium).
 
 ```sh
-git clone https://github.com/tom-j71/arch-mcp.git
-cd arch-mcp
+git clone https://github.com/ArchMaths/arch-skills-mcp.git
+cd arch-skills-mcp
 npm install
-npm test          # optional: about 25 s, drives the real Arch page
+npm test          # optional: about 2–3 min, drives the real Arch page
 ```
 
-The commands below write `/path/to/arch-mcp` for wherever you cloned it (run `pwd` inside the folder to get it).
+The commands below write `/path/to/arch-skills-mcp` for wherever you cloned it (run `pwd` inside the folder to get it).
 
 If Chrome isn't installed: `npx playwright-core install chromium`, or set `ARCH_BROWSER_PATH` to a Chromium executable.
 
 ### Claude Code: the `arch-graph` skill (recommended)
 
-Run this once inside the `arch-mcp` folder:
+Run this once inside the `arch-skills-mcp` folder:
 
 ```sh
 npm run install-skill
@@ -48,7 +48,7 @@ In a test session (build a triangle with its circumcircle and a moving point, fi
 
 ### Claude Code: MCP server
 
-To use the MCP tools instead (or as well), run this once inside the `arch-mcp` folder:
+To use the MCP tools instead (or as well), run this once inside the `arch-skills-mcp` folder:
 
 ```sh
 claude mcp add arch --scope user -- node "$PWD/src/mcp.js"
@@ -63,7 +63,7 @@ Add this to the client's MCP server config. In Antigravity, that's the raw confi
   "mcpServers": {
     "arch": {
       "command": "node",
-      "args": ["/path/to/arch-mcp/src/mcp.js"]
+      "args": ["/path/to/arch-skills-mcp/src/mcp.js"]
     }
   }
 }
@@ -76,10 +76,10 @@ Use absolute `output_path`s in prompts when the client doesn't start servers in 
 Put this in the project's `AGENTS.md` / `CLAUDE.md`:
 
 ```
-To make Arch graphing-calculator files: run `node /path/to/arch-mcp/src/cli.js --guide`
+To make Arch graphing-calculator files: run `node /path/to/arch-skills-mcp/src/cli.js --guide`
 once to learn the scene-script format (or `--guide <topic>` for one part), write a .arch script, check it with
-`node /path/to/arch-mcp/src/cli.js --check scene.arch --png shot.png` (look at the PNG),
-then build with `node /path/to/arch-mcp/src/cli.js scene.arch -o scene.txt`.
+`node /path/to/arch-skills-mcp/src/cli.js --check scene.arch --png shot.png` (look at the PNG),
+then build with `node /path/to/arch-skills-mcp/src/cli.js scene.arch -o scene.txt`.
 Never write Arch save JSON by hand.
 ```
 
@@ -88,10 +88,12 @@ Never write Arch save JSON by hand.
 | Tool | What it does |
 |---|---|
 | `arch_guide` | Script format, Arch syntax, the meaning of point-on-object parameters, and common pitfalls (`docs/GUIDE.md`). `section: "geometry"` (or a comma-separated list) returns only those topics; `full_reference: true` adds the full Chinese syntax manual. |
-| `arch_check` | Runs a script (`script` text or `script_path`) and returns the report and screenshot, plus a second screenshot after test-running any `@script` (`script_preview: false` skips that). `screenshot_scale: 0.5` renders 640x400 screenshots. Writes nothing. |
+| `arch_check` | Runs a script (`script` text or `script_path`) and returns the report and screenshot, plus a second screenshot after test-running any `@script` (`script_preview: false` skips that). `screenshot_scale: 0.5` renders 640x400 screenshots; `brief: true` trims the object list. Writes nothing. |
 | `arch_build` | Same, and writes the save file to `output_path` (only if there are no errors and the reload check passes). Optional `screenshot_path`; `brief: true` leaves out the object list. |
 | `arch_decompile` | Turns an existing save file into a script, so agents can edit files people made by hand. |
-| `arch_svg` | Converts an SVG drawing (`svg_path` or `svg` text) into a save file at `output_path`, filling every shape with inequalities, and also writes the scene script beside it. Returns the conversion summary, the build report and a screenshot. Options: `tolerance`, `precision`, `gradient_steps`, `title`, `axes`, `outlines`, `flatten` (for Arch before 12202), `check`. |
+| `arch_svg` | Converts an SVG drawing (`svg_path` or `svg` text) into a save file at `output_path`, filling every shape with inequalities, and also writes the scene script beside it. Returns the conversion summary, the build report and a screenshot. Options: `tolerance`, `precision`, `gradient_steps`, `title`, `axes`, `outlines`, `flatten` (for Arch before 12202), `check`. `check: true` writes no save or implicit scene script; give `script_path` explicitly to export the script while checking. |
+
+All three engine tools (`arch_check`, `arch_build`, `arch_svg`) accept `timeout_seconds` (positive seconds per engine step, default 30; fractional values allowed) and `lean` (default false: omit expanded function-call formulas for smaller saves; Arch reconstructs them on open). Lean mode still reload-verifies the result; it does not bypass validation.
 
 ## Scene scripts
 
@@ -106,7 +108,9 @@ tangent(t2,parab,K,-1)        | color=orange
 @view x=-4..4 y=-2..5
 ```
 
-`ref=` gives a math curve a name that later lines can use. The tool substitutes Arch's real auto-number (`func1`, `eq2`, ...), which an AI can't predict. Other options: `color opacity thickness hidden dash label fixed min max step mode play frame`. Directives: `@title @view @set @style`.
+`ref=` gives a math curve a name that later lines can use. The tool substitutes Arch's real auto-number (`func1`, `eq2`, ...), which an AI can't predict. Other options: `color opacity thickness hidden dash label fixed min max step mode play frame`. Directives: `@title @view @set @style`. Dynamic styles are supported: `thickness="2+3*a"`, `opacity="0.3+0.5*a"`, `color=hsb(100*a,80,90)` (define `a` first). Static numbers still work, including `thickness=0`. `@set smartColorInversion=false` disables theme-adaptive colors in 2D.
+
+`f(x)=x^2` creates a callable function and automatically adds its `y=f(x)` graph; do not create that graph twice. For explicit control, use `f(u)=u^2` then `y=f(x)`.
 
 Parametric curves and surfaces can declare their own parameters and ranges (Arch build 12201 and later):
 
@@ -160,7 +164,7 @@ node src/svg2arch.js drawing.svg --script-only          # only the scene script,
 node src/svg2arch.js drawing.svg --precision 8          # finer detail, slower redraws in Arch
 ```
 
-Every filled shape of the picture becomes an **inequality**, filled by Arch itself and stacked in the SVG's painting order; filters (blur, shadows, ...) are ignored. This needs Arch 12202 or later (the bundled build), whose *ordered drawing* (顺序绘图) draws objects in creation order; the file switches it on. `--flatten` makes files for older builds instead. Each opaque shape also gets an exact outline (a point list), so its edges and corners come out sharp. `examples/svg/lighthouse.svg` is converted to `lighthouse.arch` and `lighthouse.txt` beside it: 95 entries (40 of them outlines) and 605 inequality edges, against 166 entries and 1087 edges with `--flatten`. Options: `--tolerance <px>` (how far flattened curves may stray, default 0.5 px at the saved zoom; larger means fewer edges), `--precision <n>` (Arch's inequality sampling, default 4 = a 5 px grid), `--gradient-steps <n>` (at most this many colour bands per gradient, default 24), `--max-edges <n>`, `--title`, `--axes`, `--flatten`, `--no-seams`, `--no-outlines`, `--timeout`, `--json`. Run `--help` for the full list.
+Every filled shape of the picture becomes an **inequality**, filled by Arch itself and stacked in the SVG's painting order; filters (blur, shadows, ...) are ignored. The default output targets Arch 2.0.05: it enables *ordered drawing* (顺序绘图) and disables smart color inversion to preserve the SVG's colors and opacity. `--flatten` makes files for older builds instead. Each opaque shape also gets an exact outline (a point list), so its edges and corners come out sharp. Re-converting `examples/svg/lighthouse.svg` with current defaults produces 97 entries (42 outlines) and 493 inequality edges, against 166 entries and 1087 edges with `--flatten`. The checked-in generated artwork may use the older engine's color compensation; rebuild from SVG for 2.0.05. Options: `--tolerance <px>` (how far flattened curves may stray, default 0.5 px at the saved zoom; larger means fewer edges), `--precision <n>` (Arch's inequality sampling, default 4 = a 5 px grid), `--gradient-steps <n>` (at most this many colour bands per gradient, default 24), `--max-edges <n>`, `--title`, `--axes`, `--flatten`, `--no-seams`, `--no-outlines`, `--timeout`, `--json`. Run `--help` for the full list.
 
 Supported: paths (all commands, arcs), basic shapes, `<g>`, `<use>`/`<symbol>`, nested `<svg>`, transforms, `<style>` sheets (type, class, id, attribute selectors, descendant and child combinators, `!important`), presentation attributes and `style`, inheritance, `currentColor`, every CSS colour syntax, `fill-rule`, fill/stroke/group opacity, strokes with joins, caps, miter limits and dashes, `paint-order`, `clip-path`, linear and radial gradients (as bands of solid colour), masks (approximated as clips), and `<text>` (as Arch text boxes). Not drawn: filters (on purpose), images, patterns, markers.
 
@@ -170,8 +174,8 @@ How a picture becomes inequalities:
 - **One signed distance per entry.** Each fill entry is `cos(pi*(W))/sqrt(D)<0`. `W` counts the edges a ray from (x, y) crosses (odd inside), one `heaviside` term per edge; `1/sqrt(D)` is about the distance to the nearest edge, from one term per edge. So the left side is a signed distance, and Arch, which samples the inequality on a pixel grid and interpolates between samples, draws each edge where it really is. Both parts of each edge's terms are written from the same exact vertex coordinates, so they vanish on exactly the same line. Products instead of powers keep Arch's compiled evaluation fast (about 0.6 ms per edge for a full redraw at the default precision). Coordinates are the SVG's user units with y flipped. A piece with more than `--max-edges` edges (say a background with hundreds of holes) is split into tiles, each reaching a cell under the next, because Arch parses very long entries slowly.
 - **Outlines.** Arch samples an inequality on a grid of 20/precision pixels and joins the samples with straight lines, so it cuts convex corners off and rounds concave ones by a few pixels. A point list, by contrast, is drawn exactly. So after each opaque fill comes a point list of the same colour along its outline, one sampling cell wide and moved half its width inside the shape: its outer edge is the true outline, and it paints over whatever the sampled fill misses along it. Arch draws a point list as one rectangle per segment, with no joins, so at a convex corner both segments reach past the vertex to the miter point (corners of 90° or more come out exact; sharper tips a little short). At a sharp concave corner the fill would still bulge past the corner, so a small diamond is cut out of the fill there, within what the outline paints back. Outlines are left out where later opaque shapes hide them, and translucent fills get none (they would blend twice). At the saved zoom the edges are exact; zoomed out, shapes look up to half an outline width (2.5 px) bigger, because Arch keeps line widths in pixels. `--no-outlines` leaves them out.
 - **Thin strokes.** A stroke narrower than about 1.5 grid cells would break up as a region, so it becomes a point list of that pixel width, in its place in the painting order, with its joins closed the same way and square or round caps extended.
-- **Near-white.** Arch's light theme draws near-white colours (saturation < 15, brightness > 85) as light grey, and pure white as black. So an opaque near-white shape is cut out of everything beneath it, letting Arch's white canvas show, with a faint darker ink on top that makes it the right shade; pure white areas are left empty.
-- **Translucency.** Arch 12202's ordered drawing blends a fill of colour c and opacity a as a·c + (1−a)·below + a·(1−a)·white, lighter than ordinary blending: its WebGL canvas blends the alpha channel with SRC_ALPHA too, then goes over the white background. So each translucent shape gets the colour and opacity that make Arch show what the SVG shows over what actually lies beneath it, within 8/255, keeping the SVG's own opacity where that works. Where no single layer can do it (black 50% over both a colour and the bare canvas), the shape is blended with what lies beneath it here and drawn as opaque pieces, which Arch shows exactly. `npm test` checks this against Arch's real pixels.
+- **White and near-white.** The default converter writes `@set smartColorInversion=false`, so white and near-white shapes keep their original RGB colors and are drawn as ordinary layers, not holes or substitute inks. The legacy `--flatten` path retains its white-canvas approximation for older engines.
+- **Translucency.** Bundled Arch 2.0.05 uses standard alpha blending (50% blue over opaque red gives approximately RGB 128,0,128). Older Arch 12202 used a lighter nonstandard blend; converter compatibility handling depends on the target engine. Reconvert legacy translucent artwork for the current engine instead of reusing old compensated colors.
 
 `--flatten` is the method for Arch builds before 12202, which fill overlapping inequalities in grid-scan order rather than entry order and draw point lists beneath all fills: the converter computes what is visible (Clipper boolean operations), every opaque shape cutting its area out of everything beneath it, and writes regions that never overlap, one per colour, with point lists along shared boundaries to hide the seams between them. Thin strokes become equations `...=0`, which those builds draw above the fills (with automatic breakpoint detection switched on, so the jumps along each open line's "cut" are not drawn). That takes more edges, has no outlines, and leaves small notches where a seam meets a corner.
 
@@ -215,18 +219,18 @@ Limits: text is skipped, and images, filters, patterns and markers are not drawn
 
 Lines longer than 6000 characters (svg2arch regions often are) also go in through `addEntry`, because the Agent API refuses them.
 
-Arch 12202 computes curves and geometry in a worker by default (异步绘图, asynchronous drawing). The build page switches that off while it runs the script, so the checks see every value and operator error as Arch computes them, and saves the file with it on, as Arch does. The verification page keeps it on and waits until Arch has finished before it compares and takes the screenshot. While the build page runs the steps it also pauses drawing and the sidebar's entry list, which Arch would otherwise redo for every entry after each new one (minutes for a big svg2arch picture), and draws and lists everything once at the end. `@set orderedDrawing=true` switches on ordered drawing, which the Agent API has no setting for; the reload check then also compares the drawing order.
+Arch computes curves and geometry in a worker by default (异步绘图, asynchronous drawing). The build page switches that off while it runs the script, so the checks see every value and operator error as Arch computes them, and saves the file with it on, as Arch does. The verification page keeps it on and waits until Arch has finished before it compares and takes the screenshot. While the build page runs the steps it also pauses drawing and the sidebar's entry list, which Arch would otherwise redo for every entry after each new one (minutes for a big svg2arch picture), and draws and lists everything once at the end. `@set orderedDrawing=true` switches on ordered drawing, which the Agent API has no setting for; the reload check then also compares the drawing order.
 
-The tool depends on `window.archInstance`, `window.ArchAgentProtocol` and the save format in `index.html`. The bundled `index.html` is Arch build 12202 (from the arch-core repository; it reports version 19999). After updating Arch, run `npm test`: it builds every example, checks computed values, and round-trips save files.
+The tool depends on `window.archInstance`, `window.ArchAgentProtocol` and the save format in `index.html`. The bundled `index.html` is Arch **2.0.05**, `appVersion=20005` (replacing the old 12202/19999 baseline), from upstream **arch-core revision `18982f5` (2026-11-18)**. SHA256: `cf94850a5f03fe074b66fab3af6c2501aa6fa241677bfb242ddbeb89f9065392`. The skill and guide were checked against that revision's embedded `skillLibrary`, parser and APIs. After updating Arch, run `npm test`: it builds every example, checks computed values, and round-trips save files.
 
 Arch's input box keeps any line it cannot read as a `//` text note, without a message. The runner temporarily wraps `addEntry` while it creates each line, so such a line fails with Arch's reason instead. Arch's Agent API refuses `{` `}`, so lines with a parameter range in braces go in through `addEntry`, as Arch's own input box does.
 
 ## Limitations
 
 - Scripts can't express hand-drawn annotations, images, PDFs, audio or statistics tables. `arch_decompile` lists anything it drops.
-- svg2arch: Arch samples inequalities on a pixel grid, so corners are slightly rounded and details thinner than the grid can break up; very detailed drawings redraw slowly. Text uses Arch's font at an approximate position and is not clipped. Gradients are drawn as bands. Opened in Arch's dark mode, the colours of a converted picture change (Arch adapts them to the theme).
+- svg2arch: Arch samples inequalities on a pixel grid, so corners are slightly rounded and details thinner than the grid can break up; very detailed drawings redraw slowly. Text uses Arch's font at an approximate position and is not clipped. Gradients are drawn as bands. With smart color inversion enabled, the colours of a converted picture can change between themes; disable it with `@set smartColorInversion=false` in 2D when needed.
 - JavaScript operators run in the user's Arch as soon as a file is opened (in Arch's sandbox since build 12201); that's how Arch works, not something this tool adds. In that sandbox they are much slower than plain math, so keep them out of 3D surface equations. `@script` only runs when the user presses Run. Treat AI-written JavaScript like any code you ship: read it before sharing the file.
-- svg2arch's translucent colours are fitted to how Arch 12202 blends in ordered drawing (see above). If a later Arch build blends normally, convert again: translucent parts would otherwise look darker than they should.
+- Legacy SVG saves compensated for Arch 12202's nonstandard transparency; the bundled 2.0.05 blends normally, so reconvert old translucent pictures (see above).
 - Geometry commands are 2D. 3D supports surfaces, implicit 3D, parametric surfaces and space curves, plus camera angles, zoom and the box centre.
 - The saved view is pixels-per-unit around a center, so other screen sizes show a slightly different region.
 - Checks catch syntax errors, unknown names, renames and invalid objects. They can't tell whether a valid figure is the one you *meant*, which is what the screenshot and value list are for.

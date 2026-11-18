@@ -18,7 +18,8 @@ const abs = path => resolve(process.cwd(), path);
 const INSTRUCTIONS = `Arch is a GeoGebra-like graphing calculator. These tools turn a short scene script into a real Arch save file (.txt) by running the actual Arch engine headlessly.
 Workflow: call arch_guide once to learn the script format and Arch syntax (or pass section to read only one part); write a script; call arch_check and read the errors, warnings, object values and screenshot; fix and re-check; then arch_build to write the file. To modify an existing save file, call arch_decompile first, edit the script, then build.
 Never hand-write Arch save-file JSON: it contains parser-computed fields and will not load correctly.
-Scripts can also define JavaScript operators (@operator), canvas text (@text), frame-by-frame steps (@frames, frame=) and a global program (@script, test-run for 2 s in an isolated page); see arch_guide.
+Scripts can also define JavaScript operators (@operator), canvas text (@text), frame-by-frame steps (@frames, frame=), dynamic color/line-width math expressions and a global program (@script, test-run for 2 s in an isolated page); see arch_guide.
+For large scenes, raise timeout_seconds (per engine step, default 30) and use lean to omit expanded custom-function formulas while still verifying the saved file reloads correctly.
 To turn an SVG drawing into an Arch file, call arch_svg: it fills every shape with inequalities, drawn in the SVG's order (filters are ignored), and builds the save file.`;
 
 const server = new McpServer({name: 'arch', version: '0.1.0'}, {instructions: INSTRUCTIONS});
@@ -34,19 +35,30 @@ function images(result) {
 }
 
 function scriptFrom({script, script_path}) {
-    if (script && script_path) throw new Error('Pass either script or script_path, not both.');
+    if (script !== undefined && script_path !== undefined) throw new Error('Pass either script or script_path, not both.');
     if (script_path) return readFileSync(abs(script_path), 'utf8');
     if (typeof script === 'string' && script.trim()) return script;
     throw new Error('Pass the scene script as script (text) or script_path (file).');
 }
 
+const engineInput = {
+    timeout_seconds: z.number().positive().optional().describe('Seconds each engine step (build, draw, reload, script preview) may take before stopping (default 30). Raise for very large scenes; this is not a total request timeout.'),
+    lean: z.boolean().optional().describe('Omit expanded custom-function formulas from the save file to reduce its size (default false). Arch rebuilds them on opening; the reload check still verifies they match.')
+};
+const briefInput = z.boolean().optional().describe('Report only the status, errors, warnings and script preview, without the object list (default false).');
 const scriptInput = {
+    ...engineInput,
     script: z.string().optional().describe('Scene script text (one Arch expression per line; see arch_guide).'),
-    script_path: z.string().optional().describe('Path to a .arch scene script file, instead of script.'),
+    script_path: z.string().min(1).optional().describe('Path to a .arch scene script file, instead of script.'),
     script_preview: z.boolean().optional().describe('Test-run the @script program for 2 s in an isolated page and report runtime errors plus a second screenshot (default true).'),
     screenshot_scale: z.number().min(0.1).max(1).optional().describe('Render screenshots at this scale (default 1 = 1280x800; 0.5 = 640x400, a quarter of the image tokens).')
 };
-const runOptions = (args, screenshot) => ({screenshot, screenshotScale: args.screenshot_scale ?? 1, verify: true, scriptPreview: args.script_preview !== false});
+const runOptions = (args, screenshot) => ({
+    screenshot, screenshotScale: args.screenshot_scale ?? 1, verify: true,
+    scriptPreview: args.script_preview !== false,
+    timeoutMs: args.timeout_seconds === undefined ? undefined : args.timeout_seconds * 1000,
+    lean: args.lean ?? false
+});
 
 server.registerTool('arch_guide', {
     title: 'Arch scene-script guide',
@@ -71,11 +83,11 @@ server.registerTool('arch_guide', {
 server.registerTool('arch_check', {
     title: 'Check an Arch scene script',
     description: 'Runs a scene script in the real Arch engine without writing a file. Returns per-line errors and warnings, every object with its computed value (coordinates, equations, measurements), text boxes as currently shown, frame settings, and a screenshot of the result as it will look when the saved file is opened (plus a second screenshot after test-running any @script). Use it to iterate until there are no errors and the picture is right.',
-    inputSchema: {...scriptInput, screenshot: z.boolean().optional().describe('Include a screenshot (default true).')},
+    inputSchema: {...scriptInput, screenshot: z.boolean().optional().describe('Include a screenshot (default true).'), brief: briefInput},
     annotations: {readOnlyHint: true}
 }, async args => {
     const result = await engine.run(scriptFrom(args), runOptions(args, args.screenshot !== false));
-    return {content: [text(formatReport(result)), ...images(result)]};
+    return {content: [text(formatReport(result, {brief: args.brief})), ...images(result)], isError: !result.ok};
 });
 
 server.registerTool('arch_build', {
@@ -86,7 +98,7 @@ server.registerTool('arch_build', {
         output_path: z.string().describe('Where to write the save file, e.g. graphs/parabola.txt (Arch saves use .txt). Relative paths resolve against the server working directory; absolute paths are safest.'),
         screenshot_path: z.string().optional().describe('Also save a PNG screenshot here.'),
         screenshot: z.boolean().optional().describe('Include the screenshot in the response (default true).'),
-        brief: z.boolean().optional().describe('Report only the status, errors and warnings, without the object list (useful after arch_check already showed it).')
+        brief: briefInput
     }
 }, async args => {
     const wantPng = args.screenshot !== false || Boolean(args.screenshot_path);
@@ -109,13 +121,14 @@ server.registerTool('arch_build', {
 
 server.registerTool('arch_svg', {
     title: 'Convert an SVG drawing to an Arch save file',
-    description: 'Converts an SVG file into an Arch 2D save file: every filled shape becomes a signed-distance inequality, stacked in the SVG\'s painting order with Arch\'s ordered drawing (Arch 12202+) and traced with an exact point-list outline; thin strokes become point lists and text becomes text boxes; filters are ignored. Writes the scene script (.arch, editable and rebuildable with arch_build) and the save file, after running both in the real Arch engine. Returns a conversion summary (layers, edges, approximate redraw time, unsupported features), the build report and a screenshot.',
+    description: 'Converts an SVG file into an Arch 2D save file: every filled shape becomes a signed-distance inequality, stacked in the SVG\'s painting order with ordered drawing and smart color inversion disabled (Arch 2.0.05), and traced with an exact point-list outline; thin strokes become point lists and text becomes text boxes; filters are ignored. Writes the scene script (.arch, editable and rebuildable with arch_build) and the save file, after running both in the real Arch engine. Returns a conversion summary (layers, edges, approximate redraw time, unsupported features), the build report and a screenshot.',
     inputSchema: {
-        svg_path: z.string().optional().describe('Path to the .svg file.'),
+        ...engineInput,
+        svg_path: z.string().min(1).optional().describe('Path to the .svg file.'),
         svg: z.string().optional().describe('SVG markup, instead of svg_path.'),
         output_path: z.string().optional().describe('Where to write the save file (.txt). Required unless check is true.'),
-        script_path: z.string().optional().describe('Where to write the scene script (default: output_path with .arch).'),
-        check: z.boolean().optional().describe('Convert and run in Arch, but write no save file (default false).'),
+        script_path: z.string().min(1).optional().describe('Where to write the scene script (default: output_path with .arch, unless check is true). An explicit path also writes the script in check mode.'),
+        check: z.boolean().optional().describe('Convert and run in Arch, but write no save file or implicit scene script (default false). An explicit script_path still exports the scene script.'),
         tolerance: z.number().positive().optional().describe(`How far flattened curves may stray from the true curve, in screen pixels at the saved zoom (default ${SVG_DEFAULTS.tolerance}). Larger means fewer edges and faster redraws in Arch.`),
         precision: z.number().min(0.5).max(20).optional().describe(`Arch's inequality sampling precision (default ${SVG_DEFAULTS.precision}, a ${20 / SVG_DEFAULTS.precision} px grid). Higher shows finer detail; redraws take (precision/4)^2 times longer.`),
         gradient_steps: z.number().int().min(1).max(64).optional().describe(`At most this many colour bands per gradient (default ${SVG_DEFAULTS.gradientSteps}; fewer when its colours are close; 1 uses the average colour).`),
@@ -127,7 +140,7 @@ server.registerTool('arch_svg', {
         screenshot_scale: z.number().min(0.1).max(1).optional().describe('Screenshot scale (default 1 = 1280x800).')
     }
 }, async args => {
-    if (Boolean(args.svg) === Boolean(args.svg_path)) return {content: [text('Pass either svg_path or svg.')], isError: true};
+    if ((args.svg === undefined) === (args.svg_path === undefined)) return {content: [text('Pass either svg_path or svg, not both.')], isError: true};
     if (!args.check && !args.output_path) return {content: [text('Pass output_path, or check: true to convert without writing a file.')], isError: true};
     let conversion;
     try {
@@ -137,12 +150,12 @@ server.registerTool('arch_svg', {
     } catch (error) {
         return {content: [text(`Could not convert the SVG: ${error.message}`)], isError: true};
     }
-    const scriptPath = args.script_path ? abs(args.script_path) : (args.output_path ? abs(args.output_path).replace(/\.txt$/i, '') + '.arch' : null);
+    const scriptPath = args.script_path ? abs(args.script_path) : (!args.check && args.output_path ? abs(args.output_path).replace(/\.txt$/i, '') + '.arch' : null);
     if (scriptPath) {
         mkdirSync(dirname(scriptPath), {recursive: true});
         writeFileSync(scriptPath, conversion.script);
     }
-    const result = await engine.run(conversion.script, {screenshot: args.screenshot !== false, screenshotScale: args.screenshot_scale ?? 1});
+    const result = await engine.run(conversion.script, runOptions(args, args.screenshot !== false));
     let written;
     if (result.ok && !args.check) {
         written = abs(args.output_path);
@@ -155,7 +168,7 @@ server.registerTool('arch_svg', {
 
 server.registerTool('arch_decompile', {
     title: 'Convert an Arch save file to a scene script',
-    description: 'Reads an existing Arch save file and returns an equivalent scene script, so you can edit it and rebuild with arch_build. Drawings, images, statistics tables and custom JavaScript operators cannot be expressed and are listed as warnings.',
+    description: 'Reads an existing Arch save file and returns an equivalent scene script, so you can edit it and rebuild with arch_build. Preserves custom JavaScript operators and global programs; unsupported drawings, images, media and statistics tables are listed as warnings.',
     inputSchema: {save_path: z.string().describe('Path to the Arch save file (.txt).')},
     annotations: {readOnlyHint: true}
 }, async ({save_path}) => {

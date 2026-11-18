@@ -292,7 +292,7 @@ test('convertSvg writes a scene script the parser accepts, in both modes', () =>
         const settings = steps.find(s => s.kind === 'set').settings;
         // Thin strokes are point lists in ordered mode, equations (with breakpoint detection) when flattening.
         assert.deepEqual(settings.map(s => s.name), ['implicitPrecision', 'showAxes', 'showAxisNumbers', 'gridStyle',
-            ...(flatten ? ['autoBreakpointDetection'] : ['orderedDrawing'])]);
+            ...(flatten ? ['autoBreakpointDetection'] : ['orderedDrawing', 'smartColorInversion'])]);
         assert.ok(info.some(i => /filters are ignored/.test(i)));
         assert.ok(Array.isArray(warnings));
         // Every region is a strict inequality (fill only, no outline) with an explicit opacity.
@@ -344,44 +344,48 @@ test('layers: a shape bordering a later one reaches about a cell beneath it, so 
     assert.equal(bar.paths[0].length, 4);
 });
 
-test('layers: opaque near-white is cut out of what lies beneath; translucent paint is fitted to Arch', () => {
+test('layers: white, near-white and translucent paint retain their RGB and opacity', () => {
     const layers = fills(layersOf(`<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="#1e88e5"/>
         <rect x="20" y="20" width="20" height="20" fill="#ffffff"/><rect x="60" y="20" width="20" height="20" fill="#f0f0f0"/>
         <rect x="20" y="60" width="60" height="20" fill="#000000" fill-opacity="0.3"/></svg>`));
-    const [blue, ink, shade] = layers;
-    assert.equal(blue.hex, '#1e88e5');
-    assert.equal(blue.paths.length, 3, 'two holes');
-    assert.ok(Math.abs(P.area(blue.paths) - (10000 - 800) * 1e6) < 1e6);
-    // #f0f0f0 over the canvas: a translucent ink that Arch shows as #f0f0f0.
-    const shown = archShown(archOver({...parseColor(ink.hex), a: ink.opacity}, CLEAR));
-    for (const k of ['r', 'g', 'b']) assert.ok(Math.abs(shown[k] * 255 - 240) < 1.5, `${k}: ${shown[k] * 255}`);
-    assert.equal(archDimsColor(parseColor(ink.hex)), false);
-    // Black 30% over blue: Arch shows a*c + (1-a)*below + a*(1-a)*white, so the layer is fitted.
-    const blueColor = {...parseColor('#1e88e5'), a: 1};
-    const result = archShown(archOver({...parseColor(shade.hex), a: shade.opacity}, archOver(blueColor, CLEAR)));
-    for (const k of ['r', 'g', 'b']) assert.ok(Math.abs(result[k] - 0.7 * blueColor[k]) < 4 / 255, `${k}`);
+    assert.deepEqual(layers.map(l => [l.hex, l.opacity]), [['#1e88e5', 1], ['#ffffff', 1], ['#f0f0f0', 1], ['#000000', 0.3]]);
+    const blue = {...parseColor('#1e88e5'), a: 1};
+    const shade = archShown(archOver({...parseColor(layers[3].hex), a: layers[3].opacity}, archOver(blue, CLEAR)));
+    for (const k of ['r', 'g', 'b']) assert.ok(Math.abs(shade[k] - 0.7 * blue[k]) < 1e-12);
 });
 
-test("fitting translucent paint to Arch's blending", () => {
-    const red = {r: 1, g: 0, b: 0, a: 1}, canvas = {gl: CLEAR, color: {r: 1, g: 1, b: 1, a: 1}, weight: 1};
-    const onRed = {gl: {...red}, color: red, weight: 1};
-    const check = (target, bgs, fit) => {
-        for (const b of bgs) {
-            const shown = archShown(archOver(fit, b.gl)), want = {r: 0, g: 0, b: 0};
-            for (const k of ['r', 'g', 'b']) want[k] = target.a * target[k] + (1 - target.a) * b.color[k];
-            for (const k of ['r', 'g', 'b']) assert.ok(Math.abs(shown[k] - want[k]) <= 8 / 255, `${k}: ${shown[k]} vs ${want[k]}`);
-        }
-    };
-    const white = {r: 1, g: 1, b: 1, a: 0.4};
-    const fit = fitLayer(white, [onRed]);
-    check(white, [onRed], fit);
-    assert.ok(Math.abs(fit.a - 0.4) < 0.01, 'keeps the paint opacity when that works');
-    // Over red and over the canvas at once, black 50% has no single answer.
-    assert.equal(fitLayer({r: 0, g: 0, b: 0, a: 0.5}, [onRed, canvas]), null);
-    // Over the canvas alone it always has one.
-    const grey = {r: 0.9, g: 0.92, b: 0.95, a: 1};
-    check(grey, [canvas], fitLayer(grey, [canvas]));
-    assert.deepEqual(nearestDrawable({r: 1, g: 1, b: 1, a: 1}), {r: 0.85, g: 0.85, b: 0.85, a: 1});
+test('standard source-over preserves opacity and has no spurious white contribution', () => {
+    const red = {r: 1, g: 0, b: 0, a: 1}, blue = {r: 0, g: 0, b: 1, a: 0.5};
+    assert.deepEqual(archOver(blue, CLEAR), {r: 0, g: 0, b: 0.5, a: 0.5});
+    assert.deepEqual(archShown(archOver(blue, CLEAR)), {r: 0.5, g: 0.5, b: 1, a: 1});
+    assert.deepEqual(archShown(archOver(blue, archOver(red, CLEAR))), {r: 0.5, g: 0, b: 0.5, a: 1});
+    const twice = archOver(blue, archOver(blue, CLEAR));
+    assert.equal(twice.a, 0.75);
+    assert.deepEqual(archShown(twice), {r: 0.25, g: 0.25, b: 1, a: 1});
+    assert.deepEqual(archOver({...red, a: 0}, twice), twice);
+    const black = {r: 0, g: 0, b: 0, a: 0.5};
+    assert.deepEqual(fitLayer(black, [{gl: red, color: red, weight: 1}, {gl: CLEAR, weight: 1}]), black);
+    const white = {r: 1, g: 1, b: 1, a: 1};
+    assert.deepEqual(nearestDrawable(white), white);
+});
+
+test('ordered conversion disables color inversion; flatten retains legacy white-canvas handling', () => {
+    const svg = '<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="white"/></svg>';
+    const current = convertSvg(svg);
+    const legacy = convertSvg(svg, {flatten: true});
+    assert.match(current.script, /orderedDrawing=true smartColorInversion=false/);
+    assert.match(current.script, /color=#ffffff opacity=1/);
+    assert.doesNotMatch(legacy.script, /smartColorInversion|orderedDrawing=true/);
+    assert.equal(legacy.stats.regions, 0);
+    assert.ok(legacy.info.some(note => /White areas are left empty/.test(note)));
+    // Force the renderer's thin-stroke path rather than converting the stroke into a fill.
+    const ops = render('<svg viewBox="0 0 10 10"><path d="M0 1H9" fill="none" stroke="white" stroke-opacity="0.4" stroke-width="0.1"/></svg>', {lineMaxPx: 5}).render();
+    const result = layerOps(ops, {q: 0.001, tolerance: 0.01, pxPerUnit: 10, stepPx: 5});
+    assert.equal(result.layers[0].kind, 'line');
+    assert.equal(result.layers[0].hex, '#ffffff');
+    assert.equal(result.layers[0].opacity, 0.4);
+    assert.equal(result.blended, 0);
+    assert.equal(result.whitePieces, 0);
 });
 
 test('point-list joins: segments reach the miter point, never past the other edge', () => {

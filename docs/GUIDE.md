@@ -2,6 +2,8 @@
 
 Arch is a GeoGebra-like graphing calculator. You describe a figure as a **scene script**. The tool runs it in the real Arch engine and writes an Arch save file (`.txt`, JSON) that users open with Arch's *Open file* button.
 
+Reference baseline: bundled Arch 2.0.05 (`appVersion=20005`), arch-core revision `18982f5` (2026-11-18). Checked against its embedded `skillLibrary`, parser and APIs; browser-Agent tool names are not scene-script directives.
+
 **Never write save-file JSON by hand.** It contains parser-computed fields. Always go through the tool.
 
 ## Workflow
@@ -40,9 +42,9 @@ intersect(I,parab,c,1,1)
 | Option | Meaning |
 |---|---|
 | `ref=name` | Label for this object, usable in later lines. Essential for math curves: `y=x^2 \| ref=parab` then `intersect(I,parab,...)`. The tool substitutes the real auto-number (`func1`, `eq2`, ...), which you cannot predict. Do not reuse an object name as a ref. |
-| `color=` | `red orange yellow green teal cyan blue indigo purple pink brown black gray white`, `#rrggbb`, or `hsb(h,s,b)` with each 0..100. |
-| `opacity=0..1` | Opacity (useful for inequality regions and 3D surfaces). |
-| `thickness=1..20` | Line width / point size (default 3). |
+| `color=` | `red orange yellow green teal cyan blue indigo purple pink brown black gray white`, `#rrggbb`, or `hsb(h,s,b)`; HSB components accept numbers or expressions, e.g. `hsb(100*a,80,90)`. Nominal scale 0..100. |
+| `opacity=` | Number 0..1 or quoted expression, e.g. `opacity="0.3+0.5*a"` (1 = opaque). Useful for inequality regions and 3D surfaces. |
+| `thickness=` | Number 0..20 or quoted expression, e.g. `thickness="2+3*a"` (default 3; zero allowed). |
 | `hidden` | Create invisible (still usable as a dependency). |
 | `dash=solid\|long\|short\|dotted` | Geometry objects only. |
 | `label=none\|name\|"Custom text"` | Geometry objects only: hide the label, show the name, or show custom text. |
@@ -52,13 +54,24 @@ intersect(I,parab,c,1,1)
 | `play` | Start animating when the file is opened. |
 | `frame=N` | Frame-by-frame mode: show this object only on frame N (0 = every frame). Needs an `@frames` line. |
 
+Dynamic styles are saved as expressions and re-evaluated when their variables, point coordinates or functions change; they are not per-sample gradients. Define dependencies first. Numeric style assignments replace the corresponding expression. For example:
+
+```arch
+phase=0.5 | min=0 max=1 step=0.0025 mode=forward play
+y=sin(x) | ref=wave thickness="2+3*phase" opacity="0.3+0.5*phase" color=hsb(100*phase,80,90)
+@set smartColorInversion=false
+@view x=-4..4 y=-2..2
+```
+
+HSB uses Arch's normalisation (absolute values, wrapping above 100); evaluated thickness uses absolute value capped at 20, and transparency is clamped to 0..100. Keep opacity expressions in 0..1. Smart color inversion is on by default and can change perceived colors between themes; `@set smartColorInversion=false` disables it in 2D. It is unavailable in 3D.
+
 Animation speed: Arch advances about `100*step` per second. For a span L in T seconds, use `step=L/(100*T)`. Example: `min=0 max=1 step=0.0025 mode=forward` is one lap of a circle every 4 s.
 
 ### Directives
 
 - `@title Name`: file name shown in Arch.
 - `@view x=a..b y=c..d`: fit this region (2D). Or `@view center=x,y unit=N` (N = pixels per unit). For 3D: `@view 3d azimuth=35 elevation=25` (degrees), plus `unit=N` to zoom and `center=x,y,z` to move the 3D box so it is centred on that point (z is Arch's z shift; use it instead of moving every object). `@view 2d` switches back.
-- `@set name=value ...`: saved document settings only: `showAxes`, `showAxisNumbers`, `showPointLabels` (true/false), `gridStyle` (`grid|dots|polar|hidden`), `tmin`, `tmax` (parametric t range, default -2*pi..2*pi), `geometryMeasurementDisplay`, `showHiddenMath`, `showHiddenGeo`, `implicitPrecision` (0.5..20, default 4: how finely implicit 3D and parametric surfaces are meshed; a parametric surface gets 12.5×value grid steps per side, at most 240, so 12 gives about 150 instead of 50; higher values look smoother but take longer to draw. In 2D it sets the sampling grid for equations and inequalities: 20/value pixels), `autoBreakpointDetection` (true/false: Arch drops sign changes that are jumps rather than zeros when drawing equations; svg2arch line drawings rely on it), `orderedDrawing` (true/false, Arch 12202+: draw every object in the order of the script, later lines on top, inequality fills included; without it Arch fills overlapping inequalities in grid-scan order and draws equation lines above all fills).
+- `@set name=value ...`: saved document settings only: `showAxes`, `showAxisNumbers`, `showPointLabels` (true/false), `smartColorInversion` (true/false, 2D only; default true, adapts colors for theme contrast), `gridStyle` (`grid|dots|polar|hidden`), `tmin`, `tmax` (parametric t range, default -2*pi..2*pi), `geometryMeasurementDisplay`, `showHiddenMath`, `showHiddenGeo`, `implicitPrecision` (0.5..20, default 4: how finely implicit 3D and parametric surfaces are meshed; a parametric surface gets floor(3.125×value) grid steps per side, at least 4 and at most 60, so 12 gives 37 instead of the default 12; higher values look smoother but take longer to draw. In 2D it sets the sampling grid for equations and inequalities: 20/value pixels), `autoBreakpointDetection` (true/false: Arch drops sign changes that are jumps rather than zeros when drawing equations; svg2arch line drawings rely on it), `orderedDrawing` (true/false, Arch 12202+: draw every object in the order of the script, later lines on top, inequality fills included; without it Arch fills overlapping inequalities in grid-scan order and draws equation lines above all fills).
 - `@style target | options`: restyle an existing object by name, ref, auto-number, or `last`.
 - `@text x=.. y=.. [size=] [color=] [width=] [height=] [smart|plain] | content`: canvas text box (see below).
 - `@frames total=N fps=F [current=K] [bind=expr]`: turn on frame-by-frame playback (see below).
@@ -75,11 +88,12 @@ Always add an `@view` that frames the interesting part; Arch's default is center
 - Do not name things `x y z e pi`, built-in function names, geometry keywords, `O`, `Xaxis`, `Yaxis`, or auto-number patterns like `func1`. `t` may name a variable or function; a parametric curve without its own range still uses `t` as its parameter.
 - Constants: `pi` (or `π`) and `e`. Write `0.001` or `10^(-3)` rather than `1e-3`.
 - Implicit multiplication works (`2x`, `2(x+1)`, `2sin(x)`), but write `*` between multi-letter names (`a*b`).
-- Not supported: `%`, `!` (use `gamma(n+1)`), `|x|` (use `abs(x)`), `&&`, `||`, `==`, `!=`, `?:`, chained inequalities `-1<x<1`, degree symbols.
+- Numeric right-hand sides support `%`, comparisons (`== != === !==` included), `&&`/`||`/`!`, and `?:`: `y=(x<0?-x:x^2)`. Logical conditions use zero=false, nonzero=true, unlike smart text. Top-level comparisons can be classified as equations/assignments; keep conditions inside the RHS.
+- Not supported: postfix factorial (use `gamma(n+1)`), `|x|` (use `abs(x)`), chained inequalities `-1<x<1`, degree symbols. Prefer `^` over `**` for consistent Arch real-power semantics.
 - `[A,x]` and `[A,y]` read the coordinates of an existing point A. Lowercase x/y, square brackets.
 
 ### Functions
-- `ln log lg logbase(b,x) logb(b,x) exp sqrt cbrt abs floor ceil round`. Note that `log` is base 10.
+- `ln exp sqrt cbrt abs floor ceil round min(a,b) max(a,b)`. `min`/`max` take two arguments. `log`/`lg` are registered as base 10, but they and `logbase(b,x)`/`logb(b,x)` currently have a call-validation compatibility issue: use `ln(x)/ln(10)` or `ln(x)/ln(b)`.
 - `sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh` (radians only; sin of 30° is `sin(30*pi/180)`).
 - `sum(expr,k,1,5)`, `prod(expr,k,1,5)`, `int(expr,u,a,b)` (numeric), `diff(expr,x)`, `diffat(expr,x,value)` (numeric, central difference).
 - `pow gamma erf erfc elliptice elliptick sign sgn heaviside fresnels fresnelc psi lambertw li zeta sinintegral cosintegral expintegral`.
@@ -92,6 +106,7 @@ Always add an `@view` that frames the interesting part; Arch's default is center
 | `a=2` | **Independent variable** with slider. Only a plain number literal makes a slider: `a=1+1` does not. |
 | `b=2*a+1` | Dependent variable (no slider). |
 | `f(u)=u^2+1` | Callable function (not drawn). Draw it with `y=f(x)`. |
+| `f(x)=x^2+1` | Callable function **and a separate auto-created `y=f(x)` graph**. Do not add it again. `f(y)=...` analogously adds `x=f(y)`; coordinate pairs can auto-create surfaces in 3D. Style/reference the graph rather than the definition; use non-coordinate parameters and an explicit graph when you need precise control. |
 | `y=x^2+1`, `x=y^2-1` | Explicit curve (auto-number `funcN`). |
 | `x^2+y^2=4`, `x*y=1` | Implicit curve (`eqN`). |
 | `x^2+y^2<=4`, `y>x^2` | Inequality region (`eqN`). One relation per line. |
@@ -139,7 +154,7 @@ A parametric object can declare its own parameters, each with a range. Three spe
 | `polygon(poly,n,P1,...,Pn)` | n literal integer ≥ 3, exactly n points, in order. |
 | `polyeq(sq,A,B,n)` | Regular n-gon on edge AB (counter-clockwise from A to B). **Arch auto-creates the remaining vertex points with the next free capital letters**, so check the report and avoid those names. |
 | `length(d,A,B)` `angle(ang,A,V,C)` `area(s,n,P1,...,Pn)` | Measurements. angle is in degrees (0..180) with V the vertex. Do not rely on their names inside other expressions; compute with `sqrt(([A,x]-[B,x])^2+([A,y]-[B,y])^2)` instead. |
-| `isparallel(l1,l2)` `isperpendicular(l1,l2)` `isconcyclic(A,B,C,D)` | Checks; an optional name can come first. |
+| `isparallel(check,l1,l2)` `isperpendicular(check,l1,l2)` `isconcyclic(check,A,B,C,D)` | Checks. Use a fresh explicit name; anonymous forms can be renamed incorrectly by duplicate handling. |
 | `rotate(Q,C,P,deg)` | Rotate point P about C by **degrees** (counter-clockwise). |
 | `reflect(Q,m,P)` | Reflect point P in line m, or through point m (central symmetry). |
 | `translate(Q,v,P)` / `translate(Q,P,dx,dy)` | By vector v (note argument order!) or by dx, dy. Only points are transformed; rebuild shapes from transformed vertices. |
@@ -255,7 +270,7 @@ Calls marked *(async)* take effect on the next tick, so do not read their result
 | `arch.createfunc(expr, h, s, b, a, visible, thickness)` / `arch.creategeo(...)` *(async)* | Add a curve / geometry object with color (HSB 0..100, `a` = transparency). **Pass `visible` as 1**; anything else hides it. |
 | `arch.geosetting(name, h, s, b, a, visible, thickness)` *(async)* | Restyle a geometry object (`visible` 1/0). |
 | `arch.setcolor(reference, h, s, b, a)` | Recolor any object by name or auto-number. |
-| `arch.objects.list()` / `.get(ref)` / `.style(ref, {color, visible, thickness})` / `.remove(ref)` | Inspect and style objects (`thickness` 1..10 here). |
+| `arch.objects.list()` / `.get(ref)` / `.style(ref, {color, visible, thickness})` / `.remove(ref)` | Inspect/style objects. `thickness` accepts numbers (0..20) or expression strings; color `{h,s,b,a}` components accept numbers or expression strings (a = transparency, 0 opaque). Regression styles remain numeric. |
 | `arch.deletefunc(id)` / `arch.deletegeo(name)` / `arch.clearall()` *(async)* | Delete objects. |
 | `arch.txt(content, h, s, b, a, fontSize, x1, y1, x2, y2)` *(async)* | Add a text box from (x1,y1) top-left to (x2,y2). |
 | `arch.edittxt(oldContent, newContent, h, s, b, a, fontSize, x1, y1, x2, y2)` *(async)* | Change a text box found by its current content; pass `undefined` to keep a field. |
@@ -263,7 +278,7 @@ Calls marked *(async)* take effect on the next tick, so do not read their result
 | `arch.setcanvas(x, y, zoom)` | Center the 2D view on (x,y) at `zoom` pixels per unit. |
 | `arch.setview({center:{x,y}, unit})` / `arch.getview()` | View control (also `dimension: '2d'\|'3d'`). |
 | `arch.setcamera({azimuth, elevation})` / `arch.rotatecamera(right, up)` | 3D camera, degrees. |
-| `arch.setsetting(name, value)` / `arch.getsetting(name)` | Settings such as `showAxes`, `gridStyle`. |
+| `arch.setsetting(name, value)` / `arch.getsetting(name)` | Settings such as `showAxes`, `gridStyle`, `smartColorInversion` (2D only). |
 | `arch.message(text, seconds)` | Show a short message. |
 | `arch.pencolor(h,s,b,a)`, `arch.penthickness(t)`, `arch.pendown()`, `arch.penposition(x,y)`, `arch.penup()`, `arch.clearpen()` | Turtle-style drawing in graph coordinates (not saved with the file). |
 | `arch.fill(n, x1,y1, …, xn,yn, h,s,b,a)` | Filled polygon with the pen layer. |
@@ -277,12 +292,12 @@ Calls marked *(async)* take effect on the next tick, so do not read their result
 6. `*range(...)` instead of `+range(...)`.
 7. Integer angles on a `polyeq` without the 4th arg switch to vertex mode.
 8. Expecting a slider from `a=2*pi`: write `a=6.283` or set min/max on a literal.
-9. JavaScript syntax (`&&`, `%`, `!`, `|x|`, `**`).
+9. Unsupported notation such as `|x|` or postfix factorial. Numeric conditions/remainder are supported on the RHS, but do not paste arbitrary JavaScript statements into math expressions.
 10. Chained inequalities or several relations on one line.
 11. `frame=` without an `@frames` line (it has no effect), or expecting frame 0 to hide framed objects.
 12. `arch.createfunc(...)` without `visible` = 1, or `valuesetting` with min and max swapped.
 13. Creating objects inside `@script` that the scene script already creates (duplicates on every Run).
-14. User-function parameters are case-insensitive too (`f(r,R)=...` clashes), and `e`, `x`, `y`, `z` cannot be parameter names; `max` and `min` take exactly two arguments (nest them).
+14. User-function parameters are case-insensitive too (`f(r,R)=...` clashes), and constants `e`/`pi` cannot be parameter names; coordinate parameters may auto-create graphs; `max` and `min` take exactly two arguments (nest them).
 15. Writing a parametric range that uses its own parameter (`(cos(u),sin(u),u,0,u)`), or one with min ≥ max.
 16. Calling an `@operator` inside a 3D surface: it works, but meshing becomes very slow.
-17. Arch bug: `length(...)` and `angle(...)` labels are not drawn if a measured point is created after any curve, equation or point list, or is the built-in `O`. Create the measured points first and use `point(O,0,0)` rather than the built-in origin.
+17. The old `length`/`angle` label bug with points created after curves or built-in `O` is fixed in the bundled engine. No point-order/origin workaround is needed; measurement names still are not ordinary numeric variables.
