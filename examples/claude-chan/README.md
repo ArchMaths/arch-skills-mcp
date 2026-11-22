@@ -11,7 +11,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
 
-Opening the file takes a few minutes. It is about 1.6 MB: it is built with `--lean`, and Arch rebuilds the
+Opening the file takes a few minutes. It is about 2.1 MB: it is built with `--lean`, and Arch rebuilds the
 expanded formulas left out of it as it opens it. It is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
 surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
@@ -31,20 +31,41 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   stack of horizontal arcs whose width, depth and roundness change with height, so it has a real profile:
   forehead, the dip between the eyes, a small pointed nose, lips, a receding chin, and a jawline that
   runs up to the ear. Seen from the front the jaw runs nearly straight from the cheekbones to a blunt,
-  rounded chin: the portrait's V-shaped jaw, a little softer so it reads well in 3D. The round of each
+  rounded chin: the portrait's V-shaped jaw, a little softer so it reads well in 3D. Across the cheeks the face is flatter than a real
+  one and turns quickly at the outline, as anime faces are drawn, so the light stays even over them. The round of each
   cheek, the brow and the eye sockets are shallow bumps and hollows on top. Under the jaw, the neck,
   and ears with helix, fold, concha, tragus and lobe.
 - **Face**: the expression of the natural-smile portrait. Long, heavy-lidded almond eyes, each with its own
-  shape as in the drawing: a bold lash line that starts thin at the inner corner, covers the top quarter of
-  the iris and runs on past the outer corner into a long flat wing; a shallow lower lid drawn as one thin
-  line from a small hook at the inner corner; both corners left open, with white showing between the lash
-  line and the lower lid. A round iris resting on the lower lid, dark mauve-brown under the lid, warm
-  brown in the middle and a peach-gold crescent below, a pupil tucked under the lash line and one small
-  highlight on the viewer's right. Above each eye a pink-brown tint and the fold of the lid. Thin, long,
-  nearly straight brows high above the eyes, carried over the bangs where a lock crosses them, as the
-  sheet draws them. A thin L-shaped line down the side of the nose and under its tip, a highlight above
-  the tip, a calm closed smile and a faint blush. Skin, iris and hair colours are sampled from the sheet.
-- **Hair**: every lock starts at the crown, lies on the head, and falls from there, so the top of the
+  shape as in the drawing, re-traced on the hi-res portrait as she is seen from its viewpoint: the upper lid
+  covers the top third of the iris and sweeps down at both ends to meet the lower lid in a point, so both
+  corners are closed; the lower lid stays low and flat under the iris and rises steeply into the corners. A
+  heavy lash line from corner to corner with a feathered top edge, two thin strokes running on past the inner
+  corner of her left eye, and a wing of two strokes past each outer corner (level on her left, sloping down on
+  her right; shorter than drawn, where the face turns away). The iris in the portrait's colours, stepping
+  from dark mauve-brown at the top through red-brown to amber in the lower third, with a thin dark shade under
+  the lash line, lavender-grey sheen streaks above and fine gold streaks below; a small, nearly round pupil, a
+  dark outline round a reddish-brown fill, with a four-pointed sparkle at its top and two short white glints
+  low on the rim. A grey-mauve shade from the lid on the white, in two steps. Four separate lashes curve up
+  and out of the lash line, and seven short lower lashes hang under a thin reddish lower lid. Above each eye a
+  pink-brown tint and the fold of the lid. Long, nearly straight brows in a soft orange-brown, sloping
+  gently down toward the outside and fuller at the inner end, carried over the bangs where a lock crosses
+  them, as the sheet draws them. A thin L-shaped line down the side
+  of the nose and under its tip, a highlight above the tip, a calm closed smile in warm red-brown over a
+  soft pink lower lip with a gloss highlight, and a wide blush under each eye that fades out toward the
+  nose. These follow the sheet's high-resolution natural-smile portrait: its pupils, irises, lash line and
+  brows were measured by unwarping it onto this face in its own pose (fitted to the pupils, nose, mouth and
+  chin), and its skin, blush, lips and shades were sampled from it. The skin renders as the portrait's
+  (#f5e3dd on average), with its shade on the neck; the face's colours are written as the colours to be
+  seen through Arch's lighting (`unlit()` in
+  `generate.py`), so the skin keeps its shading instead of turning white where it faces the camera.
+  Arch casts no shadows, so the portrait's are painted on: each lock of the bangs lying on the forehead
+  has a soft darker strip under it (its outline seen from the front, widened and moved down a little, in
+  two steps), which shows as a rim along its edges and a point under its tip; and a band on the neck,
+  whose lower edge follows the turned jaw, shades it under the chin in four steps.
+- **Hair**: matched to the hi-res portrait from its viewpoint: the crown as low as drawn and the hair fuller,
+  puffing out at the sides below the dome and falling over the shoulders and chest; thin dark strand lines and
+  light streaks on the strands around the face; the dark sheet under the hair turned so that it is lit where it
+  shows between the locks. Every lock starts at the crown, lies on the head, and falls from there, so the top of the
   hair and the long hair are the same surfaces. Down the back the locks fall straight in three layers;
   at the sides they fan out over the shoulders and arms; in front of the ears thinner locks fall over
   the chest. Locks wave more toward their ends and finish in a curled tip. The bangs follow the
@@ -56,9 +77,11 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   her right, so the whole jaw line shows, and over the outer cheek on her left, where thin strands
   flick inward.
   A three-strand braid crown around the back of the head.
-- **Accessories**: a chrysanthemum on a black bow with cream ribbons and a gold tassel above her left
-  ear; gold tassel earrings.
-- **Outfit**: a blouse shaped over the bust with fine tucks, high ruffled collar, a jabot of three ruffled tiers,
+- **Accessories**: as the hi-res portrait draws them from its viewpoint, a chrysanthemum at the side of her head
+  level with her left temple, turned toward the viewer, with a compact black bow under it standing out from the hair,
+  two wide black tails edged in gold hanging to her jaw, two cream ribbons behind them and a gold tassel; gold
+  tassel earrings. Her left ear shows: the hair on that side falls behind it.
+- **Outfit**: a blouse shaped over the bust with fine tucks, high collar with two gathered tiers of lace standing up to just under her chin, a jabot of three ruffled tiers,
   a black ascot of two fan-pleated tails with gold lines under a large chrysanthemum brooch (rebuilt from a
   close-up of the chest), a frill along the capelet's turned-back facing, drawn pleat lines down the blouse
   front and fold lines on the sleeves' puffs (soft grey-beige), black corset with

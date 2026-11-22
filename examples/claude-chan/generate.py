@@ -27,8 +27,25 @@ PARTS = set(args.parts.split(','))
 def want(p): return 'all' in PARTS or p in PARTS
 
 # ---------------- palette ----------------
-SKIN = '#e5d0cd'        # cool porcelain, as on the sheet
-SKIN_SH = '#d2b6b2'
+# Arch shades a surface by its normal's angle to the camera: colour x (0.3 + cos), so 1.3 face-on (its 3D
+# fragment shader; the light comes from the camera). Any channel above about 196 turns white where a surface
+# faces the camera. Over the face the factor is about 1.22 (1.3 in the front view, 1.14 in the usual 3/4
+# view), so the face's colours are written as the colour to be seen, through unlit().
+LIT = 1.22
+
+
+def unlit(c, k=LIT):
+    """The colour to give a surface for it to be seen as c where Arch lights it by k."""
+    return '#' + ''.join(f'{min(255, round(int(c[i:i + 2], 16) / k)):02x}' for i in (1, 3, 5))
+
+
+def mix(c0, c1, f):
+    """f of the way from colour c0 to c1."""
+    return '#' + ''.join(f'{round(int(c0[i:i + 2], 16) * (1 - f) + int(c1[i:i + 2], 16) * f):02x}' for i in (1, 3, 5))
+
+
+SKIN = unlit('#f8e6e0')     # renders as the hi-res portrait's skin, #f5e3dd, on average over the face
+SKIN_SH = unlit('#debcb4')  # the shade of her neck on the portrait
 HAIR_HI = '#eda077'     # muted coral hair, sampled from the sheet
 HAIR = '#c4623c'
 HAIR_DK = '#ac5232'
@@ -219,20 +236,24 @@ if want('ornament'):
     sc.blank()
     sc.note('Hair ornament: chrysanthemum on a black bow, cream ribbons, gold tassel')
     C, nrm = ORN_P, ORN_N
+    # As on the hi-res portrait, seen from its viewpoint (positions in the head's frame, solved so that each lands where
+    # the portrait draws it): the flower at the side of the head level with her temple, a compact black bow under it
+    # standing out from the hair, two wide black tails edged in gold hanging to her jaw, two cream ribbons behind them
+    # hanging past it, and a gold tassel.
+    view = (0.059, -0.978, 0.202)                  # toward the portrait's viewer
+    K = (1.04, -0.16, 11.76)                       # the bow's knot, standing out in front of the falling hair
+    fwd_ = lambda P: add(P, (0.04, -0.13, 0))      # the tails and ribbons hang in front of the hair as well
     with sc.turned(**HEAD_TURN):
-        fr = frame(nrm, (0, 0, 1))
-        # bow behind the flower: loops up-back and down-front, gold rims
-        bow_axis = unit(add(mul(fr[1], 1.0), mul(fr[0], 0.35)))
-        bfr = frame_ab(bow_axis, nrm)
-        bow(add(C, mul(nrm, -0.07)), bfr, (0.42, 0.17, 0.06), 'hairBow')
-        # ribbon tails hanging from under the flower
-        base = add(C, (0.03, 0.0, -0.15))
-        face = unit((1, -0.35, 0))
-        ribbon([base, add(base, (0.1, -0.04, -0.42)), add(base, (0.09, -0.1, -0.92))], 0.06, CREAM, 'hairRibbon1', face, rim=GOLD)
-        ribbon([add(base, (0.02, 0.08, 0)), add(base, (0.13, 0.1, -0.38)), add(base, (0.15, 0.15, -0.76))], 0.068, BLACK, 'hairRibbon2', face, rim=GOLD)
-        flower(C, nrm, 0.29, 'hairFlower')
-        tassel_top = sc.turn_point(add(C, (0.05, -0.07, -0.19)))
-    tassel(tassel_top, 0.64 * HEAD_SCALE, GOLD, 'hairTassel', r=0.043 * HEAD_SCALE)     # the tassel hangs straight down
+        a_ = unit((1, 0, 0.35)); c_ = unit(view); b_ = unit(cross(c_, a_))
+        bow(K, (a_, b_, c_), (0.24, 0.11, 0.05), 'hairBow', loops=((1, 0.3), (-1, -0.35)))
+        for k, (mid, end, w_, col) in enumerate((((0.94, -0.08, 11.45), (0.912, -0.151, 11.123), 0.08, BLACK),
+                                                 ((1.1, -0.07, 11.46), (1.241, -0.127, 11.143), 0.075, BLACK))):
+            ribbon([add(K, (0, -0.02, -0.03)), fwd_(mid), fwd_(end)], w_, col, f'hairTail{k + 1}', c_, rim=GOLD)
+        for k, (mid, end) in enumerate((((0.97, 0.0, 11.25), (0.958, -0.242, 10.673)), ((1.06, 0.02, 11.25), (1.107, -0.231, 10.683)))):
+            ribbon([add(K, (0, 0.03, -0.05)), fwd_(mid), fwd_(add(end, (0, 0.04, 0)))], 0.085, CREAM, f'hairRibbon{k + 1}', c_)
+        flower(C, nrm, 0.3, 'hairFlower')
+        tassel_top = sc.turn_point(fwd_((1.111, -0.121, 11.212)))
+    tassel(tassel_top, 0.62, GOLD, 'hairTassel', r=0.043 * HEAD_SCALE)     # the tassel hangs straight down
 
 # =====================================================================
 #  VIEW

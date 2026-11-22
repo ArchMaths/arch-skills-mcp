@@ -147,10 +147,14 @@ if want('body'):
     sc.comment("The body under the blouse, with the bust (bst): two soft mounds, the cloth bridging between them.")
     sc.surface(("tsa(s)*cos(w)", "tsb(s)*sin(w)-bst(tsa(s)*cos(w),tsz(s))*max(0,-sin(w))", "tsz(s)"),
                ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'blouse', ('tube', 'u'))
-    sc.comment("High collar with a ruffle on top.")
-    sc.surface(("(0.235+0.012*s)*cos(w)", "0.02+(0.235+0.012*s)*sin(w)", "10.42+0.46*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collar', ('tube', 'u'))
-    sc.surface(("(0.25+0.12*s+0.03*s*sin(16*w))*cos(w)", "0.02+(0.25+0.12*s+0.03*s*sin(16*w))*sin(w)", "10.86+0.11*s+0.035*s*cos(16*w)"),
+    sc.comment("""High collar with a ruffle on top, standing up to just under her chin as the hi-res portrait draws it: the
+band rises to 10.92 and two gathered tiers of lace stand on it, the upper one ending 0.02 under the chin (its lowest
+point is at 11.02), so the neck does not show in front.""")
+    sc.surface(("(0.235+0.022*s)*cos(w)", "0.02+(0.235+0.022*s)*sin(w)", "10.42+0.5*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collar', ('tube', 'u'))
+    sc.surface(("(0.25+0.1*s+0.028*s*sin(20*w))*cos(w)", "0.02+(0.25+0.1*s+0.028*s*sin(20*w))*sin(w)", "10.84+0.09*s+0.02*s*cos(20*w)"),
                ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffle', ('point', (0, 0.02, 10.5)))
+    sc.surface(("(0.262+0.055*s+0.02*s*sin(24*w+1))*cos(w)", "0.02+(0.262+0.055*s+0.02*s*sin(24*w+1))*sin(w)", "10.9+0.085*s+0.012*s*cos(24*w+1)"),
+               ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffleTop', ('point', (0, 0.02, 10.5)))
     # Fine pleats down the blouse front (the shirt's close-up: about a dozen across), drawn in soft grey-beige, one
     # stroke a side: up each line and back down, then across to the next under the corset's edge.
     s_of = lambda z: float(np.linspace(0, 1, 400)[int(np.argmin([abs(p[0] - z) for p in _tz]))])

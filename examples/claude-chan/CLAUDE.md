@@ -26,7 +26,12 @@ Work in numbers, not screenshots: each image read is expensive, a table of edges
 
 ## Limits
 
-- Never render at high precision: it takes hours. Use `--prec 3` for every Arch check.
+- Never render the whole figure at high precision: it takes hours. Use `--prec 3` for every Arch check. The
+  exception is the face, whose decals need a fine mesh to judge: the head alone (`--parts
+  head,hair,ornament,earrings,body,cape`) renders at `--prec 10` in under a minute. Frame it with a custom
+  view such as `--view '@view 3d azimuth=-90 elevation=3 unit=320 center=0,0,11.55'`; closer than about
+  unit 400 Arch's clipping box (it scales with the zoom) cuts into the face, unless the centre moves
+  forward with it (`center=0,-0.5,11.6` at unit 640 shows one eye and cheek).
 - Do not build the full `.txt` save file without the user's approval; it is slow. Build it with `--lean`.
 - `node src/cli.js --check` renders the file it checks: never run it on `claude-chan-3d.arch` itself (precision
   10), only on a `--prec 3` copy.
@@ -41,9 +46,16 @@ Work in numbers, not screenshots: each image read is expensive, a table of edges
   low-precision buffer (低精度缓冲) setting does nothing in Arch 2.0.0, whose background drawing skips it
   (measured: zoom and rotate redraws took the same time with it on or off). What Arch computes is the formulas'
   expansion (see below), so that is what to keep small.
-- A surface facing the viewer is lit to about 1.2 times its colour. Colours above about 210 clip to flat white
-  or flat orange and lose their shading, which makes cloth look like rubber: give folded cloth a colour 1/1.2
-  of the sheet's (`RUST`, `SKIRT_CREAM` in `outfit.py`) and real folds to shade.
+- Arch lights a surface from the camera: its colour times 0.3 + cos(angle between the normal and the camera)
+  (its 3D fragment shader in `index.html`), so 1.3 face-on, 1.0 at 45 degrees, 0.8 at 60. Curves are not lit.
+  Channels above about 196 clip to flat white or flat orange where a surface faces the camera and lose their
+  shading, which makes cloth look like rubber and skin look pale: give folded cloth a colour 1/1.2 of the
+  sheet's (`RUST`, `SKIRT_CREAM` in `outfit.py`) and real folds to shade, and write the face's colours as the
+  colour to be seen, through `unlit()` in `generate.py` (1/1.22, the face's average over the front and 3/4
+  views).
+- Arch draws a surface in one colour. A soft fade (the blush, the lips) is nested decals that step between
+  two colours in small steps, each a level of a Gaussian; keep each step under about 4 per channel or the
+  rings show when zoomed in.
 
 ## The sheet
 
@@ -119,6 +131,25 @@ template matching (`cv2.matchTemplate` over a range of scales) to learn which vi
 pixel before measuring it. The side view draws the orange facing twice as wide as the front view; the model
 keeps the front view's width and takes proportions from the side view's close-up.
 
+## Matching the hi-res portrait
+
+The natural-smile portrait (`hi-res asset.png`, beside this file but not in the repository) is matched from its own
+viewpoint: Arch's camera at azimuth -92, elevation 12 shows the head as drawn (the jaw outline then fits within 4.5
+px), with a further -3.4 degree turn of the image. To compare a part, render it from that camera, register the
+render onto the portrait with small marker balls on known points (pupils, nose, mouth corners, chin; a scale, turn
+and shift fitted to them), and blend the two at 50%. To measure a part in the face's own coordinates (the
+(s, z) of the eye tables), render a grid of marker balls on the face around it, fit a cubic map from face
+coordinates to pixels (0.8 px rms), anchor each eye on its iris centre, and unwarp the portrait through it; read
+points there on a gridded crop and check them with column profiles. The drawn eye white and skin are equally light
+but differ in tint: blue minus green is about 0 on the white and -4 to -8 on the skin. Features drawn past the side
+of the face (the wings, s 0.31-0.34) are cut where the face turns away (0.27); everything else follows the drawing.
+To place a part (the ornament), map head-frame points to portrait pixels: an affine 3D-to-2D map fitted to the same
+landmark markers, composed with the registration; solve for the head point that lands on each drawn position. To
+score shapes, sort both images' pixels into hair, skin, black and other and map where they disagree (the face region
+alone for the bangs). Arch colours a surface with one colour; a colour can be an expression of variables
+(`color=hsb(h,s,v)`, h, s and v on 0..100) but it is evaluated once per object, not per point (checked in 2.0.05
+and 2.0.07), so shading is evened out by the face's shape (`fq`), not by colour.
+
 ## Keep Arch's expanded formulas small
 
 Arch pastes every custom function's body in at each use, each argument as often as the body uses it, and
@@ -133,6 +164,12 @@ each level, and `a^b` becomes a function call. `generate.py` prints the total ex
   `max(0,u-k)^3` terms when a curve's parameter is pasted into them (`_xpoly` in `cape.py`, the sleeve's `SL_PUFF`);
 - smooth forms instead of `min`/`max` (`tanh` fades and ramps; `((1+cos x)/2)^400` for a peak at whole numbers);
 - passing a sector's own numbers as arguments instead of a lookup over all of them (the emblem's `emi(w,kz,la,lb,lc)`);
+- giving the layers inside a small part their own small fit of the face and short local versions of the curves
+  that clip them, and dropping clipping that cannot happen there (the iris: `qi`, `eui`, `eli`; the eyes went from
+  2.9 MB to 1.0 MB this way);
+- fitting a decal's depth as a polynomial in its own parameters when its x and z are long expressions, instead
+  of pasting them into a face fit (the bangs' shadows in `draw_hair_shadows`: 42 KB each through a face fit,
+  6 KB this way);
 - exact rewrites (the hair's `hdw`: one summed spline instead of `min` of two).
 
 A curve whose expansion grows too long fails to compile ("compile error: Unexpected token (2:1)") even though
