@@ -6,12 +6,14 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (830 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1297 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
+| [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
+| `ornament_drape.py` | Lays the hair ornament's ribbons, tails and tassel on the hair, keeping where the hi-res portrait's view sees them; rewrites their positions in `generate.py`. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
 
-Opening the file takes a few minutes. It is about 2.1 MB: it is built with `--lean`, and Arch rebuilds the
+Opening the file takes a few minutes. It is about 4.5 MB: it is built with `--lean`, and Arch rebuilds the
 expanded formulas left out of it as it opens it. It is saved with `implicitPrecision=10`, so
 each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
 surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
@@ -62,13 +64,24 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   has a soft darker strip under it (its outline seen from the front, widened and moved down a little, in
   two steps), which shows as a rim along its edges and a point under its tip; and a band on the neck,
   whose lower edge follows the turned jaw, shades it under the chin in four steps.
-- **Hair**: matched to the hi-res portrait from its viewpoint: the crown as low as drawn and the hair fuller,
-  puffing out at the sides below the dome and falling over the shoulders and chest; thin dark strand lines and
-  light streaks on the strands around the face; the dark sheet under the hair turned so that it is lit where it
-  shows between the locks. Every lock starts at the crown, lies on the head, and falls from there, so the top of the
-  hair and the long hair are the same surfaces. Down the back the locks fall straight in three layers;
-  at the sides they fan out over the shoulders and arms; in front of the ears thinner locks fall over
-  the chest. Locks wave more toward their ends and finish in a curled tip. The bangs follow the
+- **Hair**: matched to the hi-res portrait from its viewpoint: the crown as low and the dome as wide as drawn;
+  thin dark strand lines and light streaks on the strands around the
+  face; the dark sheet under the hair turned so that it is lit where it shows between the locks; her left
+  ear shows, with locks falling behind it. Every lock starts at the crown, lies on the head, and falls from
+  there, so the top of the hair and the long hair are the same surfaces. As on the sheet's back view, the hair parts down the middle
+  of her back: the locks from the crown end at the nape and two traced locks fall from under the braid, with
+  the corset showing between them and the capelet's back and its emblems beside them; the outermost locks
+  and the locks at the sides fan out over the shoulders and arms. Of the two back locks, her left one is
+  four strands, two spreading out at the bottom and two winding together into a loose corkscrew ringlet;
+  her right one sweeps out and winds into a second ringlet that drops as it turns. Four more strands in
+  each lock, under the traced ones, fill the gaps between them and end in free tips, and short strands
+  from under the braid cover the back of the head beside the locks down to the capelet. Each back lock is 18
+  sub-strands, with 8 or 10 more under the braid; they wander a little, vary in width and shade, and twist about their own lines below the
+  nape. Locks wave more toward their ends and
+  finish in a curled tip. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
+  the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
+  a band that fans into four strands, the inner one hooking in toward the jabot; on her left a narrower
+  band that fans into three that curl inward. The bangs follow the
   portrait: one wide lock sweeps down to the bridge of the nose, the forehead shows in a tall triangle
   above her left eye, a lock sweeps over her left temple, and a smaller gap above her right eye is
   framed by the locks at the side. The wide lock and the temple lock are made of narrow, rounded strands
@@ -79,8 +92,8 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   A three-strand braid crown around the back of the head.
 - **Accessories**: as the hi-res portrait draws them from its viewpoint, a chrysanthemum at the side of her head
   level with her left temple, turned toward the viewer, with a compact black bow under it standing out from the hair,
-  two wide black tails edged in gold hanging to her jaw, two cream ribbons behind them and a gold tassel; gold
-  tassel earrings. Her left ear shows: the hair on that side falls behind it.
+  two wide black tails edged in gold hanging to her jaw, two cream ribbons behind them and a gold tassel, all lying
+  on the hair; gold tassel earrings. Her left ear shows: the hair on that side falls behind it.
 - **Outfit**: a blouse shaped over the bust with fine tucks, high collar with two gathered tiers of lace standing up to just under her chin, a jabot of three ruffled tiers,
   a black ascot of two fan-pleated tails with gold lines under a large chrysanthemum brooch (rebuilt from a
   close-up of the chest), a frill along the capelet's turned-back facing, drawn pleat lines down the blouse
@@ -169,6 +182,17 @@ python3 examples/claude-chan/generate.py         # writes claude-chan-3d.arch (n
 node src/cli.js examples/claude-chan/claude-chan-3d.arch -o examples/claude-chan/claude-chan-3d.txt --lean --timeout 3600
 ```
 
+### Posterior hair-root regression tests
+
+The lower back locks start on the actual upper-hair surface, with its tangent plane,
+while keeping their traced lateral attachment positions. Their sections open beneath
+the braid and clear the actual under-layer rather than a fixed depth floor. The
+original ringlet entrances are retained when the hanging surfaces are refitted.
+
+```sh
+python3 -B -W error::RuntimeWarning -m unittest discover -s examples/claude-chan -p 'test_hair*.py'
+```
+
 ### Checking against the sheet
 
 `sheetfit.py` reads a part's outline off the sheet's front, side and back views (row by row, in model units)
@@ -235,6 +259,44 @@ listed in `generate.py`.
   margin). Each lock has its own angle, drift, wave, layer, width and length. Its tip turns through
   three quarters of a circle with the cross-section turning along, either sideways (a hook) or outward
   (a scroll), and is a separate surface so the curl gets a fine mesh.
+- **The chest locks** (`chest_strands` in `hair.py`) are drawn from the user's tracing over the third
+  expression portrait, registered on the sheet and put into model units by the capelet's emblems (across)
+  and the chin, brooch and emblems (down). Each strand's centre line and half-width follow the tracing in
+  the front view; its depth is worked out so it hangs: it lies on the capelet, blouse, corset and collar
+  (and on the strands laid before it) and, below the fullest point, falls straight. Above the tracing it
+  rises from under the jaw into the head. Centre line, side and thickness vectors are one polynomial each
+  in `t` (degree 20, within 0.005), and the lower half is a second surface so the curled tip gets a fine
+  mesh.
+- **The back locks** (`back_strands` in `hair.py`) are drawn the same way from the user's tracing over the
+  sheet's back view (calibrated like the full-body views, so no landmarks are needed). They hang on the
+  hair above the nape and on her clothes, as close as they can lie (the back view is the reference for
+  depth): the generator runs itself for the clothes alone (about 3 s) and samples their surfaces into a grid
+  of how far back the cloth reaches, gaps bridged across; a strand lies just off it, falls straight where the
+  cloth falls away (under the capelet's hem), and lies only just above the strands beneath (on the head
+  and nape the strands lie side by side on the hair as they come out of the braid, as the user traced); below the
+  corset they wave back and forth a little, so they curl in 3D too. Each ringlet's axis is set back just far
+  enough for every turn to clear the skirt, and its strand rises over its last 0.6 to meet it. So that no strand is machine-smooth, each wanders across
+  by up to 0.025 and varies in width and thickness (sums of three waves of incommensurate lengths, their
+  phases a formula in the strand's number), and below the nape it twists about its own line, about half a
+  turn; where it twists it is lifted so its edges stay clear of what it lies on, and the strands over it
+  lie on its twisted section. Each strand is drawn as two or three sub-strands side by side across it (18
+  a lock), each with its own wander, depth, width, thickness and shade; at a free tip they fan out and end
+  one after another. Besides the four traced strands, each lock has four that fill its gaps: they were
+  placed from a coverage count (the outline at each height against the model's hair in the back view, which
+  was 33 to 60% covered below the capelet and is now 79 to 100% above the ringlets) and checked against the
+  ringlets so that none runs through one. Under the braid, nine short strands (`_under_braid`, 0.12 apart)
+  start right under the braid's lower edge at their own x (worked out from its ring, `braid_back`) and lie on
+  the hair already drawn on the back of the head (the generator's own lines so far, sampled into a grid like
+  the clothes, `head_back_grid`), the middle of their width resting on it so that their edges follow the head
+  round; the dark under-layer that showed there (where the crown locks close in toward the middle) is now
+  covered from behind. The section is turned square to the line smoothed over about 0.1, so that it does not
+  swing at every small kink. A long strand is fitted in as many polynomial pieces as keep every sub-strand
+  within 0.006, joined exactly. The ringlets are not fitted: each is a helix about an upright axis written
+  as it is, in its angle, its section turning the short way to face out from the axis, its radius closing
+  (and wandering a little) as it turns and dropping as it goes, one surface a turn; a strand's sub-strands
+  turn with its section, so in the ringlet they lie one above another along the axis, and the two strands
+  of the right-hand ringlet wind about one axis. (Fitting a fast-starting helix with polynomials times sines gave
+  coefficients near 10^8 that cancel each other, and the surface came apart.)
 - **Head turn.** The generator draws the head's parts inside a turned block: each coordinate is
   replaced by a fixed combination of all three (a rotation about the top of the neck). The long locks
   use the same rotation with an angle that eases from the head's to zero down the lock, hb(t), so they

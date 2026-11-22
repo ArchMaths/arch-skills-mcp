@@ -76,8 +76,9 @@ draws the arms 0.1 to 0.2 closer to the body; the lacing is drawn facing whichev
 The capelet: unlike the arms, the side view draws it as a true profile (its front edge reaches the bust where
 the front view's front edge, on a section hugging the chest, puts it), but it draws its upper front edge at
 the side of the neck and cuts its lower front higher than the front view; its emblem there (y 0.8) fits no
-single place on it, so the emblems follow the front and back views. On the back view the hair falls in a
-narrower band than the model's hair, leaving the capelet's sides and back emblems visible.
+single place on it, so the emblems follow the front and back views. On the back view the hair parts down the
+middle and leaves the capelet's sides and back emblems visible; the model follows it (`back_strands`, the back
+locks ending at the nape).
 
 The dress, traced: the side view draws the overskirt's hem as if turned too (high at the front, low at the
 back, where the front and back views put it low at the side), so the hem was fitted on the front and back
@@ -107,6 +108,51 @@ of the strokes alone and register it onto the extracted ink (ECC on the blurred 
 borders with a whole layered model, draw the model as a surface-id map (z-buffered, hidden parts removed),
 take its borders where the visible surface changes, and match each stroke pixel to its nearest border
 (`cv2.distanceTransformWithLabels`): the distance per border pair shows which part is off.
+
+Strokes traced over an expression portrait (the chest locks): find the portrait on the sheet by template
+matching (the marked-up crop was panel 3 at 4.2x), and put it into model units by landmarks the model already
+has: the capelet's emblems across (x +-1.10), the chin, brooch and emblems down (z 10.96, 10.5, 9.67, which
+agree to 0.01). The portraits draw the chest about 9% wider than the full-body front view, so the scales
+across and down differ; parts placed this way sit right against the emblems and the jabot. Hair drawn this
+way only gives x and z: `chest_strands` in `hair.py` works out the depth so a strand hangs on what is under it.
+The back view needs no landmarks (`back_strands`: it is calibrated in `sheetfit.py`). Read the colour runs of the
+hair on the sheet against the model's hair (by height, in model units) before changing which locks cover what:
+that is how the parting down her back was found.
+
+The user's rules for hair: a curl at the end of a lock winds about an upright axis (its normal is the z-axis, even
+where the sheet draws it as a loop facing the viewer) and drops as it turns; strands are never machine-smooth (they
+wander, vary in width and twist gently about their own lines, about half a turn); the user calls a whole lock a
+"strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
+gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
+model's hair in the back view (drawn with hidden parts removed), then place strands through them and check that
+none touches a ringlet (nearest-point distance between the surfaces). To find bare patches, count the points of the
+dark under-layer (`hairUnder`) that a z-buffered view can see, from several angles round her back; a colour map of
+the hair by kind (back locks, crown locks, side locks, under-layer, braid) shows where. Grow a grid's cells with
+padding, never `np.roll`: it wraps round the edges, and once carried the skirt's depth (z 4.8) into the grid's top
+row (z 11.6), which pushed every strand starting there 0.7 off the head. A strand starts from the first thing it
+lies on, not a floor of 0.96 (right only by the middle of the braid).
+
+The back view is the only reference for the hair's depth (the user's choice: the side view draws the long hair
+trailing far back, which the back view's corset between the locks rules out). So the hair lies as close to her
+clothes as it can: the back locks on the clothes' own surfaces (`clothes_y`: the generator run for the clothes
+alone inside `hair.py`, sampled into a grid) and falling straight where they fall away (under the capelet's hem:
+the user saw the hair bend in toward the waist when it followed the clothes in, which hair cannot do), the
+strands over others only just above them, and on the head and nape side by side on the hair as they come out of the
+braid (`BK_STACK`: the user traced their start hugging the back of the head); the long locks at her sides on a shell that clears the arms' own outline
+(`HAIR_ARM_R`) without flaring. Check every hair change from the side and in cross-sections as well (its gap to the
+nearest cloth by height): laying each strand on its full thickness over the ones beneath once piled the eight
+strands of a lock up to 1.6 behind the back, and a floor left in the easing near the braid held them 0.6 off the
+corset, neither of which a back view shows.
+
+Curls: write a helix as it is (cos and sin of its angle, `curl_xyz`), never fit one. A least-squares fit of
+polynomials times cos and sin to a helix that starts steeply gave coefficients near 10^8 that cancel each other;
+the error looked small in numpy and the surface came apart in the preview. In Arch, write what goes under a
+fractional power so it cannot go negative by rounding (`(Th/2)*(1-t)`, not `Th-(Th/2)*(t+1)`): a negative base
+gives NaN. `corset_ab` holds only on the corset (z 7.9 to 9.35); below it the flare term explodes.
+
+All the modules run in one namespace (generate.py execs them), so a module-level name in one file replaces the
+same name in another: `boots.py` once reused `_tz`, which broke `outfit.py`'s `torso_ab` for anything that
+called it after the boots were built. Give module-level helpers names that are unique to their file.
 
 ## Patterns from close-up photos
 
@@ -144,8 +190,14 @@ points there on a gridded crop and check them with column profiles. The drawn ey
 but differ in tint: blue minus green is about 0 on the white and -4 to -8 on the skin. Features drawn past the side
 of the face (the wings, s 0.31-0.34) are cut where the face turns away (0.27); everything else follows the drawing.
 To place a part (the ornament), map head-frame points to portrait pixels: an affine 3D-to-2D map fitted to the same
-landmark markers, composed with the registration; solve for the head point that lands on each drawn position. To
-score shapes, sort both images' pixels into hair, skin, black and other and map where they disagree (the face region
+landmark markers, composed with the registration; solve for the head point that lands on each drawn position. The
+portrait fixes where a part is seen, not its depth: `ornament_drape.py` slides the ribbons, tails and tassel along
+the portrait's line of sight onto the hair behind them (a depth map of the scene along that view), so they lie on the
+hair from every side and land where drawn. Rerun it (`--write`) after any change to the hair under the ornament; the
+hair branch's closer side hair left them hanging 0.2 to 0.3 in front of it. Check a hair change from behind too:
+fuller sides below the dome (a bulge of 0.2 on the side shell) opened the gap between the side locks and the back
+locks and showed the under-layer there 2 to 5 times as much (count it as above). Arch lights only one side of a
+surface, so the under-layer is two sheets 0.005 apart, lit from behind and from the front. To score shapes, sort both images' pixels into hair, skin, black and other and map where they disagree (the face region
 alone for the bangs). Arch colours a surface with one colour; a colour can be an expression of variables
 (`color=hsb(h,s,v)`, h, s and v on 0..100) but it is evaluated once per object, not per point (checked in 2.0.05
 and 2.0.07), so shading is evened out by the face's shape (`fq`), not by colour.

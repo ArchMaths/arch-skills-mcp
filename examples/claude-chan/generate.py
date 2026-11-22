@@ -232,6 +232,15 @@ if want('head') and not want('hair'):
     with sc.turned(**HEAD_TURN):
         draw_brows([])          # no hair: the brows on the skin only
 
+# The ornament's hanging parts lie on the hair: their centre lines (Bezier control points in the head's frame; the
+# tails with their half-widths) and the tassel's top (world). ornament_drape.py works them out from the hair as drawn,
+# keeping where the portrait's view sees them, and rewrites these lines: run it after changing the hair under them.
+ORN_TAILS = ((((1.04, -0.18, 11.73), (1.014, -0.16, 11.611), (0.99, -0.123, 11.484), (0.974, -0.171, 11.368), (0.955, -0.124, 11.227), (0.944, -0.144, 11.095)), 0.08),
+             (((1.04, -0.18, 11.73), (1.078, -0.16, 11.616), (1.119, -0.114, 11.492), (1.169, -0.158, 11.38), (1.217, -0.103, 11.243), (1.272, -0.115, 11.114)), 0.075))
+ORN_RIBBONS = (((1.04, -0.13, 11.71), (1.028, -0.134, 11.527), (1.014, -0.083, 11.316), (1.007, -0.152, 11.115), (0.992, -0.069, 10.866), (0.985, -0.117, 10.629)),
+               ((1.04, -0.13, 11.71), (1.064, -0.129, 11.527), (1.084, -0.092, 11.322), (1.105, -0.121, 11.115), (1.12, -0.094, 10.88), (1.132, -0.072, 10.631)))
+ORN_TASSEL_TOP = (0.9235, -0.2076, 11.3345)
+
 if want('ornament'):
     sc.blank()
     sc.note('Hair ornament: chrysanthemum on a black bow, cream ribbons, gold tassel')
@@ -239,21 +248,18 @@ if want('ornament'):
     # As on the hi-res portrait, seen from its viewpoint (positions in the head's frame, solved so that each lands where
     # the portrait draws it): the flower at the side of the head level with her temple, a compact black bow under it
     # standing out from the hair, two wide black tails edged in gold hanging to her jaw, two cream ribbons behind them
-    # hanging past it, and a gold tassel.
+    # hanging past it, and a gold tassel. The tails, ribbons and tassel lie on the hair (ORN_TAILS, above).
     view = (0.059, -0.978, 0.202)                  # toward the portrait's viewer
     K = (1.04, -0.16, 11.76)                       # the bow's knot, standing out in front of the falling hair
-    fwd_ = lambda P: add(P, (0.04, -0.13, 0))      # the tails and ribbons hang in front of the hair as well
     with sc.turned(**HEAD_TURN):
         a_ = unit((1, 0, 0.35)); c_ = unit(view); b_ = unit(cross(c_, a_))
         bow(K, (a_, b_, c_), (0.24, 0.11, 0.05), 'hairBow', loops=((1, 0.3), (-1, -0.35)))
-        for k, (mid, end, w_, col) in enumerate((((0.94, -0.08, 11.45), (0.912, -0.151, 11.123), 0.08, BLACK),
-                                                 ((1.1, -0.07, 11.46), (1.241, -0.127, 11.143), 0.075, BLACK))):
-            ribbon([add(K, (0, -0.02, -0.03)), fwd_(mid), fwd_(end)], w_, col, f'hairTail{k + 1}', c_, rim=GOLD)
-        for k, (mid, end) in enumerate((((0.97, 0.0, 11.25), (0.958, -0.242, 10.673)), ((1.06, 0.02, 11.25), (1.107, -0.231, 10.683)))):
-            ribbon([add(K, (0, 0.03, -0.05)), fwd_(mid), fwd_(add(end, (0, 0.04, 0)))], 0.085, CREAM, f'hairRibbon{k + 1}', c_)
+        for k, (pts, w_) in enumerate(ORN_TAILS):
+            ribbon(pts, w_, BLACK, f'hairTail{k + 1}', c_, rim=GOLD)
+        for k, pts in enumerate(ORN_RIBBONS):
+            ribbon(pts, 0.085, CREAM, f'hairRibbon{k + 1}', c_)
         flower(C, nrm, 0.3, 'hairFlower')
-        tassel_top = sc.turn_point(fwd_((1.111, -0.121, 11.212)))
-    tassel(tassel_top, 0.62, GOLD, 'hairTassel', r=0.043 * HEAD_SCALE)     # the tassel hangs straight down
+    tassel(ORN_TASSEL_TOP, 0.62, GOLD, 'hairTassel', r=0.043 * HEAD_SCALE)     # the tassel hangs straight down
 
 # =====================================================================
 #  VIEW

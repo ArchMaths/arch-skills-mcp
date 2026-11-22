@@ -573,9 +573,17 @@ export async function loadAndDescribe(json) {
     json = JSON.stringify(state);
     const e = window.archInstance;
     const api = new window.ArchAgentProtocol.AgentAPI(e);
-    const original = e.showTopPrompt, prompts = [];
+    const original = e.showTopPrompt, prompts = [], warnings = [];
     e.showTopPrompt = function (message, isError, ...rest) {
-        if (isError) prompts.push(String(message));
+        if (isError) {
+            // The worker has its own watchdog and may fall back on large scenes.
+            // Synchronous drawing still loads the file; the caller separately checks
+            // every object and rebuilt formula. Keep this notice visible, not fatal.
+            const text = String(message);
+            if (text === '异步绘图暂不可用，已切回同步绘图' && e.asyncDrawingEnabled === false) {
+                warnings.push(text + (e._asyncDrawing?.error ? ` (${e._asyncDrawing.error})` : ''));
+            } else prompts.push(text);
+        }
         return original.call(this, message, isError, ...rest);
     };
     const alerts = [];
@@ -587,7 +595,7 @@ export async function loadAndDescribe(json) {
         if (e._asyncDrawing?.waitForIdle) await e._asyncDrawing.waitForIdle();
     } finally { e.showTopPrompt = original; window.alert = originalAlert; }
     const again = JSON.stringify(e.exportStateObject(), (key, value) => key === 'compiledFunc' ? undefined : value);
-    return {errors: [...prompts, ...alerts], objects: e.entries.map(entry => api.describe(entry)), json: again};
+    return {errors: [...prompts, ...alerts], warnings, objects: e.entries.map(entry => api.describe(entry)), json: again};
 }
 
 // Runs the saved global program (as the Run button does) in the throwaway verification page.

@@ -52,13 +52,13 @@ def _pchip(xs, ys):
 
 _F, _B, _W, _WC = _pchip(_F_Z, _F_S), _pchip(_B_Z, _B_S), _pchip(_F_Z, _W_W), _pchip(_WC_Z, _WC_W)
 _FPN = _pchip(_FP_S, np.array(_FP_W) / max(_FP_W))
-_tz = np.linspace(0.12, B_RIM, 500)
-_tf = _F(_tz)
+_btz = np.linspace(0.12, B_RIM, 500)
+_tf = _F(_btz)
 
 
 def _T(s):
     """Top of the upper at s on the side profile: the toe box, the instep, then the rim."""
-    return np.where(np.asarray(s) >= _tf[-1], B_RIM, np.interp(s, _tf, _tz))
+    return np.where(np.asarray(s) >= _tf[-1], B_RIM, np.interp(s, _tf, _btz))
 
 
 def _sstep(a, b, t):
