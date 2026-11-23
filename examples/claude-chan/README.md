@@ -6,7 +6,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1915 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1925 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `hairflow.py` | Builds a long-hair strand in the back view from its sweep, widths, wave and curl (the back hair's `BK_FLOW`), and draws it in 2D for comparing with a picture. |
@@ -78,15 +78,15 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   there, so the top of the hair and the long hair are the same surfaces. The hair down the middle of her back
   is laid out as the user's back-view picture of her draws it, each strand made as the locks over the chest are
   (a sweep, a width, a wave and a flat curl): below the braid it falls straight and narrows down her back, parts
-  above the corset into two groups beside the sash that wave and end in C-curls about the knees, and the rest,
-  from the braid's ends behind the ears, crosses the capelet in a few thin strands and widens behind the arms into
-  masses that fan out beyond the forearms, waving and curling at different heights. Short strands from under the braid
+  above the corset into two groups beside the sash that wave and end in C-curls about the knees, and the rest
+  runs down her sides: from the braid's ends over the sides of the head, the shoulders and the puffed sleeves, then
+  down beside the arms into masses that fan out beyond the forearms, waving and curling at different heights. Short strands from under the braid
   cover the back of the head beside them; a few broad locks at her sides come over the shoulders and end over the
   upper arms, under the side hair. All the long hair is made as the bangs are: each clump hangs in one smooth curve,
   tapers to a sharp point or curls, and has the bangs' ridged section. The hair down the middle of her back hangs
   as a smooth sheet, straight out from under the braid over the shoulder blades and down, not tracing the body; the
-  side hair lies on the capelet and falls from its back edge. In depth the long hair wraps round her back and
-  arms, coming forward as it fans out, so that from above it curves round her instead of hanging in one flat
+  side hair lies on the sides of the head, shoulders and sleeves and hangs along the back edge of the arms. In
+  depth the long hair down her back wraps round her, coming forward as it fans out, so that from above it curves round her instead of hanging in one flat
   plane; each strand waves gently in depth as well as across, and each curl turns back out of the sheet, so that
   from the side the hair has volume and its curls show as loops.
   It is painted as the bangs are, without outlines: thin dark strand lines down the lower part of each clump,

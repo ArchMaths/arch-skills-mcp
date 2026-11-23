@@ -149,12 +149,20 @@ half-width by height, a wave and a flat spiral curl, all in the sheet of the hai
 Below the braid it falls straight and narrows down her back and parts above the corset into two groups beside the
 sash (`BLa` ... `BRe`, a darker clump `BLu`, `BRu` under each), which swing out a little and back and end in C-curls
 about the knees, her left group a little lower; two short clumps end in points above the parting (`BLm`, `BRm`). The
-rest, the side hair (`BK_SIDE`, keys `B?o*`), starts under the braid's ends behind the ears, crosses the capelet in
-a few thin strands and widens behind the puffs into masses that fan out beyond the forearms, waving (one wave a
-group: `_WL`, `_WR`, `_WO`) and curling at different heights, one loop on each mass's outer edge at mid-height. It
-lies on the head, the capelet and the long side locks (`locks_back`, `LOCKS_BACK`: those locks sampled into a grid)
-above `BK_DRAPE_Z` and falls straight below it (draped lower, it creased where it left the capelet's hem). The
-picture is only a back view, and laid out in it alone every strand hung in one plane, facing back (the user, seeing it
+rest, the side hair (`BK_SIDE`, keys `B?o*`), runs down her sides (the user, marking it on a view from behind her
+right: not behind her): from the braid's ends at the sides of the head (|x| 0.62, where the braid rises to z 12.1)
+along the outline seen from behind of the head, the side locks over the shoulder and the puffed sleeve (|x| 1.04 at
+z 11.1, 1.42 at 10.2, 1.95 at 9.4), then down beside the arm in masses that fan out beyond the forearms, waving (one
+wave a group: `_WL`, `_WR`, `_WO`) and curling at different heights. Laid on the back-most depth of what is under it
+(`body_back`, `locks_back`), as it first was, a strand just inside an outline sits on the back of it, so it hung 1
+behind the arms whatever its course: the side hair is laid instead at a depth by height (`BK_SIDE_Y`, about the arm's
+back edge, and `BK_SIDE_DY` more for each strand), out on how far the figure reaches to that side there (`SIDE_OUT`,
+`side_out`: the head's hair, the long locks and the clothes, sampled into a grid of (y, z)) and on the side strands
+laid before it (stacked only where it lies on her, above `BK_DRAPE_Z`, the sleeve's widest; below, it fans out as
+drawn, what pushed it out easing off), turned to face about 65 degrees out to the side (`BK_SIDE_FACE`; the user:
+about 90 degrees from facing back, at whatever angle looks best from the side too: at 50 it still read as edge-on
+lines from the side, at 90 as tentacles from behind), 1.4 times as thick (body when seen edge-on), its curls in its
+own sheet and 25 degrees out of it (`BK_SIDE_CURL_TILT`: C-curls from the side). It takes no wrap. The picture is only a back view, and laid out in it alone every strand hung in one plane, facing back (the user, seeing it
 from the side: not natural; plotted from above, the side hair ran straight out to |x| 3.3 at one depth, 1 behind the
 arms). So in depth (`back_strands`): the hair wraps round her back and arms, coming forward by `BK_WRAP` 0.1 (x^2 -
 x0^2) as it fans out and facing out from that curve (psi, the section's turn about the upright, an extra column through

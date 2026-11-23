@@ -391,39 +391,42 @@ BK_FLOW = {
                 widths=[(11.42, .07), (10.5, .1), (9.4, .12), (7.9, .12), (6.8, .11)], wave=_WR, curl=(-1, 0.225, 3.5)),
     'BRc': dict(pts=[(-0.02, 11.38), (-0.06, 10.5), (-0.3, 9.3), (-0.42, 8.6), (-0.4, 7.9), (-0.48, 7.2), (-0.55, 6.8), (-0.55, 6.6)],
                 widths=[(11.38, .07), (10.5, .11), (9.3, .13), (7.2, .12), (6.6, .11)], wave=_WR, curl=(-1, 0.213, 3.4)),
-    # her left side hair: thin over the capelet, a mass below, waving, curling at different heights
-    'BLou': dict(pts=[(0.58, 11.3), (0.85, 10.75), (1.2, 10.1), (1.6, 9.4), (2.0, 8.7), (2.4, 8.0), (2.7, 7.3), (2.85, 6.6), (2.8, 6.0)],
+    # her left side hair: down her side (the user: not behind her), from the braid's end at the side of the head
+    # (|x| 0.62, high: the braid rises to z 12.1 there) along the outline seen from behind of the head (|x| 1.04 at z
+    # 11.1), the side locks over the shoulder (1.42 at 10.2) and the puffed sleeve (1.95 at 9.4, measured), each strand
+    # a little in or out of it, then down beside the arm, a mass, waving, curling at different heights
+    'BLou': dict(pts=[(0.62, 11.85), (0.92, 11.6), (1.04, 11.1), (1.12, 10.6), (1.42, 10.2), (1.72, 9.8), (1.95, 9.4), (2.0, 8.7), (2.4, 8.0), (2.7, 7.3), (2.85, 6.6), (2.8, 6.0)],
                  widths=[(11.3, .14), (10.5, .16), (10.1, .12), (9.3, .18), (8.7, .3), (7.0, .34), (6.4, .3), (6.0, 0)]),
-    'BLo3': dict(pts=[(0.6, 11.3), (0.88, 10.7), (1.25, 10.0), (1.65, 9.3), (2.05, 8.6), (2.5, 7.9), (2.9, 7.2), (3.1, 6.6), (3.1, 6.15)],
+    'BLo3': dict(pts=[(0.62, 11.85), (0.932, 11.6), (1.052, 11.1), (1.144, 10.6), (1.46, 10.2), (1.76, 9.8), (1.99, 9.4), (2.05, 8.6), (2.5, 7.9), (2.9, 7.2), (3.1, 6.6), (3.1, 6.15)],
                  widths=[(11.3, .04), (10.0, .07), (9.3, .12), (8.6, .2), (7.0, .22), (6.2, .2)], wave=_WO, curl=(-1, 0.312, 3.8)),
-    'BLo2': dict(pts=[(0.55, 11.35), (0.8, 10.8), (1.1, 10.2), (1.45, 9.5), (1.85, 8.9), (2.25, 8.2), (2.55, 7.5), (2.75, 6.8), (2.8, 6.2), (2.74, 5.9)],
+    'BLo2': dict(pts=[(0.62, 11.85), (0.911, 11.6), (1.031, 11.1), (1.102, 10.6), (1.39, 10.2), (1.69, 9.8), (1.92, 9.4), (1.85, 8.9), (2.25, 8.2), (2.55, 7.5), (2.75, 6.8), (2.8, 6.2), (2.74, 5.9)],
                  widths=[(11.35, .05), (10.2, .08), (9.5, .13), (8.9, .22), (7.5, .26), (6.0, .24)], wave=_WO, curl=(-1, 0.325, 3.7)),
-    'BLo6': dict(pts=[(0.56, 11.32), (0.84, 10.76), (1.15, 10.12), (1.52, 9.45), (1.95, 8.75), (2.35, 8.05), (2.62, 7.4)],
+    'BLo6': dict(pts=[(0.62, 11.85), (0.926, 11.6), (1.046, 11.1), (1.132, 10.6), (1.44, 10.2), (1.74, 9.8), (1.97, 9.4), (1.95, 8.75), (2.35, 8.05), (2.62, 7.4)],
                  widths=[(11.32, .04), (10.1, .07), (9.4, .12), (8.7, .19), (7.5, .2)], wave=_WO, curl=(1, 0.275, 3.9)),
-    'BLo5': dict(pts=[(0.52, 11.33), (0.78, 10.78), (1.05, 10.15), (1.38, 9.55), (1.75, 8.9), (2.1, 8.25), (2.4, 7.6), (2.55, 7.0), (2.55, 6.55)],
+    'BLo5': dict(pts=[(0.62, 11.85), (0.902, 11.6), (1.022, 11.1), (1.084, 10.6), (1.36, 10.2), (1.66, 9.8), (1.89, 9.4), (1.75, 8.9), (2.1, 8.25), (2.4, 7.6), (2.55, 7.0), (2.55, 6.55)],
                  widths=[(11.33, .04), (10.15, .07), (9.55, .11), (8.9, .18), (7.6, .2), (6.6, .19)], wave=_WO, curl=(1, 0.275, 3.5)),
-    'BLo4': dict(pts=[(0.5, 11.35), (0.75, 10.8), (1.0, 10.2), (1.3, 9.6), (1.6, 9.0), (1.95, 8.3), (2.15, 7.6), (2.3, 6.9), (2.35, 6.3)],
+    'BLo4': dict(pts=[(0.62, 11.85), (0.89, 11.6), (1.01, 11.1), (1.06, 10.6), (1.32, 10.2), (1.62, 9.8), (1.85, 9.4), (1.95, 8.3), (2.15, 7.6), (2.3, 6.9), (2.35, 6.3)],
                  widths=[(11.35, .04), (10.2, .07), (9.6, .1), (9.0, .16), (7.6, .19), (6.3, .18)], wave=_WO, curl=(-1, 0.3, 3.8)),
-    'BLo1': dict(pts=[(0.62, 11.3), (0.9, 10.8), (1.2, 10.2), (1.6, 9.5), (2.05, 9.0), (2.5, 8.5), (2.9, 8.0), (3.2, 7.4), (3.35, 6.9)],
+    'BLo1': dict(pts=[(0.62, 11.85), (0.941, 11.6), (1.061, 11.1), (1.162, 10.6), (1.49, 10.2), (1.79, 9.8), (2.02, 9.4), (2.5, 8.5), (2.9, 8.0), (3.2, 7.4), (3.35, 6.9)],
                  widths=[(11.3, .03), (10.0, .05), (8.0, .07), (6.9, .07)], wave=_WO, curl=(-1, 0.275, 3.9)),
-    'BLo7': dict(pts=[(0.6, 11.3), (0.9, 10.72), (1.28, 10.02), (1.7, 9.3), (2.15, 8.6), (2.62, 7.9), (3.0, 7.3), (3.18, 6.95)],
+    'BLo7': dict(pts=[(0.62, 11.85), (0.947, 11.6), (1.067, 11.1), (1.174, 10.6), (1.51, 10.2), (1.81, 9.8), (2.04, 9.4), (2.15, 8.6), (2.62, 7.9), (3.0, 7.3), (3.18, 6.95)],
                  widths=[(11.3, .03), (10.0, .06), (9.3, .1), (8.6, .16), (7.4, .17)], wave=_WO, curl=(1, 0.3, 3.9)),
     # her right side hair
-    'BRou': dict(pts=[(-0.58, 11.3), (-0.88, 10.75), (-1.25, 10.1), (-1.65, 9.4), (-2.05, 8.7), (-2.42, 8.0), (-2.68, 7.3), (-2.8, 6.6), (-2.74, 6.05)],
+    'BRou': dict(pts=[(-0.62, 11.85), (-0.92, 11.6), (-1.04, 11.1), (-1.12, 10.6), (-1.42, 10.2), (-1.72, 9.8), (-1.95, 9.4), (-2.05, 8.7), (-2.42, 8.0), (-2.68, 7.3), (-2.8, 6.6), (-2.74, 6.05)],
                  widths=[(11.3, .14), (10.5, .16), (10.1, .12), (9.3, .18), (8.7, .3), (7.0, .34), (6.45, .3), (6.05, 0)]),
-    'BRo3': dict(pts=[(-0.6, 11.3), (-0.9, 10.7), (-1.3, 10.0), (-1.7, 9.3), (-2.1, 8.6), (-2.5, 7.9), (-2.85, 7.2), (-3.05, 6.6), (-3.0, 6.2)],
+    'BRo3': dict(pts=[(-0.62, 11.85), (-0.932, 11.6), (-1.052, 11.1), (-1.144, 10.6), (-1.46, 10.2), (-1.76, 9.8), (-1.99, 9.4), (-2.1, 8.6), (-2.5, 7.9), (-2.85, 7.2), (-3.05, 6.6), (-3.0, 6.2)],
                  widths=[(11.3, .04), (10.0, .07), (9.3, .12), (8.6, .2), (7.0, .22), (6.2, .2)], wave=_WO, curl=(1, 0.312, 3.7)),
-    'BRo2': dict(pts=[(-0.55, 11.35), (-0.85, 10.8), (-1.2, 10.15), (-1.55, 9.5), (-1.95, 8.85), (-2.35, 8.1), (-2.65, 7.4), (-2.8, 6.7), (-2.78, 6.2), (-2.7, 5.95)],
+    'BRo2': dict(pts=[(-0.62, 11.85), (-0.911, 11.6), (-1.031, 11.1), (-1.102, 10.6), (-1.39, 10.2), (-1.69, 9.8), (-1.92, 9.4), (-1.95, 8.85), (-2.35, 8.1), (-2.65, 7.4), (-2.8, 6.7), (-2.78, 6.2), (-2.7, 5.95)],
                  widths=[(11.35, .05), (10.15, .08), (9.5, .13), (8.85, .22), (7.4, .26), (6.0, .24)], wave=_WO, curl=(1, 0.325, 3.6)),
-    'BRo6': dict(pts=[(-0.56, 11.32), (-0.86, 10.76), (-1.2, 10.12), (-1.58, 9.45), (-2.0, 8.75), (-2.38, 8.0), (-2.62, 7.35)],
+    'BRo6': dict(pts=[(-0.62, 11.85), (-0.926, 11.6), (-1.046, 11.1), (-1.132, 10.6), (-1.44, 10.2), (-1.74, 9.8), (-1.97, 9.4), (-2.0, 8.75), (-2.38, 8.0), (-2.62, 7.35)],
                  widths=[(11.32, .04), (10.1, .07), (9.4, .12), (8.7, .19), (7.5, .2)], wave=_WO, curl=(-1, 0.275, 3.9)),
-    'BRo5': dict(pts=[(-0.52, 11.33), (-0.8, 10.78), (-1.1, 10.15), (-1.42, 9.55), (-1.8, 8.9), (-2.15, 8.2), (-2.42, 7.5), (-2.55, 6.9), (-2.5, 6.5)],
+    'BRo5': dict(pts=[(-0.62, 11.85), (-0.902, 11.6), (-1.022, 11.1), (-1.084, 10.6), (-1.36, 10.2), (-1.66, 9.8), (-1.89, 9.4), (-1.8, 8.9), (-2.15, 8.2), (-2.42, 7.5), (-2.55, 6.9), (-2.5, 6.5)],
                  widths=[(11.33, .04), (10.15, .07), (9.55, .11), (8.9, .18), (7.5, .2), (6.5, .19)], wave=_WO, curl=(-1, 0.275, 3.5)),
-    'BRo4': dict(pts=[(-0.5, 11.35), (-0.78, 10.8), (-1.05, 10.2), (-1.35, 9.6), (-1.65, 9.0), (-1.95, 8.3), (-2.1, 7.6), (-2.2, 6.9), (-2.25, 6.4)],
+    'BRo4': dict(pts=[(-0.62, 11.85), (-0.89, 11.6), (-1.01, 11.1), (-1.06, 10.6), (-1.32, 10.2), (-1.62, 9.8), (-1.85, 9.4), (-1.95, 8.3), (-2.1, 7.6), (-2.2, 6.9), (-2.25, 6.4)],
                  widths=[(11.35, .04), (10.2, .07), (9.6, .1), (9.0, .16), (7.6, .19), (6.4, .18)], wave=_WO, curl=(1, 0.288, 3.7)),
-    'BRo1': dict(pts=[(-0.62, 11.3), (-0.95, 10.75), (-1.3, 10.1), (-1.75, 9.4), (-2.2, 8.8), (-2.65, 8.2), (-3.0, 7.6), (-3.25, 7.1), (-3.3, 6.75)],
+    'BRo1': dict(pts=[(-0.62, 11.85), (-0.941, 11.6), (-1.061, 11.1), (-1.162, 10.6), (-1.49, 10.2), (-1.79, 9.8), (-2.02, 9.4), (-2.2, 8.8), (-2.65, 8.2), (-3.0, 7.6), (-3.25, 7.1), (-3.3, 6.75)],
                  widths=[(11.3, .03), (10.0, .05), (8.0, .07), (6.75, .07)], wave=_WO, curl=(1, 0.275, 3.8)),
-    'BRo7': dict(pts=[(-0.6, 11.3), (-0.92, 10.72), (-1.32, 10.02), (-1.75, 9.3), (-2.2, 8.6), (-2.65, 7.9), (-3.0, 7.25), (-3.15, 6.9)],
+    'BRo7': dict(pts=[(-0.62, 11.85), (-0.947, 11.6), (-1.067, 11.1), (-1.174, 10.6), (-1.51, 10.2), (-1.81, 9.8), (-2.04, 9.4), (-2.2, 8.6), (-2.65, 7.9), (-3.0, 7.25), (-3.15, 6.9)],
                  widths=[(11.3, .03), (10.0, .06), (9.3, .1), (8.6, .16), (7.4, .17)], wave=_WO, curl=(-1, 0.3, 3.9)),
 }
 BK_STRANDS = {k: _flow_strand(**v) for k, v in BK_FLOW.items()}
@@ -469,6 +472,9 @@ BK_LOOK = {'BL10': (HAIR_DK, 0.04), 'BL9': (HAIR, 0.04), 'BR9': (HAIR_DK, 0.04),
            'BLo5': (HAIR_LT, 0.04), 'BRo5': (HAIR_DK, 0.04), 'BLo4': (HAIR_LT, 0.04), 'BRo4': (HAIR, 0.04),
            'BLo1': (HAIR_LT, 0.03), 'BRo1': (HAIR_LT, 0.03)}
 BK_LOOK = {k: (c, round(th * 2.3, 4)) for k, (c, th) in BK_LOOK.items()}
+# the side hair, turned to face out to her side, thicker so that its clumps have body seen edge-on from behind (as
+# anime hair is modelled: clumps about three times as wide as thick), not paper ribbons
+BK_LOOK.update({k: (c, round(th * 1.4, 4)) for k, (c, th) in BK_LOOK.items() if k in BK_SIDE})
 BK_ROOT = (0.88, 11.87)     # the strands start inside the braid at the back of the head (y, z; measured: the braid's
                             # outside is at y 0.96 and z 11.84 to 11.9 in the middle)
 BK_TOP = 0.96               # how far back a strand is where it comes out under the braid
@@ -481,9 +487,23 @@ BK_NOISE = (0.005, 0.03, 0.03, 0.005)  # so that no strand is machine-smooth: ea
                             # read as lumps along the big clumps)
 BK_TWIST = {}               # turns a strand twists about its own line below the nape (none: neat hair lies flat)
 BK_UNDER = ('BL9', 'BL10', 'BR8', 'BR9')   # the strands under the braid
-BK_DRAPE_Z = 10.0          # the side hair lies on what is under it above this (coming forward from the head onto the
-                            # shoulders); below it, it falls straight (never coming forward: draped down to 9.0, it
-                            # creased where it left the capelet's hem)
+BK_DRAPE_Z = 9.3           # the side hair lies on what is under it above this (down the side of the head, over the
+                            # side locks and the puffed sleeve to its widest); below it, it falls straight (never coming
+                            # forward), beside the arm. (When it ran down her back, draped below 10.0 it creased where it
+                            # left the capelet's hem)
+BK_SIDE_Y = ((12.1, 0.44), (11.0, 0.48), (10.2, 0.5), (9.4, 0.48), (8.0, 0.48))   # (z, y): the side hair hangs at her
+                            # side this far back (from the braid's end, 0.44, to along the back edge of the arm, 0.37 at
+                            # the upper arm: the user's arrows; further forward it hid the elbow from the side), each
+                            # strand BK_SIDE_DY more, lying out on what is at her side there (SIDE_OUT) and on the side
+                            # strands laid before it, and further out where it is drawn further out (fanning beyond the arms)
+BK_SIDE_DY = {'BLou': 0.0, 'BLo3': 0.12, 'BLo2': 0.06, 'BLo6': 0.18, 'BLo5': 0.03, 'BLo4': -0.03, 'BLo1': 0.24, 'BLo7': 0.15,
+              'BRou': 0.0, 'BRo3': 0.12, 'BRo2': 0.06, 'BRo6': 0.18, 'BRo5': 0.03, 'BRo4': -0.03, 'BRo1': 0.24, 'BRo7': 0.15}
+BK_SIDE_FACE = (0.78, 0.15) # the side hair faces mostly out to her side (the user: turned about 90 degrees from facing
+                            # back, to whatever angle looks best from the side too): turned toward the way out from her
+                            # middle (y 0.15) by this part of it, about 65 degrees at her side (0.6, 50 degrees, still
+                            # read as edge-on lines from the side; all the way, from behind, as tentacles)
+BK_SIDE_CURL_TILT = math.radians(25)   # its curls lie in its own sheet, facing out to the side (C-curls seen from the
+                            # side), turned out of it by this
 BK_WRAP = (0.1, 10.4, 9.4)   # in 3D the long hair wraps round her back and arms (the user: drawn from the back view
                             # alone, every strand lay in one plane, which was unnatural): below z 10.4, fully by 9.4, a
                             # strand comes forward by 0.1 (x^2 - x0^2) from where it would hang, x0 where it starts down,
@@ -537,6 +557,8 @@ def _clothes_back():
     import sheetfit, contextlib, io
     with contextlib.redirect_stdout(io.StringIO()):        # its own report of the expanded formulas
         clothes = sheetfit.model_surfaces('body,cape,corset,skirt,arms,book')
+    global _CLOTHES_SURFS
+    _CLOTHES_SURFS = clothes                                # (for the side hair: SIDE_OUT)
     G = _back_grid(clothes, _KG)
     x0, z0, st, nx, nz = _KG
     for j in range(nz):
@@ -602,7 +624,10 @@ def head_back_grid():
     HEAD_CONTACT = CrownContact(hair, zmin=10.7)
     HEAD_UNDER_CONTACT = CrownContact([s for s in hair if s[0]=='hairUnder'], zmin=10.7)
     global LOCKS_BACK               # the long locks over the shoulders and arms, for the side hair to lie on
-    LOCKS_BACK = _back_grid(sheetfit.surfaces_from_lines(sc.out, ref=r'(back[UT]?\d+|side[LR]\d+|earBackLock\d)(Tip)?'), _LG)
+    locks = sheetfit.surfaces_from_lines(sc.out, ref=r'(back[UT]?\d+|side[LR]\d+|earBackLock\d)(Tip)?')
+    LOCKS_BACK = _back_grid(locks, _LG)
+    global SIDE_OUT                 # and how far out to her sides the figure reaches, for the side hair to lie on
+    SIDE_OUT = _side_grid(hair + locks + list(_CLOTHES_SURFS), _SG)
     return _back_grid(hair, _HG)
 
 
@@ -702,6 +727,43 @@ def body_back(x, z, head=True):
 _UG = (-3.6, 4.8, 0.01, 721, 711)      # the grid of how far back the back strands already laid reach
 _LG = (-3.6, 8.0, 0.02, 361, 181)      # and of the long locks over the shoulders and arms (LOCKS_BACK)
 LOCKS_BACK = None
+_SG = (-1.6, 5.0, 0.02, 181, 371)      # and of how far out to each side the figure reaches: y from -1.6, z from 5.0
+SIDE_OUT = None                         # {1: her left (largest x), -1: her right (largest -x)} at each (y, z), -9: none
+_CLOTHES_SURFS = []
+
+
+def _side_grid(surfs, spec):
+    """How far out to each side (largest x, and largest -x) the surfaces reach at each (y, z) of the grid spec (y0, z0,
+    step, ny, nz), -9 where none: sampled as _back_grid samples them."""
+    import sheetfit
+    y0, z0, st, ny, nz = spec
+    G = {1: np.full((ny, nz), -9.0), -1: np.full((ny, nz), -9.0)}
+    for _, _, f, lim in surfs:
+        P = sheetfit._grid(f, lim, 20, 20)
+        Q = P[np.isfinite(P).all(-1)]
+        if not len(Q) or Q[:, 2].max() < z0 or Q[:, 2].min() > z0 + st * nz:
+            continue
+        lu = np.nanmax(np.nansum(np.linalg.norm(np.diff(P, axis=0), axis=-1), axis=0))
+        lv = np.nanmax(np.nansum(np.linalg.norm(np.diff(P, axis=1), axis=-1), axis=1))
+        P = sheetfit._grid(f, lim, int(np.clip(lu / 0.012, 8, 500)), int(np.clip(lv / 0.012, 8, 500))).reshape(-1, 3)
+        P = P[np.isfinite(P).all(1)]
+        i, j = np.round((P[:, 1] - y0) / st).astype(int), np.round((P[:, 2] - z0) / st).astype(int)
+        ok = (i >= 0) & (i < ny) & (j >= 0) & (j < nz)
+        for sg in (1, -1):
+            np.maximum.at(G[sg], (i[ok], j[ok]), sg * P[ok, 0])
+    for sg in (1, -1):
+        for _ in range(2):
+            G[sg] = _grow(G[sg], -9.0)
+    return G
+
+
+def side_out(sg, y, z, G=None):
+    """How far out to her left (sg 1: x) or right (-1: -x) the figure (or the grid G) reaches at (y, z) (arrays)."""
+    G = SIDE_OUT[sg] if G is None else G[sg]
+    y0, z0, st, ny, nz = _SG
+    i, j = np.round((np.asarray(y) - y0) / st).astype(int), np.round((np.asarray(z) - z0) / st).astype(int)
+    ok = (i >= 0) & (i < ny) & (j >= 0) & (j < nz)
+    return np.where(ok, G[np.clip(i, 0, ny - 1), np.clip(j, 0, nz - 1)], -9.0)
 
 
 def ringlet_axes():
@@ -1007,6 +1069,7 @@ def back_strands():
     A strand that ends in a ringlet rises over its last 0.6 to where the ringlet starts (ringlet_axes)."""
     ux0, uz0, ust, unx, unz = _UG
     under = np.zeros((unx, unz))
+    side_under = {sg: np.full(_SG[3:], -9.0) for sg in (1, -1)}     # how far out the side strands laid so far reach
     out, axes = {}, ringlet_axes()
 
     def at_under(px, pz):
@@ -1055,10 +1118,11 @@ def back_strands():
         # falls straight below, it falls straight on the wrap's curve instead
         kw, zw0, zw1 = BK_WRAP
         wrapped = key not in BK_UNDER and key != 'BR0'
+        bent = wrapped and not side                          # (the side hair is at her side already: no wrap)
         rw = np.clip((zw0 - Q[:, 1]) / (zw0 - zw1), 0, 1)
         rw = rw * rw * (3 - 2 * rw)
         x_ref = Q[int(np.argmax(Q[:, 1] < zw0)), 0] if (Q[:, 1] < zw0).any() else Q[-1, 0]
-        wsh = -kw * (Q[:, 0] ** 2 - x_ref ** 2) * rw if wrapped else np.zeros(len(s))
+        wsh = -kw * (Q[:, 0] ** 2 - x_ref ** 2) * rw if bent else np.zeros(len(s))
         body = np.r_[0, wsh] + np.maximum.accumulate(np.r_[first, np.where(fb > -9, fb + CH_GAP - wsh, -np.inf)])
         fall = np.nonzero(Q[:, 1] < BK_DRAPE_Z)[0]
         fall = fall[0] if len(fall) else len(s)
@@ -1115,6 +1179,38 @@ def back_strands():
             y = np.maximum(y, floor)
             for _ in range(6):
                 y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), floor)
+        if side:
+            # at her side (the user: not behind her): this far back (BK_SIDE_Y, BK_SIDE_DY, easing in below the braid,
+            # and waving as the others do), and out on what is at her side and on the side strands laid before it,
+            # or further out where it is drawn so
+            sg = 1 if key[1] == 'L' else -1
+            zs_, ys_ = zip(*BK_SIDE_Y)
+            ein = np.clip(s / 0.5, 0, 1)
+            y = np.interp(-Q[:, 1], -np.array(zs_), np.array(ys_)) + BK_SIDE_DY[key] * ein * ein * (3 - 2 * ein)
+            y = y + a_ * rd * rd * (3 - 2 * rd) * np.sin(2 * math.pi * s / lam_ + ph_)
+            on_ = Q[:, 1] > BK_DRAPE_Z                       # lying on her side, down to the puffed sleeve's widest
+            ax = np.full(len(s), -9.0)
+            for k in np.linspace(-1, 1, 7):                  # across its width, which lies along y here
+                yk = y + 0.6 * k * hw
+                ax = np.maximum(ax, np.maximum(side_out(sg, yk, Q[:, 1]) + CH_GAP,
+                                               np.where(on_, side_out(sg, yk, Q[:, 1], side_under) + CH_ON, -9.0)))
+            ax = ax + 0.3 * thv * tip
+            xd = sg * Q[:, 0]
+            xs_ = np.maximum(xd, ax)
+            below = np.nonzero(~on_)[0]
+            if len(below) and below[0] > 0:                  # below, it fans out as drawn: how far it was pushed out
+                i9 = below[0]                                # eases off over 0.6
+                fade = np.clip((s - s[i9]) / 0.6, 0, 1)
+                fade = 1 - fade * fade * (3 - 2 * fade)
+                xs_[i9:] = np.maximum(xd[i9:] + (xs_[i9 - 1] - xd[i9 - 1]) * fade[i9:], ax[i9:])
+            for _ in range(12):                              # smoothed, never into what it lies on
+                xs_ = np.maximum(np.convolve(np.pad(xs_, 24, mode='edge'), ker / ker.sum(), 'valid'), ax)
+            Q[:, 0] = sg * xs_
+            for k in np.linspace(-1.2, 1.2, 11):             # the side strands over it lie just out from it
+                yk = y + 0.6 * k * hw
+                i_, j_ = np.round((yk - _SG[0]) / _SG[2]).astype(int), np.round((Q[:, 1] - _SG[1]) / _SG[2]).astype(int)
+                ok_ = (i_ >= 0) & (i_ < _SG[3]) & (j_ >= 0) & (j_ < _SG[4])
+                np.maximum.at(side_under[sg], (i_[ok_], j_[ok_]), (xs_ + 0.1 * thv * tip)[ok_])
         if curl:
             # where the ringlet starts: beside its axis if the strand ends at least r0 from it across, else in front
             ox, oy = axes[key]
@@ -1131,18 +1227,30 @@ def back_strands():
         # it faces out from the wrap's curve (psi: how far its section turns about the upright, from facing straight
         # back), and its curl turns out of the sheet (BK_CURL_TILT: about the upright through a point 0.3 above the
         # curl, back and away from her; the strands over it lie on the sheet, as written to `under` above)
-        psi = -np.arctan(2 * kw * Q[:, 0] * rw) if wrapped else np.zeros(len(s))
+        psi = -np.arctan(2 * kw * Q[:, 0] * rw) if bent else np.zeros(len(s))
+        if side:                                             # facing partly out to the side, from below the braid
+            fo, yc = BK_SIDE_FACE
+            ramp = np.clip(s / 0.6, 0, 1)
+            psi = -fo * np.arctan2(Q[:, 0], y - yc) * ramp * ramp * (3 - 2 * ramp)
         if wrapped and key in BK_CURL_AT:
             ic, sense = BK_CURL_AT[key]
             ic += len(D) - len(BK_STRANDS[key])              # (the point added under the braid)
             sp = max(0.0, d[ic] - 0.3)
             ip = int(np.searchsorted(s, sp))
             bt = np.clip((s - sp) / 0.5, 0, 1)
-            tl = sense * BK_CURL_TILT * bt * bt * (3 - 2 * bt)
+            bt = bt * bt * (3 - 2 * bt)
+            if side:
+                # the side hair's curl turns into its own sheet, which faces out to her side (psi there), and out
+                # of it by BK_SIDE_CURL_TILT; its section turns with it
+                tl = (psi[ip] + sense * BK_SIDE_CURL_TILT) * bt
+                psi_c = psi * (1 - bt) + tl
+            else:
+                tl = sense * BK_CURL_TILT * bt
+                psi_c = psi + tl
             dx_, dy_ = Q[:, 0] - Q[ip, 0], y - y[ip]
             Q[:, 0] = np.where(s >= sp, Q[ip, 0] + dx_ * np.cos(tl) - dy_ * np.sin(tl), Q[:, 0])
             y = np.where(s >= sp, y[ip] + dx_ * np.sin(tl) + dy_ * np.cos(tl), y)
-            psi = psi + tl
+            psi = psi_c
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
         if key in BK_UNDER or side:                          # its root inside the braid, where the braid crosses it
