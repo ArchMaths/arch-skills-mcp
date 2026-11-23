@@ -130,7 +130,9 @@ TUCK = '#b8ac9a'                # the blouse's pleat lines: a soft grey-beige
 TUCK_X0, TUCK_DX, TUCK_N = 0.05, 0.065, 9
 JABOT_X = -0.06                 # the cascade hangs a little toward her right, as the ascot does
 # jabot tiers: top, height, half-width, stand-off, ruffle depth, folds
-JABOT_TIERS = ((9.84, 0.32, 0.42, 0.03, 0.035, 13), (9.58, 0.28, 0.38, 0.05, 0.05, 12), (9.36, 0.27, 0.31, 0.045, 0.05, 11))
+JABOT_TIERS = ((10.2, 0.34, 0.5, 0.02, 0.04, 14), (9.9, 0.34, 0.56, 0.035, 0.05, 15), (9.6, 0.3, 0.5, 0.05, 0.055, 14),
+               (9.36, 0.27, 0.36, 0.045, 0.05, 11))
+LACE_W = '#f7f1e8'              # the lace and ruffles: a warm white
 # ascot tails: name, top (x left, x right, z), outer corner, point, inner corner (x, z), stand-off, pleats
 ASCOT_TAILS = (('Front', (-0.155, 0.02, 10.38), (-0.52, 9.72), (-0.11, 9.43), (-0.03, 9.56), 0.18, 2.5),
                ('Back', (0.17, 0.0, 10.38), (0.3, 9.72), (0.0, 9.47), (-0.06, 9.55), 0.13, 2.0))
@@ -151,10 +153,16 @@ if want('body'):
 band rises to 10.92 and two gathered tiers of lace stand on it, the upper one ending 0.02 under the chin (its lowest
 point is at 11.02), so the neck does not show in front.""")
     sc.surface(("(0.235+0.022*s)*cos(w)", "0.02+(0.235+0.022*s)*sin(w)", "10.42+0.5*s"), ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collar', ('tube', 'u'))
-    sc.surface(("(0.25+0.1*s+0.028*s*sin(20*w))*cos(w)", "0.02+(0.25+0.1*s+0.028*s*sin(20*w))*sin(w)", "10.84+0.09*s+0.02*s*cos(20*w)"),
-               ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffle', ('point', (0, 0.02, 10.5)))
-    sc.surface(("(0.262+0.055*s+0.02*s*sin(24*w+1))*cos(w)", "0.02+(0.262+0.055*s+0.02*s*sin(24*w+1))*sin(w)", "10.9+0.085*s+0.012*s*cos(24*w+1)"),
-               ('s', 0, 1), ('w', 0, '2*pi'), CREAM, 'collarRuffleTop', ('point', (0, 0.02, 10.5)))
+    # Soft gathered lace, 22 and 28 small rounded flutes round the neck, each tier in eight sectors so that Arch's mesh
+    # (31 steps a side) gives every flute about ten steps: with the whole ring in one surface it drew sharp zigzags.
+    # They stand up round the neck, flaring only a little, so their outsides face the viewer (a funnel's outside faces down
+    # and away from Arch's light, and drew grey).
+    for nm_, r0, dr, amp, z0, dz, n_, ph_ in (('collarRuffle', 0.25, 0.055, 0.012, 10.84, 0.12, 22, 0.0),
+                                             ('collarRuffleTop', 0.262, 0.04, 0.009, 10.9, 0.09, 28, 1.0)):
+        R_ = f"({fmt(r0)}+{fmt(dr)}*s+{fmt(amp)}*s^1.5*sin({n_}*w+{fmt(ph_)}))"
+        for k in range(8):
+            sc.surface((f"{R_}*cos(w)", f"0.02+{R_}*sin(w)", f"{fmt(z0)}+{fmt(dz)}*s+0.012*s^2*cos({n_}*w+{fmt(ph_)})"),
+                       ('s', 0, 1), ('w', k * math.pi / 4, (k + 1) * math.pi / 4), LACE_W, f'{nm_}{k + 1}', ('point', (0, 0.02, 11.4)))
     # Fine pleats down the blouse front (the shirt's close-up: about a dozen across), drawn in soft grey-beige, one
     # stroke a side: up each line and back down, then across to the next under the corset's edge.
     s_of = lambda z: float(np.linspace(0, 1, 400)[int(np.argmin([abs(p[0] - z) for p in _tz]))])
@@ -173,8 +181,9 @@ point is at 11.02), so the neck does not show in front.""")
     for i, (zt, h, w, off, dep, n) in enumerate(JABOT_TIERS):
         Zj = f"({fmt(zt)}-{fmt(h)}*s*(1-0.3*p*p)*(1+0.06*jtr({n}*p)))"
         Xj = f"({fmt(JABOT_X)}+{fmt(w)}*p*(0.6+0.4*s)+0.02*s*jtr({n}*p+1.57))"
-        sc.surface((Xj, f"-(chg({Zj})+{fmt(off)}+s*({fmt(dep * 0.6)}+{fmt(dep)}*jtr({n}*p)))", Zj), ('p', -1, 1), ('s', 0, 1),
-                   CREAM if i % 2 == 0 else '#f7f0e4', f'jabot{i + 1}', ('dir', (0, -1, 0.2)))
+        for k in range(4):      # four sectors, so each fold gets enough of Arch's mesh to be a soft wave
+            sc.surface((Xj, f"-(chg({Zj})+{fmt(off)}+s*({fmt(dep * 0.6)}+{fmt(dep)}*jtr({n}*p)))", Zj), ('p', -1 + 0.5 * k, -0.5 + 0.5 * k), ('s', 0, 1),
+                       LACE_W if i % 2 == 0 else '#f3ebdf', f'jabot{i + 1}{"abcd"[k]}', ('dir', (0, -1, 0.2)))
 
     sc.blank()
     sc.note('Black ascot with a chrysanthemum brooch')
@@ -183,7 +192,7 @@ knot. The front one swings toward her right and ends in a point; the other shows
 Each has a double gold line inside its edges and the front one a small sprig at its point.""")
     K = (0, -(CHG(10.5) + 0.07), 10.5)
     ellipsoid(add(K, (0, 0.03, -0.08)), (0.1, 0.06, 0.09), BLACK, 'ascotKnot')
-    flower(add(K, (0, -0.03, 0.0)), unit((0, -1, 0.12)), 0.19, 'brooch')
+    copper_flower(add(K, (0, -0.03, 0.0)), unit((0, -1, 0.12)), 0.2, 'brooch')
     for nm_, (xl, xr, zt), (xA, zA), (xT, zT), (xI, zI), off, npl in ASCOT_TAILS:
         uT = (xT - xA) / (xI - xA)
 
@@ -193,6 +202,10 @@ Each has a double gold line inside its edges and the front one a small sprig at 
             Xt = f"({fmt(xl)}+{fmt(xr - xl)}*{u}+({fmt(xA - xl)}+{fmt(xI - xA - xr + xl)}*{u})*{v})"
             return (Xt, f"-(chg({Zt})+{fmt(off * 0.45)}+{fmt(off * 0.55)}*{v}+0.022*{v}*cos({fmt(2 * math.pi * npl)}*{u})+{lift})", Zt)
         sc.surface(tail('u', 'v'), ('u', 0, 1), ('v', 0, 1), BLACK, f'ascot{nm_}', ('dir', (0, -1, 0.2)))
+        # satin: a soft sheen down the panel, translucent, in two widths for a soft edge
+        for k, (u0, du, op) in enumerate(((0.3, 0.16, 0.25), (0.34, 0.08, 0.35))):
+            sc.surface(tail(f"({fmt(u0)}+{fmt(du)}*u)", 'v', '0.003'), ('u', 0, 1), ('v', 0.06, 0.8), '#6a5e5a', f'ascot{nm_}Sheen{k + 1}',
+                       ('dir', (0, -1, 0.2)), opacity=op)
         for j, vv in enumerate((0.93, 0.885)):
             sc.curve(tail('t', fmt(vv), '0.006'), ('t', 0.05 + 0.03 * j, 0.95 - 0.03 * j), GOLD, f'ascot{nm_}Hem{j + 1}', thickness=1)
             for e_, uu in (('A', 0.05 + 0.03 * j), ('B', 0.95 - 0.03 * j)):
@@ -717,7 +730,7 @@ narrowing to a point at 3.85 on her left. v runs across a tab, p down a part."""
             upv = cross(n, tang)
             C = add(P, mul(n, 0.07))
             bow(C, (tang, upv, n), (0.46 * sz_, 0.2 * sz_, 0.09), f'bow{fb}{tag}', loops=((1, -0.2), (-1, -0.2)))
-            flower(add(add(C, mul(n, 0.08)), mul(upv, 0.5 * sz_)), n, 0.24 * sz_, f'bowFlower{fb}{tag}')     # the medallion above
+            copper_flower(add(add(C, mul(n, 0.08)), mul(upv, 0.5 * sz_)), n, 0.24 * sz_, f'bowFlower{fb}{tag}')     # the medallion above
             for k, (dx, ln) in enumerate(((0.09, 0.95), (-0.1, 0.8))):
                 b0 = add(C, mul(tang, dx))
                 ln *= sz_

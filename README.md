@@ -155,6 +155,8 @@ Guide topics: `workflow format syntax geometry animation text operators script m
 
 Exit code 0 means OK, 1 means the script has errors, 2 means a usage or environment problem. `--json` prints the full result.
 
+Every browser step has a time limit, so a check always ends. If Chrome's page crashes, the check stops at once and reports it. That usually means it ran out of memory: a very large 3D scene takes about 2 GB per page and a check opens two, so run fewer big checks at the same time.
+
 ## SVG drawings (svg2arch)
 
 ```sh

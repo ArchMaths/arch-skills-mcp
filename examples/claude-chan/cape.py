@@ -355,8 +355,9 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
         sc.curve(at(cu, qf, '1.006'), ('t', -1, 1), GOLD, f'capeFacingLine{tag}', thickness=2)
         # a frill hangs from the fold line (close-up of the chest): 0.12 deep, ruffled
         sf = "(1.012+0.03*v*(1+0.8*sin(40*t)))"
-        sc.surface(at(cu, qf, sf, "-0.12*v*(1+0.12*cos(40*t))"), ('t', -1, 1), ('v', 0, 1), CP_LACE,
-                   f'capeFacingFrill{tag}', ('dir', (0, -1, 0.3)))
+        for k in range(4):      # in sectors: each ruffle gets about ten of Arch's mesh steps (one surface drew grey shards)
+            sc.surface(at(cu, qf, sf, "-0.12*v*(1+0.12*cos(40*t))"), ('t', -1 + 0.5 * k, -0.5 + 0.5 * k), ('v', 0, 1), CP_LACE,
+                       f'capeFacingFrill{tag}{k + 1}', ('dir', (0, -1, 0.3)))
     # Drawn fold lines (soft grey-beige), all in one stroke: up each line from the hem to where it starts and back
     # down, then along the hem to the next line. kfa(k) is where line k starts.
     FL = fold_lines()
@@ -389,7 +390,7 @@ and back views): half-width kpa, depth kpf in front of the centre line and kpb b
                  GOLD, f'capeCollarEdge{tag}', thickness=2)
     # embroidered chrysanthemums at the circled places
     for k, (C, n, up) in EMBLEMS.items():
-        flower(add(C, mul(n, 0.01)), n, EMB_R, f'capeEmblem{k}', up=up, layers=1, flat=True, colors=(CP_EMB, CP_EMB, CP_EMB, GOLD))
+        copper_flower(add(C, mul(n, 0.012)), n, EMB_R, f'capeEmblem{k}', up=up, flat=True, cols=(CP_EMB, CP_EMB, CP_EMB, GOLD, '#b25a2c'))
 
 
 if want('cape'):

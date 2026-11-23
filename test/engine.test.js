@@ -124,6 +124,27 @@ test('JavaScript problems are reported, and loops time out', async () => {
     assert.ok(thrower.warnings.some(w => w.line === 1 && /boom threw "kaboom" \d+ time/.test(w.message)));
 });
 
+test('a page that crashes (e.g. out of memory) fails the run at once instead of hanging it', async () => {
+    const crashing = new ArchEngine();
+    try {
+        const load = crashing._loadPage.bind(crashing);
+        crashing._loadPage = async () => {
+            const slot = await load();
+            const cdp = await slot.context.newCDPSession(slot.page);
+            cdp.send('Page.crash').catch(() => {});
+            await slot.crashed;
+            return slot;
+        };
+        const started = Date.now();
+        const result = await crashing.run('y=x^2', {screenshot: true, timeoutMs: 60000});
+        assert.equal(result.ok, false);
+        assert.match(result.errors[0].message, /Building the scene failed: the browser page crashed/);
+        assert.ok(Date.now() - started < 30000, 'did not wait for the timeout');
+    } finally {
+        await crashing.close();
+    }
+});
+
 test('the page can reach neither local files nor the network', async () => {
     const slot = await engine.acquire();
     try {

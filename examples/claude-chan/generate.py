@@ -44,16 +44,20 @@ def mix(c0, c1, f):
     return '#' + ''.join(f'{round(int(c0[i:i + 2], 16) * (1 - f) + int(c1[i:i + 2], 16) * f):02x}' for i in (1, 3, 5))
 
 
-SKIN = unlit('#f8e6e0')     # renders as the hi-res portrait's skin, #f5e3dd, on average over the face
-SKIN_SH = unlit('#debcb4')  # the shade of her neck on the portrait
-HAIR_HI = '#eda077'     # muted coral hair, sampled from the sheet
-HAIR = '#c4623c'
-HAIR_DK = '#ac5232'
-HAIR_LT = '#d4744a'
+SKIN = unlit('#f8e3db', 1.17)     # the hi-res portrait's skin (#f5e3dd), a touch warmer and lit for 1.17: seen face-on it
+                                  # is the drawing's, and in 3/4 views (lit about 1.12) it stays warm instead of going grey
+SKIN_SH = unlit('#eccfc8', 1.17)  # the shade of her neck on the portrait: light, a little rosier than the face
+HAIR_HI = '#f0aa80'     # the hair's painted shine: a light peach
+HAIR = '#c4623c'        # muted coral hair, sampled from the sheet
+HAIR_DK = '#b65a37'     # the locks' shades, close to the base so the hair reads as clumps of one colour, not stripes
+HAIR_LT = '#cd6c44'
+HAIR_GLOSS = '#ffdcbc'  # the bright core of a highlight on the hair
+HAIR_LINE = '#a54b2c'   # the soft strand line down a clump
+HAIR_SHADE = '#a9492b'  # painted shade on the hair: a deeper, redder orange, never brown-grey
 HAIR_SH = '#8c3e24'
 CREAM = '#f3e9d8'
 CREAM_DK = '#e3d3bb'
-BLACK = '#1f1b22'
+BLACK = '#211c1b'
 GOLD = '#d9a441'
 GOLD_DK = '#b8862e'
 ORANGE = '#e8661c'
@@ -136,6 +140,37 @@ n petals of length R, cupped upward by cu, turned by ro; a ridge runs along each
     sc.func('fa(r,w,n,sz,ro)', 'sz*r*(0.28+0.72*fpr(w,n,ro))*cos(w)')
     sc.func('fb(r,w,n,sz,ro)', 'sz*r*(0.28+0.72*fpr(w,n,ro))*sin(w)')
     sc.func('fc(r,w,n,sz,cu,ro)', 'sz*(cu*r^2+0.07*r*fpr(w,n,ro)^3)')
+    sc.func('fpq(w,n,ro)', 'abs(cos(n*(w-ro)/2))^0.32')
+    sc.func('fqa(r,w,n,sz,ro)', 'sz*(0.12+0.88*r)*(0.42+0.58*fpq(w,n,ro))*cos(w)')
+    sc.func('fqb(r,w,n,sz,ro)', 'sz*(0.12+0.88*r)*(0.42+0.58*fpq(w,n,ro))*sin(w)')
+    sc.func('fqc(r,w,n,sz,cu,ro)', 'sz*(cu*r^2+0.05*r*cos(n*(w-ro)/2)^2)')
+
+
+# The hair flower and the brooch, as the hi-res portrait draws them: copper petals in two staggered rings of 18 and a
+# small inner ring, broad and round-tipped with a raised centre line, outlined in dark copper, round a domed button.
+FLOWER_COLS = ('#b85f2c', '#c86f36', '#d6823f', '#c27634', '#5e2c14')     # outer, middle, inner ring, button, outline
+
+
+def copper_flower(C, n_dir, R, ref, up=(0, 0, 1), cols=FLOWER_COLS, flat=False):
+    """A 3D chrysanthemum facing n_dir (flat: an embroidered one, one ring of petals). Arch meshes a surface with at most
+    31 steps a side at precision 10, so each ring is drawn in sectors of a few petals (about 8 steps a petal), each
+    sector starting and ending in a notch: in one surface the petals came out as spikes."""
+    flower_funcs()
+    fr = frame(n_dir, up)
+    rings = (((16, 1.07, 0.02, -0.004, 4, cols[4]), (16, 1.0, 0.02, 0.0, 4, cols[0])) if flat else
+             ((18, 1.06, 0.14, -0.035, 6, cols[4]), (18, 1.0, 0.14, 0.0, 6, cols[0]), (18, 0.8, 0.26, 0.05, 6, cols[1]), (12, 0.55, 0.45, 0.1, 2, cols[2])))
+    for li, (n, sz, cu, lift, nsec, col) in enumerate(rings):
+        ro = 0.0 if li < 2 else (math.pi / 18 if li == 2 else 0.12)
+        Cl = add(C, mul(fr[2], lift * R))
+        L = (f"fqa(r,w,{n},{fmt(R * sz)},{fmt(ro)})", f"fqb(r,w,{n},{fmt(R * sz)},{fmt(ro)})", f"fqc(r,w,{n},{fmt(R * sz)},{fmt(cu)},{fmt(ro)})")
+        for k in range(nsec):
+            w0 = ro + math.pi / n + 2 * math.pi * k / nsec
+            sc.surface(place(L, Cl, fr), ('r', 0, 1), ('w', w0, w0 + 2 * math.pi / nsec), col, f'{ref}{"OMIP"[li]}{k + 1}', ('dir', fr[2]))
+    Cc = add(C, mul(fr[2], (0.01 if flat else 0.12) * R))
+    L = (f"{fmt(0.2 * R)}*sin(u)*cos(v)", f"{fmt(0.2 * R)}*sin(u)*sin(v)", f"{fmt((0.04 if flat else 0.13) * R)}*cos(u)")
+    sc.surface(place(L, Cc, fr), ('u', 0, 'pi'), ('v', 0, '2*pi'), cols[3], f'{ref}Mid', 'closed')
+    torus(Cc, fr, 0.205 * R, 0.022 * R, cols[4], f'{ref}MidRing')
+    return fr
 
 
 def flower(C, n_dir, R, ref, up=(0, 0, 1), colors=(ORANGE, ORANGE_LT, AMBER, GOLD), layers=3, flat=False):
@@ -182,6 +217,31 @@ def bow(C, fr, size, ref, color=BLACK, rim=GOLD, loops=((1, 0.25), (-1, -0.25)),
         ellipsoid(add(C, mul(c, te * 0.3)), (he * 0.42, he * 0.5, te * 1.15), color, f'{ref}Knot', fr=fr)
 
 
+def satin_bow(K, fr, loops, ref, color=BLACK):
+    """A bow tied from a ribbon: each loop is the ribbon folded back on itself, seen face-on from the front. fr = (a, b,
+    c): a across the bow, b up, c toward the viewer. loops: (angle from a toward b, length, half-width at its end,
+    depth, droop). Each loop runs out along its axis on the front, round its end and back behind, pinched at the
+    knot and widest at the end, with a soft fold across it."""
+    a, b, c = fr
+    for k, (ang, le, wd, dp, droop) in enumerate(loops):
+        ax = unit(add(mul(a, math.cos(ang)), mul(b, math.sin(ang))))
+        bx = unit(cross(c, ax))
+        Xs = "((1-cos(th))/2)"
+        X = f"{fmt(le)}*{Xs}"
+        Y = f"{fmt(dp)}*sin(th)*(0.3+0.7*{Xs})+0.014*q*q"
+        W = f"{fmt(wd)}*(0.26+0.74*sin(1.5708*{Xs})^0.7)*(1-0.28*{Xs}^8)*q"     # bulging edges, rounded at the end
+        D = f"{fmt(droop)}*{Xs}^2"
+        xyz = tuple(f"{fmt(K[i])}+{fmt(ax[i])}*({X})+{fmt(c[i])}*({Y})+{fmt(bx[i])}*({W}-{D})" for i in range(3))
+        sc.surface(xyz, ('th', 0, '2*pi'), ('q', -1, 1), color, f'{ref}Loop{k + 1}', ('point', add(K, mul(ax, le * 0.5))))
+        # a soft fold down the loop's front, drawn as a lighter line on the satin
+        fx = tuple(f"{fmt(K[i])}+{fmt(ax[i])}*{fmt(le)}*((1-cos(t))/2)+{fmt(c[i])}*({fmt(dp)}*sin(t)*(0.3+0.7*(1-cos(t))/2)+0.006)"
+                   f"+{fmt(bx[i])}*({fmt(0.15 * wd)}*sin(1.5708*(1-cos(t))/2)-{fmt(droop)}*((1-cos(t))/2)^2)" for i in range(3))
+        sc.curve(fx, ('t', 0.5, 2.6), '#5a5250', f'{ref}Fold{k + 1}', thickness=2)
+    # the knot: a short band wrapped round the middle
+    L = (f"0.055*sin(u)*cos(v)", f"0.07*sin(u)*sin(v)*0.9", f"0.045*cos(u)")
+    sc.surface(place(L, add(K, mul(c, 0.02)), (a, b, c)), ('u', 0, 'pi'), ('v', 0, '2*pi'), color, f'{ref}Knot', 'closed')
+
+
 def ribbon(pts, width, color, ref, facing, twist=0.0, vcut=0.18, rim=None):
     """Flat ribbon along a Bezier centre line; q across the width; V-cut end."""
     cx_, cy_, cz_ = bezier_poly(pts)
@@ -199,9 +259,30 @@ def ribbon(pts, width, color, ref, facing, twist=0.0, vcut=0.18, rim=None):
         sc.surface(xyz, ('s', 0, 1), ('q', -1, 1), rim, ref + 'Rim', ('dir', facing))
 
 
-def tassel(top, length, color, ref, r=0.05, knob=GOLD):
-    """Cord top -> knob -> tassel cone with fine threads, hanging straight down."""
+def tassel(top, length, color, ref, r=0.05, knob=GOLD, beads=False):
+    """Cord top -> knob -> tassel cone with fine threads, hanging straight down. beads: as the hi-res portrait draws
+    the earrings and the ornament's tassel: a short cord, a string of graduated gold beads, a gold cap and cream silk
+    threads (color) bound by a gold band."""
     x, y, z = top
+    if beads:
+        zc = z
+        capsule((x, y, z), (x, y, z - 0.1 * length), 0.006, 0.006, knob, ref + 'Cord')
+        zc -= 0.1 * length
+        for k, f in enumerate((0.42, 0.75, 0.42, 0.95)):
+            rb = r * f
+            ellipsoid((x, y, zc - rb), (rb, rb, rb), knob, f'{ref}Bead{k + 1}')
+            zc -= 2 * rb * 0.96
+        # the cap: a bell over the top of the threads
+        hc = r * 0.9
+        sc.surface((f"{fmt(x)}+{fmt(r * 0.35)}*(1+1.3*s^1.5)*cos(w)", f"{fmt(y)}+{fmt(r * 0.35)}*(1+1.3*s^1.5)*sin(w)", f"{fmt(zc)}-{fmt(hc)}*s"),
+                   ('s', 0, 1), ('w', 0, '2*pi'), knob, ref + 'Cap', ('tube', 'u'))
+        zt = zc - hc * 0.85
+        Lt = length - (z - zt)
+        X = f"{fmt(x)}+{fmt(r * 0.72)}*(1+0.25*s)*(1+0.035*cos(9*w))*cos(w)"
+        Y = f"{fmt(y)}+{fmt(r * 0.72)}*(1+0.25*s)*(1+0.035*cos(9*w))*sin(w)"
+        sc.surface((X, Y, f"{fmt(zt)}-{fmt(Lt)}*s*(1-0.04*(1+cos(5*w+1))*s^4)"), ('s', 0, 1), ('w', 0, '2*pi'), color, ref, ('tube', 'u'))
+        torus((x, y, zt - 0.18 * Lt), ((1, 0, 0), (0, 1, 0), (0, 0, 1)), r * 0.78, r * 0.07, knob, ref + 'Band')
+        return
     capsule((x, y, z), (x, y, z - 0.25 * length), 0.008, 0.008, knob, ref + 'Cord')
     zk = z - 0.25 * length
     ellipsoid((x, y, zk - 0.04), (r * 0.75, r * 0.75, r * 0.85), knob, ref + 'Knob')
@@ -217,14 +298,14 @@ def tassel(top, length, color, ref, r=0.05, knob=GOLD):
 run('outfit.py')
 if want('earrings'):
     sc.blank()
-    sc.note('Gold tassel earrings')
+    sc.note('Earrings: gold beads and cream tassels')
     for side, tag in ((1, 'L'), (-1, 'R')):
         lobe = sc.turn_point(EAR_LOBES[tag], (HEAD_TURN['pivot'], HEAD_TURN['axis'], HEAD_TURN['angle'], None, HEAD_SCALE))
         k = HEAD_SCALE
-        top = (lobe[0] + 0.01 * side * k, lobe[1], lobe[2] - 0.04 * k)
+        top = (lobe[0] + 0.07 * side * k, lobe[1] - 0.02, lobe[2] - 0.04 * k)     # hooked through the lobe's outer edge, clear of the cheek's hair
         torus(add(top, (0, 0, -0.03 * k)), ((0, 1, 0), (0, 0, 1), (1, 0, 0)), 0.03 * k, 0.007 * k, GOLD, f'earHoop{tag}')
-        ellipsoid((top[0], top[1], top[2] - 0.1 * k), (0.045 * k,) * 3, GOLD, f'earBead{tag}')
-        tassel((top[0], top[1], top[2] - 0.15 * k), 0.4 * k, GOLD, f'earTassel{tag}', r=0.035 * k)
+        # as on the hi-res portrait: gold beads, a gold cap and a cream tassel, hanging to below the jaw
+        tassel((top[0], top[1], top[2] - 0.06 * k), 0.68 * k, CREAM, f'earTassel{tag}', r=0.05 * k, beads=True)
 
 if want('hair') or want('ornament'):
     run('hair.py')
@@ -235,11 +316,13 @@ if want('head') and not want('hair'):
 # The ornament's hanging parts lie on the hair: their centre lines (Bezier control points in the head's frame; the
 # tails with their half-widths) and the tassel's top (world). ornament_drape.py works them out from the hair as drawn,
 # keeping where the portrait's view sees them, and rewrites these lines: run it after changing the hair under them.
-ORN_TAILS = ((((1.04, -0.18, 11.73), (1.014, -0.16, 11.611), (0.99, -0.123, 11.484), (0.974, -0.171, 11.368), (0.955, -0.124, 11.227), (0.944, -0.144, 11.095)), 0.08),
-             (((1.04, -0.18, 11.73), (1.078, -0.16, 11.616), (1.119, -0.114, 11.492), (1.169, -0.158, 11.38), (1.217, -0.103, 11.243), (1.272, -0.115, 11.114)), 0.075))
-ORN_RIBBONS = (((1.04, -0.13, 11.71), (1.028, -0.134, 11.527), (1.014, -0.083, 11.316), (1.007, -0.152, 11.115), (0.992, -0.069, 10.866), (0.985, -0.117, 10.629)),
-               ((1.04, -0.13, 11.71), (1.064, -0.129, 11.527), (1.084, -0.092, 11.322), (1.105, -0.121, 11.115), (1.12, -0.094, 10.88), (1.132, -0.072, 10.631)))
-ORN_TASSEL_TOP = (0.9235, -0.2076, 11.3345)
+ORN_TAILS = ((((1.04, -0.18, 11.73), (1.019, -0.172, 11.633), (1.011, -0.354, 11.572), (0.981, -0.131, 11.422), (0.976, -0.305, 11.352), (0.958, -0.216, 11.223), (0.95, -0.234, 11.114)), 0.08),
+             (((1.04, -0.18, 11.73), (1.077, -0.258, 11.655), (1.107, -0.161, 11.54), (1.169, -0.545, 11.52), (1.177, 0.003, 11.304), (1.224, -0.081, 11.216), (1.268, -0.059, 11.103)), 0.075))
+ORN_RIBBONS = (((1.04, -0.13, 11.71), (1.028, -0.156, 11.552), (1.027, -0.155, 11.415), (1.013, -0.209, 11.224), (0.992, -0.057, 10.988), (1.014, -0.148, 10.854), (1.041, -0.181, 10.64)),
+               ((1.04, -0.13, 11.71), (1.061, -0.086, 11.558), (1.083, -0.317, 11.408), (1.072, 0.252, 11.143), (1.15, -0.447, 11.129), (1.148, 0.207, 10.747), (1.206, 0.191, 10.483)))
+ORN_TASSEL_TOP = (0.9203, -0.2988, 11.354)
+RIBBON_FACE = (0.55, -0.8, 0.1)     # the cream ribbons lie on the hair behind her ear, facing out and forward (head frame)
+RIBBON_W = 0.11          # the cream ribbons' half-width: wide chiffon, showing beside and below the black tails as drawn
 
 if want('ornament'):
     sc.blank()
@@ -253,13 +336,14 @@ if want('ornament'):
     K = (1.04, -0.16, 11.76)                       # the bow's knot, standing out in front of the falling hair
     with sc.turned(**HEAD_TURN):
         a_ = unit((1, 0, 0.35)); c_ = unit(view); b_ = unit(cross(c_, a_))
-        bow(K, (a_, b_, c_), (0.24, 0.11, 0.05), 'hairBow', loops=((1, 0.3), (-1, -0.35)))
+        # a large satin bow as drawn: one loop sweeping up and back over the hair, one out and down, both wide at the end
+        satin_bow(K, (a_, b_, c_), ((0.5, 0.32, 0.12, 0.07, 0.03), (math.pi + 0.6, 0.27, 0.105, 0.065, -0.02)), 'hairBow', color='#2a2321')
         for k, (pts, w_) in enumerate(ORN_TAILS):
             ribbon(pts, w_, BLACK, f'hairTail{k + 1}', c_, rim=GOLD)
         for k, pts in enumerate(ORN_RIBBONS):
-            ribbon(pts, 0.085, CREAM, f'hairRibbon{k + 1}', c_)
-        flower(C, nrm, 0.3, 'hairFlower')
-    tassel(ORN_TASSEL_TOP, 0.62, GOLD, 'hairTassel', r=0.043 * HEAD_SCALE)     # the tassel hangs straight down
+            ribbon(pts, RIBBON_W, CREAM, f'hairRibbon{k + 1}', unit(RIBBON_FACE), vcut=0.08)
+        copper_flower(C, nrm, 0.33, 'hairFlower')
+    tassel(ORN_TASSEL_TOP, 0.62, CREAM, 'hairTassel', r=0.05 * HEAD_SCALE, beads=True)     # the tassel hangs straight down
 
 # =====================================================================
 #  VIEW

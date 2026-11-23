@@ -117,15 +117,57 @@ across and down differ; parts placed this way sit right against the emblems and 
 way only gives x and z: `chest_strands` in `hair.py` works out the depth so a strand hangs on what is under it.
 The back view needs no landmarks (`back_strands`: it is calibrated in `sheetfit.py`). Read the colour runs of the
 hair on the sheet against the model's hair (by height, in model units) before changing which locks cover what:
-that is how the parting down her back was found.
+that is how the parting down her back was found (since closed into one curtain, below).
 
-The user's rules for hair: a curl at the end of a lock winds about an upright axis (its normal is the z-axis, even
-where the sheet draws it as a loop facing the viewer) and drops as it turns; strands are never machine-smooth (they
-wander, vary in width and twist gently about their own lines, about half a turn); the user calls a whole lock a
-"strand" and its parts "sub-strands"; each back lock has the four traced strands and four more that fill its
-gaps, in 18 sub-strands (`BK_SUBS`). To fill gaps, count them: the outline's extent at each height against the
+The user's rules for hair: strands are never machine-smooth (they wander and vary in width a little); the user
+calls a whole lock a "strand" and its parts "sub-strands". The user later found the curls unnatural and asked for the
+hair to be modelled as anime 3D figures model it, and then found the back and side hair twisted and weird and asked
+for it neat, as the drawing guides draw long back hair (studied too on a VRoid figure from behind), then smoother, in
+fewer and bigger clumps. So the hair down the back became one curtain of broad clumps from under the braid that follows the back of
+the head, spreads to its widest over the shoulder blades, wide enough to hang behind the arms and meet the locks over
+them (with gaps, the arms showed and the back read as three panels), the clumps under the others darker so the folds
+between them read. The user then asked
+for waves (one S-wave through the whole mass), line art (without a clear outline the clumps read as tubes), painted
+strokes and streaks, hooked tips and a bell-shaped curtain. With all of them the back no longer looked anime, while
+the bangs did (the user: "the bangs look really anime like which is perfect, reference to how they are modeled"). So
+the long hair (back curtain, side locks, outer back locks, locks at the nape) is made as the bangs are (`blade`): each
+clump hangs in one smooth curve (`HAIR_WAVE` amp 0 and `W_AM` 0; the wave code stays and still picks which way a tip
+flicks), tapers to a sharp point, and has the bangs' ridged crescent `lcs` across it (`lts` uses it too).
+It has no line art (`OUTLINE_W` 0; the code stays) and no zigzag highlight band at the shoulders, which read as a white
+saw. It is painted as `blade` paints the bangs (`paint_plan`, `paint_hair`): two or three thin dark strand lines
+(`HAIR_LINE`) down its lower half, each widest in its middle and closing to the centre at both ends; a light peach
+sheen lens (`HAIR_HI`) in its middle above them; and on the curtain the translucent shade under the braid, full width
+at the top and closing to a point (`HAIR_SHADE`, two steps). Each painted shape is sampled on its clump as drawn and
+written as short polynomials: written as the clump's own formulas with the place across put in, they made the scene
+take over 15 minutes to build, and Arch's check gave up. Seven clumps fanned evenly from left to right, the same
+but for their lengths, then read as 'piled straight from left to right'; the user pointed to the locks over the chest
+as natural, and then gave a large picture of her back view to model the hairstyle on (not in the repository; read
+at 207 px a unit, her centre line at x 1022 and the head's top, z 12.95, at row 172 of the 2048 px image, which put
+her left hand exactly on the model's). So the long hair is laid out as that picture draws it, each strand made as the
+chest locks are (`BK_FLOW` in `hair.py`, built by `hairflow.flow`: a sweep through control points in the back view, a
+half-width by height, a wave and a flat spiral curl, all in the sheet of the hair, none twisting about its own line).
+Below the braid it falls straight and narrows down her back and parts above the corset into two groups beside the
+sash (`BLa` ... `BRe`, a darker clump `BLu`, `BRu` under each), which swing out a little and back and end in C-curls
+about the knees, her left group a little lower; two short clumps end in points above the parting (`BLm`, `BRm`). The
+rest, the side hair (`BK_SIDE`, keys `B?o*`), starts under the braid's ends behind the ears, crosses the capelet in
+a few thin strands and widens behind the puffs into masses that fan out beyond the forearms, waving (one wave a
+group: `_WL`, `_WR`, `_WO`) and curling at different heights, one loop on each mass's outer edge at mid-height. It
+lies on the head, the capelet and the long side locks (`locks_back`, `LOCKS_BACK`: those locks sampled into a grid)
+above `BK_DRAPE_Z` and falls straight below it (draped lower, it creased where it left the capelet's hem), so it hangs
+facing back from the capelet's back edge. The long side locks round her sides now end over the upper arm
+(`SIDE_TE`, in a point), under the side hair: seen from behind they were edge-on, as tentacles. Design a strand in 2D
+first: draw `hairflow.flow_ribbon` over the picture at the same scale and compare. The fit needs smooth widths: a
+power under 1 at a tip (`tip`, `_sub_at`) or two control points almost together gave pieces that missed 0.006. Waves of a strand's own phase
+(`BK_WAVE`, 0), twists about a strand's line (`BK_TWIST`, empty) and an in-and-out wave (`lrc`) read as twisted; more
+wander, width or depth noise than `BK_NOISE` and `_sub_at` give read as lumps. The long locks at the sides are a few big
+ones in three layers (six a side on her right, three behind her left ear and two below it, where there were ten and
+three). The back strands (not the side hair) hang as taut sheets (`_taut`): from under the braid straight out over the fullest point they
+pass, then down, never tracing the body (the user: anime's long hair need not stick to the back).
+The four strands that wound into corkscrew ringlets are gone (`BK_CURL` is empty; `curl_xyz` stays for a strand
+given a curl). (Before, the back was two traced locks that parted, bent in S-curves and twisted about their lines.)
+To fill gaps, count them: the outline's extent at each height against the
 model's hair in the back view (drawn with hidden parts removed), then place strands through them and check that
-none touches a ringlet (nearest-point distance between the surfaces). To find bare patches, count the points of the
+none touches another's tip (nearest-point distance between the surfaces). To find bare patches, count the points of the
 dark under-layer (`hairUnder`) that a z-buffered view can see, from several angles round her back; a colour map of
 the hair by kind (back locks, crown locks, side locks, under-layer, braid) shows where. Grow a grid's cells with
 padding, never `np.roll`: it wraps round the edges, and once carried the skirt's depth (z 4.8) into the grid's top
@@ -201,6 +243,69 @@ surface, so the under-layer is two sheets 0.005 apart, lit from behind and from 
 alone for the bangs). Arch colours a surface with one colour; a colour can be an expression of variables
 (`color=hsb(h,s,v)`, h, s and v on 0..100) but it is evaluated once per object, not per point (checked in 2.0.05
 and 2.0.07), so shading is evened out by the face's shape (`fq`), not by colour.
+
+## Making it read well
+
+The user prefers judging the look by eye, on renders beside the portrait, over tracking tools. What made parts look
+cheap, and the fixes:
+
+- Repeats round a ring alias on Arch's mesh (31 steps a side at precision 10): petals came out as spiky starbursts, the
+  neck ruffle as a metal crown, the capelet's frill and the jabot as grey shards. Give each repeat about eight steps:
+  sectors of a few petals or flutes, each starting and ending in a notch (`copper_flower` in `generate.py`; the
+  ruffles in `outfit.py`; the frill in `cape.py`).
+- A funnel's outside faces down and away from Arch's light, so a frill flaring out under the chin drew grey: frills
+  stand up and flare only a little, and their orientation point is chosen so that the side the viewer sees is the
+  lit one (the ruffle's is above it).
+- Skin goes grey where the face turns from the light: `SKIN` is written for a light of 1.17, a touch warmer than the
+  drawing, so that face-on it is the drawing's and in 3/4 views it stays warm.
+- The portrait draws more hair in front than the sheet: locks from behind the jaw over each shoulder (`RS*`, `LS*` in
+  `CH_STRANDS`, rooted further back by `CH_ROOTS`), a lock at her right temple (`templeR`), hair swept back over her left
+  temple (`sweptL*`), and a band of shine across the crown (`crown_shine`, the blades' `crown`). The long hair seen
+  edgewise beside the face drew as dark slabs; front hair facing the viewer covers it.
+- The cream ribbons lie on the hair (`RIBBON_FACE`, facing out and forward), not facing the portrait's camera: facing
+  the camera they stood out from the side of her head like fins. When a ribbon's facing changes, reset its depth to a
+  smooth line before rerunning `ornament_drape.py`, which otherwise starts from the old, wavy depth.
+- Eyes come alive from softness, depth and moisture, not from more detail: a smooth iris gradient (20 steps; 7 read as
+  stripes) brightening to a warm crescent at the bottom, the upper lid's shadow laid over white and iris alike
+  (translucent decals blend well in Arch; kept light, or the whites turn grey), lashes in clumps of uneven length rooted
+  in a soft-edged lash line, and the lower lid raised for the smile (`SMILE_LID`) with a faint fullness under it. Steps
+  of the iris below the raised lid would turn over and show under it: `cap` skips or clamps them. Then, as the anime
+  eye guides paint them (the user asked for them to be followed): light gathered in the bottom of the iris (`glow`,
+  translucent amber-orange crescents: gold read lemon), a faint ring of light part way out round the pupil, a slightly
+  larger pupil, the highlights composed (a main catch-light in the same place in both eyes, a small one opposite, a soft
+  low one, a few sparkles), the lashes gathered toward the outer corner and longest there, and the lower lid line over
+  the outer two-thirds only (drawn whole, it boxed the eye in).
+- Design the face by eye, as an artist would, not by tracing or measuring the portrait (the user's direction): traced
+  shapes that matched the drawing's projection looked gaunt or odd in 3D. So the cheeks are fuller and rounder than
+  traced (`fws`, `fq`, the cheek's round in `fr`), the lower face longer (`lowstretch`: she looked tipped forward with a
+  short chin), the eyes' outlines are designed on the usual anime pattern (`EYES`), and the irises are turned toward
+  the viewer inside the lids (`GAZE_DX`, `GAZE_DZ`): painted eyes look along the face, which passed under the portrait's
+  camera 12 degrees above.
+- Shading is painted on, as anime 3D figures paint theirs (studied on a CC0 VRoid sample: its skin's shade colour is a
+  light rose, its hair's a hue-shifted tone, and the hair's shine is painted, unlit). Translucent layers (`opacity`) blend
+  cleanly in Arch and tint whatever lies under them, so shades are two or three translucent layers in rose or mauve on
+  the face (`shadeFarR`, `flush*`, `shadeNose`, ...), never grey; on the hair a deeper orange (`HAIR_SHADE`) where the
+  bangs pass under the crown, a band of peach shine across the crown (`HAIR_HI`), and one soft strand line a clump.
+  The hair's three tones are kept close (`HAIR`, `HAIR_LT`, `HAIR_DK`): far apart, the locks read as stripes, not clumps.
+- Hair is modelled as anime 3D figures model it: clumps about three times as wide as they are thick (four for the broad
+  long clumps: three read as sausages), so Arch's light shades each one round (flat ribbons ten times as wide as thick
+  read as one flat panel, and as dark slivers edge-on).
+  The long side locks are a few broad smooth ones, in three layers (`side` in `run_hair`), and they and the outermost back locks
+  grow to their full volume below the head (`lock(..., full=True)`: 0.55 of it on the head, so the crown keeps its
+  size; their crown shine is placed for that). The bangs are 1.4 times as wide and thick as the traced strands (the
+  wisps stay fine); the shoulder locks a third wider.
+- Highlights follow the anime drawing guides: they run across the hair, not along it, as bands whose edges are zigzags
+  of spikes pointing along the strands, in two crisp steps (a light peach `HAIR_HI` and a bright core `HAIR_GLOSS`).
+  One ring crosses the crown on every clump at the same height (`RING_POLAR`; `crown_shine`, the blades' `crown`), and
+  a second crosses the long hair where it curves over the shoulders (`BAND_Z`; `lock(band=True)`, `poly_band` on the
+  back and chest strands), staggered a little from clump to clump: even, it read as a thread across the hair.
+  `lock_parts` writes a lock for any expression in place of t; `poly_band` lays a short band on a polynomial strand's
+  tangent plane (small expressions). Streaks down the strands were tried first and read wrong.
+- Keep a local face fit (`qfit`) on the face: past its side the surface turns away too steeply to fit (the eye fit's
+  error rose from 0.001 to 0.11 when its region reached s 0.32). Decals that run onto the side of the face, such as
+  the lash wings, use the face itself (`q='fy'`).
+- The ear is turned forward, as anime draws it, so the portrait's light reaches it; the earrings hang from the lobe's
+  outer edge, clear of the cheek's hair.
 
 ## Keep Arch's expanded formulas small
 

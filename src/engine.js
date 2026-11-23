@@ -66,6 +66,9 @@ async function launchBrowser() {
 }
 
 class RunTimeout extends Error {}
+// The page's renderer process died (usually out of memory). Every call still waiting on it is abandoned.
+class PageCrash extends Error {}
+const CLOSE_TIMEOUT = 30000;
 
 // scale < 1 asks Chrome to render the page smaller (sharp text, not a blurry downscale) without
 // resizing the page: a 0.5 screenshot has a quarter of the pixels, so it costs an AI a quarter of the image tokens.
@@ -81,14 +84,25 @@ async function capture(page, scale = 1) {
 }
 
 // Page code can loop forever (a bad operator or script); give up and let the caller close the page.
-function guard(promise, ms, what) {
+// A crashed page never answers, so its calls fail at once instead of waiting out the timeout.
+function guard(promise, ms, what, slot) {
     promise.catch(() => {});
     let timer;
     const timeout = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new RunTimeout(
             `${what} did not finish within ${ms / 1000} s; a JavaScript operator or @script may loop forever, or the scene needs more time (CLI: --timeout).`)), ms);
     });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+    const racers = [promise, timeout];
+    if (slot) racers.push(slot.crashed.then(() => { throw new PageCrash(
+        `${what} failed: the browser page crashed, most often because it ran out of memory (a very large scene, or several checks running at once). Run fewer checks at a time, or lower the scene's precision.`); }));
+    return Promise.race(racers).finally(() => clearTimeout(timer));
+}
+
+// Closing a context or browser whose renderer is stuck can wait forever; give up after a while.
+async function closeQuietly(target) {
+    let timer;
+    await Promise.race([target.close().catch(() => {}), new Promise(resolve => { timer = setTimeout(resolve, CLOSE_TIMEOUT); })]);
+    clearTimeout(timer);
 }
 
 export class ArchEngine {
@@ -117,26 +131,39 @@ export class ArchEngine {
         return this._html.body;
     }
 
+    // Opening a page has no natural time limit (a browser short of memory may never start its renderer),
+    // so the whole load gets one, and a page that fails to load is closed again.
     async _loadPage() {
         const body = this._htmlBody();
-        const browser = await this.browser();
-        const context = await browser.newContext({viewport: VIEWPORT, colorScheme: 'light', deviceScaleFactor: 1});
-        // Offline: Arch itself is the only response. No login, cloud, AI or notice requests.
-        await context.route('**/*', route => {
-            if (route.request().url() === PAGE_URL)
-                return route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body});
-            return route.abort();
-        });
-        const page = await context.newPage();
-        const pageErrors = [];
-        page.on('pageerror', error => pageErrors.push({message: String(error.message || error), stack: String(error.stack || '')}));
-        page.on('dialog', dialog => dialog.dismiss().catch(() => {}));
-        await page.goto(PAGE_URL);
-        await page.waitForFunction(() => window.archInstance && window.ArchAgentProtocol &&
-            (window.archStartupFinished || !document.getElementById('arch-startup-splash')), null, {timeout: READY_TIMEOUT});
-        // A first launch (empty storage) opens the About page over the canvas; use the normal plot layout.
-        await page.evaluate(() => window.archInstance.createArchScriptExtensions().ui.sidebar('plot'));
-        return {page, context, pageErrors};
+        let context = null;
+        const load = async () => {
+            const browser = await this.browser();
+            // (a browser short of memory has been seen to never answer this, so it is inside the time limit too)
+            context = await browser.newContext({viewport: VIEWPORT, colorScheme: 'light', deviceScaleFactor: 1});
+            // Offline: Arch itself is the only response. No login, cloud, AI or notice requests.
+            await context.route('**/*', route => {
+                if (route.request().url() === PAGE_URL)
+                    return route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body});
+                return route.abort();
+            });
+            const page = await context.newPage();
+            const pageErrors = [];
+            page.on('pageerror', error => pageErrors.push({message: String(error.message || error), stack: String(error.stack || '')}));
+            page.on('dialog', dialog => dialog.dismiss().catch(() => {}));
+            const crashed = new Promise(resolve => page.once('crash', resolve));
+            await page.goto(PAGE_URL);
+            await page.waitForFunction(() => window.archInstance && window.ArchAgentProtocol &&
+                (window.archStartupFinished || !document.getElementById('arch-startup-splash')), null, {timeout: READY_TIMEOUT});
+            // A first launch (empty storage) opens the About page over the canvas; use the normal plot layout.
+            await page.evaluate(() => window.archInstance.createArchScriptExtensions().ui.sidebar('plot'));
+            return {page, context, pageErrors, crashed};
+        };
+        try {
+            return await guard(load(), 2 * READY_TIMEOUT, 'Opening Arch in the browser');
+        } catch (error) {
+            if (context) await closeQuietly(context);
+            throw error instanceof RunTimeout ? new Error(`${error.message.split(';')[0]}; the computer may be short of memory (several checks running at once?).`) : error;
+        }
     }
 
     // Each run gets pristine pages so builds never leak state into each other.
@@ -159,11 +186,11 @@ export class ArchEngine {
     async close() {
         const spares = this._spares;
         this._spares = [];
-        await Promise.all(spares.map(spare => spare.then(s => s.context.close(), () => {})));
+        await Promise.all(spares.map(spare => spare.then(s => closeQuietly(s.context), () => {})));
         if (this._browser) {
             const browser = await this._browser.catch(() => null);
             this._browser = null;
-            if (browser) await browser.close();
+            if (browser) await closeQuietly(browser);
         }
     }
 
@@ -188,30 +215,31 @@ export class ArchEngine {
         const buildSlot = this.acquire();
         const verifySlot = verify ? this.acquire() : null;
         verifySlot?.catch(() => {});
-        const dropVerify = () => verifySlot?.then(s => s.context.close(), () => {});
-        const slot = await buildSlot;
+        const dropVerify = () => verifySlot?.then(s => closeQuietly(s.context), () => {});
+        const slot = await buildSlot.catch(error => { dropVerify(); throw error; });
         let result, png, scriptPng;
         // Drawing happens after the build call returns, so waiting for painted frames doubles as a
         // check that no operator hangs the page.
-        const shoot = async (page, what) => {
-            await guard(page.evaluate(settle, 500), timeoutMs, what);
-            return capture(page, screenshotScale);
+        const shoot = async (s, what) => {
+            await guard(s.page.evaluate(settle, 500), timeoutMs, what, s);
+            return guard(capture(s.page, screenshotScale), timeoutMs, what, s);
         };
         try {
             result = await guard(slot.page.evaluate(runSteps, {steps: parsed.steps, title: parsed.title, script: parsed.script, messages: ARCH_MESSAGES}),
-                timeoutMs, 'Building the scene');
-            if (screenshot && !(verifySlot && result.errors.length === 0)) png = await shoot(slot.page, 'Drawing the scene');
-            else await guard(slot.page.evaluate(settle, 100), timeoutMs, 'Drawing the scene');
-            const thrown = await slot.page.evaluate(() => window.__archOperatorErrors || {});
+                timeoutMs, 'Building the scene', slot);
+            if (screenshot && !(verifySlot && result.errors.length === 0)) png = await shoot(slot, 'Drawing the scene');
+            else await guard(slot.page.evaluate(settle, 100), timeoutMs, 'Drawing the scene', slot);
+            const thrown = await guard(slot.page.evaluate(() => window.__archOperatorErrors || {}), timeoutMs, 'Drawing the scene', slot);
             for (const [name, item] of Object.entries(thrown))
                 result.warnings.push({line: item.line, message: `operator ${name} threw "${item.message}" ${item.count} time(s) while Arch computed values; those values become NaN (gaps in curves)`});
             result.warnings.push(...pageErrorWarnings(slot.pageErrors));
         } catch (error) {
             dropVerify();
+            if (error instanceof PageCrash) return {ok: false, errors: [{line: 0, message: error.message}], warnings: [], objects: []};
             if (error instanceof RunTimeout) return {ok: false, errors: [blameOperators(error, parsed)], warnings: [], objects: []};
             throw error;
         } finally {
-            await slot.context.close().catch(() => {});
+            await closeQuietly(slot.context);
         }
 
         let fullJson = result.json;
@@ -224,19 +252,19 @@ export class ArchEngine {
             // Reload the exported file exactly as a user would open it; the screenshot shows that view.
             const check = await verifySlot;
             try {
-                const reloaded = await guard(check.page.evaluate(loadAndDescribe, result.json), timeoutMs, 'Reloading the saved file');
+                const reloaded = await guard(check.page.evaluate(loadAndDescribe, result.json), timeoutMs, 'Reloading the saved file', check);
                 for (const message of reloaded.errors) result.errors.push({message: `Reloading the saved file failed: ${message}`});
                 for (const message of reloaded.warnings || []) result.warnings.push({message: `Arch used synchronous drawing while reloading: ${message}`});
                 result.errors.push(...compareReload(result.objects, reloaded.objects));
                 result.errors.push(...compareSaved(JSON.parse(fullJson), JSON.parse(reloaded.json)));
                 if (result.lean) result.errors.push(...compareExpanded(JSON.parse(fullJson), JSON.parse(reloaded.json)));
-                if (screenshot) png = await shoot(check.page, 'Drawing the reloaded file');
-                else await guard(check.page.evaluate(settle, 100), timeoutMs, 'Drawing the reloaded file');
+                if (screenshot) png = await shoot(check, 'Drawing the reloaded file');
+                else await guard(check.page.evaluate(settle, 100), timeoutMs, 'Drawing the reloaded file', check);
                 if (parsed.script && scriptPreview && result.errors.length === 0) {
                     // Run the global program the way the Run button does, in this throwaway page.
                     const before = check.pageErrors.length;
-                    const preview = await guard(check.page.evaluate(previewScript, PREVIEW_MS), timeoutMs, 'The @script preview');
-                    if (screenshot) scriptPng = await guard(capture(check.page, screenshotScale), timeoutMs, 'The @script preview');
+                    const preview = await guard(check.page.evaluate(previewScript, PREVIEW_MS), timeoutMs, 'The @script preview', check);
+                    if (screenshot) scriptPng = await guard(capture(check.page, screenshotScale), timeoutMs, 'The @script preview', check);
                     // Count page errors only when the stack passes through the script, which Arch compiles
                     // with new Function (shown as <anonymous>/eval). Arch's own blocked network calls are ignored.
                     const fromScript = check.pageErrors.slice(before).filter(e => USER_CODE_FRAME.test(e.stack));
@@ -246,10 +274,11 @@ export class ArchEngine {
                         result.errors.push({line: parsed.script.line, message: `@script failed when run: ${translateArchMessage(problem)}`});
                 }
             } catch (error) {
-                if (!(error instanceof RunTimeout)) throw error;
-                result.errors.push(/preview/.test(error.message) ? {line: parsed.script.line, message: error.message} : blameOperators(error, parsed));
+                if (error instanceof PageCrash) result.errors.push({line: 0, message: error.message});
+                else if (!(error instanceof RunTimeout)) throw error;
+                else result.errors.push(/preview/.test(error.message) ? {line: parsed.script.line, message: error.message} : blameOperators(error, parsed));
             } finally {
-                await check.context.close().catch(() => {});
+                await closeQuietly(check.context);
             }
         } else {
             dropVerify();

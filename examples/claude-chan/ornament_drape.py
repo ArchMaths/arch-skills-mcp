@@ -25,7 +25,7 @@ VIEW_AZ, VIEW_EL = -92, 12          # the portrait's viewpoint (CLAUDE.md, "Matc
 GAP_RIBBON, GAP_TAIL, GAP_TASSEL = 0.022, 0.018, 0.018      # above what lies behind (world units)
 SLOPE = 1.0                         # how much a part may come back toward the hair per unit of its length
 KEEP = {'ribbon': 0.12, 'tail': 0.2}   # the part of each from the knot that keeps its place (fraction of its length)
-DEG = 5                             # degree of the Bezier written for each
+DEG = 6                             # degree of the Bezier written for each
 
 
 def run_generator():
@@ -120,11 +120,11 @@ def bezier(pts, s):
     return bernstein(len(pts) - 1, s) @ np.asarray(pts, float)
 
 
-def drape(pts, half_width, gap, keep, F, n=40):
-    """A ribbon (head-frame Bezier control points, its half-width) laid on what lies behind it: new control points,
-    the shifts along the view, the least clearance of the result and its fit error."""
+def drape(pts, half_width, gap, keep, F, n=40, facing=None):
+    """A ribbon (head-frame Bezier control points, its half-width, the way it faces: the view unless given) laid on what
+    lies behind it: new control points, the shifts along the view, the least clearance of the result and its fit error."""
     pts = np.asarray(pts, float)
-    c_ = np.array(G['unit'](G['view']))
+    c_ = np.array(G['unit'](facing or G['view']))
     wdir = np.cross(c_, pts[-1] - pts[0]); wdir /= np.linalg.norm(wdir)
     s = np.linspace(0, 1, n)
     C = bezier(pts, s)
@@ -142,8 +142,8 @@ def drape(pts, half_width, gap, keep, F, n=40):
     need[~np.isfinite(need)] = -1.0
     arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff([to_world(c) for c in C], axis=0), axis=1))]
     sh = np.max(need[None, :] - SLOPE * np.abs(arc[:, None] - arc[None, :]), axis=1)    # at least what is needed
-    for _ in range(4):
-        sh = np.maximum(sh, np.convolve(np.pad(sh, 2, mode='edge'), np.ones(5) / 5, mode='valid'))
+    for _ in range(8):
+        sh = np.maximum(sh, np.convolve(np.pad(sh, 3, mode='edge'), np.ones(7) / 7, mode='valid'))
     w = np.clip(s / keep, 0, 1)
     sh = sh * w * w * (3 - 2 * w)
     Q = np.array([to_head(to_world(C[i]) + sh[i] * D) for i in range(n)])
@@ -169,11 +169,11 @@ def main():
     report = []
     ribbons = []
     for k, pts in enumerate(G['ORN_RIBBONS']):         # behind the tails: first, each on the hair alone
-        ctrl, sh, worst, fe, wdir = drape(pts, 0.085, GAP_RIBBON, KEEP['ribbon'], front())
+        ctrl, sh, worst, fe, wdir = drape(pts, G['RIBBON_W'], GAP_RIBBON, KEEP['ribbon'], front(), facing=G['RIBBON_FACE'])
         ribbons.append((ctrl, wdir))
         report.append(f'ribbon {k + 1}: moved {sh.min():+.3f} to {sh.max():+.3f} along the view; clearance >= {worst:.3f}; fit {fe:.4f}')
     for ctrl, wdir in ribbons:
-        splat_ribbon(ctrl, wdir, 0.085)
+        splat_ribbon(ctrl, wdir, G['RIBBON_W'])
     ribbons = [ctrl for ctrl, _ in ribbons]
     tails = []
     for k, (pts, w_) in enumerate(G['ORN_TAILS']):

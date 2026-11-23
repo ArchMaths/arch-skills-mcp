@@ -168,12 +168,36 @@ CH_STRANDS = {
            (0.48, 9.6, .04), (0.49, 9.4, .048), (0.53, 9.22, .045), (0.595, 9.05, .06), (0.54, 8.92, .045), (0.48, 8.83, .025), (0.425, 8.78, 0)],
 }
 # colour and thickness; they are laid on in this order, each on the body and the strands already laid
+# The hi-res portrait draws much more hair in front: besides these two locks, locks that come from behind the jaw, fall
+# forward over the collarbone and the shoulder and down the capelet outside its emblems, framing the neck (as an artist
+# would place them: (x, z, half-width) in the front view, like the traced ones). S: shoulder; 1 the main, wide lock, 2 a
+# narrower one inside it ending above the emblem, 3 a thin outer strand.
+CH_STRANDS.update({
+    'RS1': [(-0.62, 11.15, .05), (-0.69, 10.88, .06), (-0.8, 10.58, .07), (-0.95, 10.28, .075), (-1.1, 10.0, .07), (-1.23, 9.74, .062),
+            (-1.31, 9.5, .052), (-1.34, 9.33, .04), (-1.32, 9.22, .025), (-1.28, 9.16, 0)],
+    'RS2': [(-0.57, 11.15, .035), (-0.62, 10.88, .04), (-0.71, 10.58, .045), (-0.83, 10.3, .045), (-0.95, 10.08, .04), (-1.04, 9.94, .03),
+            (-1.08, 9.88, 0)],
+    'RS3': [(-0.66, 11.1, .02), (-0.78, 10.82, .022), (-0.95, 10.52, .025), (-1.12, 10.22, .025), (-1.28, 9.96, .022), (-1.39, 9.72, .018),
+            (-1.45, 9.52, .012), (-1.46, 9.4, 0)],
+    'LS1': [(0.66, 11.1, .05), (0.73, 10.84, .06), (0.84, 10.55, .068), (0.98, 10.26, .072), (1.12, 9.98, .068), (1.24, 9.72, .06),
+            (1.31, 9.5, .05), (1.33, 9.34, .038), (1.3, 9.24, .022), (1.26, 9.19, 0)],
+    'LS2': [(0.61, 11.12, .035), (0.66, 10.86, .04), (0.75, 10.57, .042), (0.86, 10.3, .042), (0.97, 10.09, .036), (1.05, 9.96, .026),
+            (1.09, 9.9, 0)],
+    'LS3': [(0.7, 11.05, .02), (0.83, 10.78, .022), (0.99, 10.48, .024), (1.15, 10.2, .024), (1.3, 9.94, .02), (1.4, 9.7, .016),
+            (1.45, 9.52, .01), (1.46, 9.42, 0)],
+})
 CH_LOOK = {'R2': (HAIR, 0.04), 'R1': (HAIR_LT, 0.03), 'R3': (HAIR_DK, 0.035), 'R4': (HAIR_LT, 0.032),
-           'L2': (HAIR, 0.04), 'L1': (HAIR_LT, 0.03), 'L3': (HAIR_DK, 0.035)}
+           'L2': (HAIR, 0.04), 'L1': (HAIR_LT, 0.03), 'L3': (HAIR_DK, 0.035),
+           'RS1': (HAIR, 0.075), 'RS2': (HAIR_LT, 0.06), 'RS3': (HAIR_LT, 0.035),
+           'LS1': (HAIR, 0.075), 'LS2': (HAIR_LT, 0.06), 'LS3': (HAIR, 0.035)}
+# the shoulder locks are full clumps: their widths grown by a third (about three times as wide as they are thick)
+for _k in ('RS1', 'RS2', 'LS1', 'LS2'):
+    CH_STRANDS[_k] = [(x_, z_, w_ * 1.3) for x_, z_, w_ in CH_STRANDS[_k]]
 CH_GAP = 0.02           # between a strand's underside and the cloth it lies on
 CH_ON = 0.006           # and a strand it lies on
 CH_JAW = 0.12           # how far forward of the body's centre line a strand is where it comes out from under the jaw
 CH_ROOT = (0.34, 0.0, 11.66)   # where a strand starts, hidden inside the head behind the cheek (|x|, y, z)
+CH_ROOTS = {k: (0.5, 0.12, 11.62) for k in ('RS1', 'RS2', 'RS3', 'LS1', 'LS2', 'LS3')}    # the shoulder locks: further back
 CH_DEG = 20             # degree of the polynomials (in t from -1 to 1) that Arch draws a strand with
 CH_DENSE = 0.5          # the strand's mesh is (1 + CH_DENSE) / (1 - CH_DENSE) times finer at the tip than at the top
 
@@ -260,7 +284,8 @@ def chest_strands():
         # one smooth curve, from inside the head behind the cheek, out under the jaw and down the traced part: a
         # natural cubic spline through that point and the traced part every 0.05 (with the width and thickness)
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
-        root = [[CH_ROOT[0] * sd, CH_ROOT[1], CH_ROOT[2]]]
+        rt = CH_ROOTS.get(key, CH_ROOT)
+        root = [[rt[0] * sd, rt[1], rt[2]]]
         K = np.c_[np.r_[root, np.c_[Q[idx, 0], y[idx], Q[idx, 1]]], np.r_[hw[0], hw[idx]], np.r_[th, th * tip[idx]]]
         dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
         Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
@@ -289,120 +314,177 @@ def chest_strands():
     return out
 
 
-# ---------- the two locks down the back ----------
-# Traced by the user over the sheet's back view (a crop at 9.3x, found by template matching; the strokes-only
-# drawing registered onto it by ECC) and put into model units by the back view's calibration (sheetfit.py). On
-# the sheet these two locks are nearly all the hair down the middle of her back: they part below the braid,
-# the corset shows between them and the capelet's back beside them, and the rest of the hair falls over the
-# arms. Each lock is drawn as strands along the inner lines of the tracing, and four more between them, each
-# strand split into sub-strands (BK_SUBS, 18 a lock): (x, z, half-width) in the back view down each strand's centre
-# line, from under the braid to where its curl starts (or its tip).
-BK_STRANDS = {
-    # her left: BL1 and BL2 spread out at the bottom (BL2 hooks back in), BL3 and BL4 bend in S-curves and wind
-    # together into a corkscrew ringlet
-    'BL4': [(0.04, 11.35, .035), (0.05, 10.9, .04), (0.08, 10.3, .045), (0.18, 9.75, .05), (0.33, 9.25, .055), (0.44, 8.8, .055),
-            (0.47, 8.4, .05), (0.6, 8.08, .05), (0.76, 7.9, .05), (0.6, 7.79, .05), (0.52, 7.64, .05), (0.55, 7.47, .05),
-            (0.66, 7.3, .05), (0.81, 7.17, .05)],
-    'BL3': [(0.12, 11.45, .04), (0.15, 11.0, .05), (0.21, 10.4, .06), (0.3, 9.85, .065), (0.42, 9.35, .07), (0.52, 8.95, .07),
-            (0.6, 8.55, .065), (0.68, 8.26, .06), (0.53, 8.0, .06), (0.34, 7.82, .055), (0.27, 7.6, .055), (0.28, 7.32, .05)],
-    'BL2': [(0.2, 11.5, .04), (0.25, 11.0, .05), (0.33, 10.4, .06), (0.43, 9.85, .065), (0.56, 9.35, .07), (0.67, 8.95, .07),
-            (0.8, 8.55, .065), (0.83, 8.25, .06), (0.75, 7.97, .055), (0.73, 7.76, .05), (0.86, 7.5, .05), (1.03, 7.22, .045),
-            (1.15, 7.0, .04), (1.14, 6.82, .035), (1.04, 6.7, .025), (0.94, 6.67, 0)],
-    'BL1': [(0.27, 11.55, .035), (0.33, 11.05, .045), (0.44, 10.45, .05), (0.54, 9.85, .05), (0.68, 9.35, .05), (0.81, 8.95, .05),
-            (0.94, 8.55, .05), (0.98, 8.2, .045), (1.0, 7.95, .045), (1.08, 7.75, .045), (1.19, 7.52, .04), (1.3, 7.3, .04),
-            (1.39, 7.08, .035), (1.42, 6.9, .025), (1.4, 6.78, 0)],
-    # her right: BR3 runs down the parting and along the bottom of the lock into the ringlet, BR2 sweeps out and
-    # hooks up, BR1 comes down the outside into the same ringlet; BR0 a short strand by the braid
-    'BR3': [(-0.01, 11.3, .035), (-0.02, 10.8, .04), (-0.06, 10.1, .045), (-0.2, 9.65, .05), (-0.33, 9.3, .05), (-0.39, 8.95, .05),
-            (-0.4, 8.5, .05), (-0.36, 8.2, .05), (-0.33, 7.85, .05), (-0.34, 7.6, .05), (-0.4, 7.43, .05), (-0.52, 7.34, .05),
-            (-0.68, 7.31, .05), (-0.83, 7.28, .05)],
-    'BR2': [(-0.04, 11.35, .04), (-0.06, 11.0, .05), (-0.15, 10.45, .06), (-0.3, 10.05, .07), (-0.45, 9.65, .075), (-0.6, 9.2, .08),
-            (-0.72, 8.8, .08), (-0.77, 8.45, .075), (-0.8, 8.1, .07), (-0.82, 7.85, .065), (-0.9, 7.62, .06), (-1.02, 7.5, .05),
-            (-1.12, 7.5, .035), (-1.18, 7.58, 0)],
-    'BR1': [(-0.07, 11.4, .035), (-0.11, 11.0, .045), (-0.25, 10.45, .05), (-0.43, 10.05, .05), (-0.62, 9.65, .05), (-0.76, 9.2, .05),
-            (-0.92, 8.8, .05), (-1.01, 8.45, .05), (-1.04, 8.1, .05), (-1.12, 7.85, .05), (-1.17, 7.6, .05), (-1.23, 7.35, .05),
-            (-1.3, 7.12, .05)],
-    'BR0': [(-0.42, 11.35, .03), (-0.45, 11.1, .04), (-0.47, 10.85, .03), (-0.47, 10.74, 0)],
-    # four more strands in each lock, to fill the gaps between those traced (measured on the model's back view
-    # against the outline: e.g. on her right a gap 0.3 wide between BR3 and BR2 from z 9.6 to 7.4); they lie under
-    # the traced strands and end in free tips
-    'BL5': [(0.16, 11.48, .03), (0.2, 11.0, .04), (0.27, 10.4, .045), (0.37, 9.85, .05), (0.49, 9.35, .05), (0.6, 8.95, .05),
-            (0.74, 8.55, .055), (0.79, 8.25, .055), (0.73, 7.97, .05), (0.66, 7.75, .05), (0.68, 7.5, .045), (0.72, 7.42, .03),
-            (0.74, 7.36, 0)],
-    'BL6': [(0.24, 11.52, .03), (0.29, 11.02, .04), (0.39, 10.42, .045), (0.49, 9.85, .05), (0.62, 9.35, .05), (0.74, 8.95, .05),
-            (0.87, 8.55, .05), (0.9, 8.22, .05), (0.9, 7.95, .05), (0.95, 7.75, .05), (1.03, 7.52, .045), (1.12, 7.3, .045),
-            (1.22, 7.08, .04), (1.3, 6.88, .03), (1.33, 6.72, 0)],
-    'BL7': [(0.08, 11.4, .03), (0.1, 10.95, .04), (0.14, 10.35, .045), (0.24, 9.8, .045), (0.37, 9.3, .045), (0.46, 8.85, .045),
-            (0.42, 8.45, .045), (0.44, 8.15, .045), (0.43, 7.85, .045), (0.4, 7.6, .045), (0.43, 7.4, .04), (0.47, 7.25, .03),
-            (0.5, 7.12, 0)],
-    'BL8': [(0.06, 11.38, .03), (0.08, 10.9, .035), (0.11, 10.3, .04), (0.2, 9.75, .04), (0.3, 9.25, .04), (0.38, 8.8, .04),
-            (0.38, 8.4, .04), (0.36, 8.0, .04), (0.3, 7.7, .04), (0.27, 7.4, .035), (0.24, 7.15, .03), (0.22, 6.98, 0)],
-    'BR4': [(-0.03, 11.35, .03), (-0.05, 10.9, .04), (-0.12, 10.3, .045), (-0.24, 9.8, .05), (-0.37, 9.5, .05), (-0.45, 9.2, .05),
-            (-0.48, 8.9, .05), (-0.52, 8.6, .05), (-0.5, 8.3, .05), (-0.47, 8.0, .05), (-0.5, 7.7, .05), (-0.55, 7.45, .045),
-            (-0.58, 7.2, .04), (-0.6, 7.02, .03), (-0.61, 6.9, 0)],
-    'BR5': [(-0.05, 11.35, .03), (-0.08, 10.9, .04), (-0.2, 10.3, .045), (-0.32, 9.8, .05), (-0.45, 9.5, .05), (-0.53, 9.2, .05),
-            (-0.6, 8.9, .05), (-0.63, 8.6, .05), (-0.6, 8.3, .05), (-0.6, 8.0, .05), (-0.66, 7.7, .05), (-0.72, 7.55, .04),
-            (-0.77, 7.45, .02), (-0.79, 7.4, 0)],
-    'BR6': [(-0.06, 11.38, .03), (-0.1, 10.9, .04), (-0.22, 10.4, .045), (-0.37, 10.05, .045), (-0.53, 9.65, .045), (-0.68, 9.2, .045),
-            (-0.83, 8.8, .045), (-0.9, 8.45, .045), (-0.93, 8.1, .045), (-0.98, 7.85, .045), (-1.04, 7.6, .04), (-1.09, 7.45, .025),
-            (-1.11, 7.38, 0)],
-    'BR7': [(0.0, 11.3, .03), (-0.02, 10.8, .035), (-0.08, 10.1, .04), (-0.18, 9.65, .04), (-0.28, 9.3, .04), (-0.34, 8.95, .04),
-            (-0.36, 8.5, .04), (-0.33, 8.2, .04), (-0.31, 7.85, .04), (-0.33, 7.6, .04), (-0.4, 7.35, .035), (-0.45, 7.15, .03),
-            (-0.47, 7.02, 0)],
+# ---------- the hair down the back ----------
+# Laid out as the user's back-view picture of her draws it, with the strands made as the chest locks are (bundles of
+# strands of different widths, curling at their ends) and the bangs (blades with pointed tips): below the braid the
+# hair falls straight and narrows down her back, and parts above the corset into two groups beside the sash that swing
+# out a little, back in, and end in C-curls about the knees (her left group a little longer); the rest, from the
+# braid's ends behind the ears, drapes over the shoulders and the backs of the upper arms and fans out beyond the
+# forearms, the widest at the ends, curling at its tips (BK_SIDE). All of it lies facing back, as drawn (round her
+# sides, as the long side locks were, it was seen edge-on from behind, as tentacles). The waves and curls lie flat in
+# the sheet of the hair, as drawn; none twists about its own line or winds into a corkscrew (the user found those
+# twisted and weird; seven clumps evenly fanned read as piled up). Each strand is (x, z, half-width) in the back view
+# down its centre line, from under the braid to its tip, read off the picture (calibrated on the head's top, the
+# waist and her hands: 207 px a unit), as the chest locks' CH_STRANDS.
+# The long hair is modelled as the bangs are (the user found the bangs perfectly anime and the back, waving, hooked and
+# outlined, not): blades that hang in one smooth curve, no S-waves, each tapering to a sharp point, with the bangs'
+# ridged crescent section (lcs),
+# painted as they are (see paint_hair): thin dark strand lines down the lower part, a light peach sheen lens in the
+# middle and the shade under the braid; no outlines. (The waves' code is kept with amp 0: its phase at height z is
+# 2 pi (ZHC - z) / lambda + phase, and it still picks which way a tip flicks.)
+HAIR_WAVE = dict(lam=1.6, phase=0.6, amp=0.0, z_top=9.6, z_full=8.0, narrow=0.0)
+HAIR_OUTLINE, OUTLINE_W, OUTLINE_LIFT = '#7a3020', 0, 0.004     # (line art: OUTLINE_W pixels; none, as the bangs)
+
+
+# The long locks' tips curl in, as the chest locks' do (the user's reference for natural hair): over the last 0.45 the
+# lock turns about 85 degrees in toward the back in the sheet it lies in, in a smooth C (its curvature growing gently,
+# as s^0.5), still wide where it starts to turn and closing to a point (ltl). (Hooks of 100 to 130 degrees that
+# tightened at the very end, on a thin tip, read as fish hooks; flicks of 40 degrees on long points, with the locks
+# piled side by side, as stiff.)
+HAIR_CURL = dict(turn=1.5, length=0.45, p=0.5)
+
+
+def _hook(turn, length, p=None, n=97):
+    """A hook of this length turning `turn` radians in all, its bend growing as (s / length)^p: arc lengths s, headings
+    th (from straight on) and the offsets across (lat) and along (fwd) from where it starts."""
+    p = HAIR_CURL['p'] if p is None else p
+    s = np.linspace(0, length, n)
+    th = turn * (s / length) ** (p + 1)
+    mid = 0.5 * (th[1:] + th[:-1])
+    lat = np.r_[0, np.cumsum(np.sin(mid) * np.diff(s))]
+    fwd = np.r_[0, np.cumsum(np.cos(mid) * np.diff(s))]
+    return s, th, lat, fwd
+
+
+from hairflow import flow as _flow_strand     # each strand from its sweep, widths, wave and curl, as drawn
+
+# the waves (hairflow: amplitude, wavelength, phase, from z, full by z), one to a group so that its strands flow together
+_WL = (0.13, 1.5, 0.4, 8.4, 7.2)       # her left group beside the sash
+_WR = (0.13, 1.5, 2.0, 8.4, 7.2)
+_WO = (0.16, 1.5, 0.6, 8.6, 7.2)       # the side hair's
+BK_FLOW = {
+    'BLm': (dict(pts=[(0.02, 11.42), (0.02, 10.6), (0.05, 9.8), (0.06, 9.15)], widths=[(11.42, .2), (10.6, .26), (9.9, .24), (9.5, .14), (9.15, 0)])),
+    'BRm': (dict(pts=[(-0.1, 11.4), (-0.12, 10.6), (-0.15, 9.8), (-0.13, 9.28)], widths=[(11.4, .18), (10.6, .22), (9.9, .2), (9.6, .12), (9.28, 0)])),
+    # her left inner group
+    'BLu': dict(pts=[(0.15, 11.45), (0.3, 10.4), (0.55, 9.3), (0.75, 8.5), (0.9, 7.8), (0.95, 7.2), (0.9, 6.8)],
+                widths=[(11.45, .2), (10.4, .3), (9.3, .27), (7.5, .26), (7.1, .2), (6.8, 0)]),
+    'BLe': dict(pts=[(0.25, 11.5), (0.38, 10.5), (0.62, 9.4), (0.85, 8.7), (1.05, 8.0), (1.25, 7.5)],
+                widths=[(11.5, .07), (10.5, .1), (9.4, .12), (8.0, .14)], wave=_WL, curl=(-1, 0.25, 4.0)),
+    'BLb': dict(pts=[(0.3, 11.5), (0.45, 10.5), (0.7, 9.4), (0.95, 8.7), (1.15, 8.1), (1.4, 7.5), (1.52, 7.0)],
+                widths=[(11.5, .07), (10.5, .11), (9.4, .13), (8.0, .15), (7.0, .15)], wave=_WL, curl=(-1, 0.3, 3.9)),
+    'BLa': dict(pts=[(0.12, 11.45), (0.2, 10.5), (0.42, 9.4), (0.62, 8.8), (0.8, 8.2), (1.05, 7.6), (1.2, 7.1), (1.18, 6.7)],
+                widths=[(11.45, .1), (10.5, .15), (9.4, .18), (8.2, .2), (6.8, .19)], wave=_WL, curl=(-1, 0.288, 3.6)),
+    'BLd': dict(pts=[(0.2, 11.5), (0.3, 10.5), (0.55, 9.4), (0.72, 8.7), (0.85, 8.0), (0.95, 7.4), (0.85, 6.9), (0.72, 6.5)],
+                widths=[(11.5, .07), (10.5, .1), (9.4, .12), (8.0, .13), (6.6, .13)], wave=_WL, curl=(1, 0.25, 3.7)),
+    'BLc': dict(pts=[(0.05, 11.4), (0.1, 10.5), (0.32, 9.3), (0.45, 8.7), (0.48, 8.0), (0.42, 7.4), (0.38, 6.9), (0.4, 6.6)],
+                widths=[(11.4, .07), (10.5, .11), (9.3, .13), (7.4, .13), (6.6, .12)], wave=_WL, curl=(1, 0.225, 3.5)),
+    # her right inner group
+    'BRu': dict(pts=[(-0.15, 11.4), (-0.3, 10.4), (-0.55, 9.3), (-0.75, 8.5), (-0.85, 7.8), (-0.9, 7.3), (-0.88, 6.95)],
+                widths=[(11.4, .2), (10.4, .3), (9.3, .27), (7.8, .26), (7.25, .2), (6.95, 0)]),
+    'BRe': dict(pts=[(-0.25, 11.45), (-0.38, 10.5), (-0.62, 9.4), (-0.82, 8.6), (-1.0, 7.9), (-1.18, 7.45)],
+                widths=[(11.45, .07), (10.5, .1), (9.4, .12), (8.0, .14)], wave=_WR, curl=(1, 0.25, 3.9)),
+    'BRb': dict(pts=[(-0.28, 11.45), (-0.42, 10.5), (-0.68, 9.4), (-0.9, 8.7), (-1.05, 8.0), (-1.3, 7.45), (-1.48, 7.0), (-1.5, 6.85)],
+                widths=[(11.45, .07), (10.5, .11), (9.4, .13), (8.0, .14), (7.0, .14)], wave=_WR, curl=(1, 0.275, 3.7)),
+    'BRa': dict(pts=[(-0.1, 11.4), (-0.18, 10.5), (-0.42, 9.4), (-0.62, 8.8), (-0.72, 8.1), (-0.95, 7.5), (-1.15, 7.1), (-1.2, 6.85)],
+                widths=[(11.4, .1), (10.5, .15), (9.4, .18), (8.1, .2), (6.9, .19)], wave=_WR, curl=(1, 0.263, 3.5)),
+    'BRd': dict(pts=[(-0.2, 11.42), (-0.3, 10.5), (-0.55, 9.4), (-0.75, 8.6), (-0.85, 7.9), (-0.78, 7.35), (-0.8, 6.95), (-0.9, 6.75)],
+                widths=[(11.42, .07), (10.5, .1), (9.4, .12), (7.9, .12), (6.8, .11)], wave=_WR, curl=(-1, 0.225, 3.5)),
+    'BRc': dict(pts=[(-0.02, 11.38), (-0.06, 10.5), (-0.3, 9.3), (-0.42, 8.6), (-0.4, 7.9), (-0.48, 7.2), (-0.55, 6.8), (-0.55, 6.6)],
+                widths=[(11.38, .07), (10.5, .11), (9.3, .13), (7.2, .12), (6.6, .11)], wave=_WR, curl=(-1, 0.213, 3.4)),
+    # her left side hair: thin over the capelet, a mass below, waving, curling at different heights
+    'BLou': dict(pts=[(0.58, 11.3), (0.85, 10.75), (1.2, 10.1), (1.6, 9.4), (2.0, 8.7), (2.4, 8.0), (2.7, 7.3), (2.85, 6.6), (2.8, 6.0)],
+                 widths=[(11.3, .14), (10.5, .16), (10.1, .12), (9.3, .18), (8.7, .3), (7.0, .34), (6.4, .3), (6.0, 0)]),
+    'BLo3': dict(pts=[(0.6, 11.3), (0.88, 10.7), (1.25, 10.0), (1.65, 9.3), (2.05, 8.6), (2.5, 7.9), (2.9, 7.2), (3.1, 6.6), (3.1, 6.15)],
+                 widths=[(11.3, .04), (10.0, .07), (9.3, .12), (8.6, .2), (7.0, .22), (6.2, .2)], wave=_WO, curl=(-1, 0.312, 3.8)),
+    'BLo2': dict(pts=[(0.55, 11.35), (0.8, 10.8), (1.1, 10.2), (1.45, 9.5), (1.85, 8.9), (2.25, 8.2), (2.55, 7.5), (2.75, 6.8), (2.8, 6.2), (2.74, 5.9)],
+                 widths=[(11.35, .05), (10.2, .08), (9.5, .13), (8.9, .22), (7.5, .26), (6.0, .24)], wave=_WO, curl=(-1, 0.325, 3.7)),
+    'BLo6': dict(pts=[(0.56, 11.32), (0.84, 10.76), (1.15, 10.12), (1.52, 9.45), (1.95, 8.75), (2.35, 8.05), (2.62, 7.4)],
+                 widths=[(11.32, .04), (10.1, .07), (9.4, .12), (8.7, .19), (7.5, .2)], wave=_WO, curl=(1, 0.275, 3.9)),
+    'BLo5': dict(pts=[(0.52, 11.33), (0.78, 10.78), (1.05, 10.15), (1.38, 9.55), (1.75, 8.9), (2.1, 8.25), (2.4, 7.6), (2.55, 7.0), (2.55, 6.55)],
+                 widths=[(11.33, .04), (10.15, .07), (9.55, .11), (8.9, .18), (7.6, .2), (6.6, .19)], wave=_WO, curl=(1, 0.275, 3.5)),
+    'BLo4': dict(pts=[(0.5, 11.35), (0.75, 10.8), (1.0, 10.2), (1.3, 9.6), (1.6, 9.0), (1.95, 8.3), (2.15, 7.6), (2.3, 6.9), (2.35, 6.3)],
+                 widths=[(11.35, .04), (10.2, .07), (9.6, .1), (9.0, .16), (7.6, .19), (6.3, .18)], wave=_WO, curl=(-1, 0.3, 3.8)),
+    'BLo1': dict(pts=[(0.62, 11.3), (0.9, 10.8), (1.2, 10.2), (1.6, 9.5), (2.05, 9.0), (2.5, 8.5), (2.9, 8.0), (3.2, 7.4), (3.35, 6.9)],
+                 widths=[(11.3, .03), (10.0, .05), (8.0, .07), (6.9, .07)], wave=_WO, curl=(-1, 0.275, 3.9)),
+    'BLo7': dict(pts=[(0.6, 11.3), (0.9, 10.72), (1.28, 10.02), (1.7, 9.3), (2.15, 8.6), (2.62, 7.9), (3.0, 7.3), (3.18, 6.95)],
+                 widths=[(11.3, .03), (10.0, .06), (9.3, .1), (8.6, .16), (7.4, .17)], wave=_WO, curl=(1, 0.3, 3.9)),
+    # her right side hair
+    'BRou': dict(pts=[(-0.58, 11.3), (-0.88, 10.75), (-1.25, 10.1), (-1.65, 9.4), (-2.05, 8.7), (-2.42, 8.0), (-2.68, 7.3), (-2.8, 6.6), (-2.74, 6.05)],
+                 widths=[(11.3, .14), (10.5, .16), (10.1, .12), (9.3, .18), (8.7, .3), (7.0, .34), (6.45, .3), (6.05, 0)]),
+    'BRo3': dict(pts=[(-0.6, 11.3), (-0.9, 10.7), (-1.3, 10.0), (-1.7, 9.3), (-2.1, 8.6), (-2.5, 7.9), (-2.85, 7.2), (-3.05, 6.6), (-3.0, 6.2)],
+                 widths=[(11.3, .04), (10.0, .07), (9.3, .12), (8.6, .2), (7.0, .22), (6.2, .2)], wave=_WO, curl=(1, 0.312, 3.7)),
+    'BRo2': dict(pts=[(-0.55, 11.35), (-0.85, 10.8), (-1.2, 10.15), (-1.55, 9.5), (-1.95, 8.85), (-2.35, 8.1), (-2.65, 7.4), (-2.8, 6.7), (-2.78, 6.2), (-2.7, 5.95)],
+                 widths=[(11.35, .05), (10.15, .08), (9.5, .13), (8.85, .22), (7.4, .26), (6.0, .24)], wave=_WO, curl=(1, 0.325, 3.6)),
+    'BRo6': dict(pts=[(-0.56, 11.32), (-0.86, 10.76), (-1.2, 10.12), (-1.58, 9.45), (-2.0, 8.75), (-2.38, 8.0), (-2.62, 7.35)],
+                 widths=[(11.32, .04), (10.1, .07), (9.4, .12), (8.7, .19), (7.5, .2)], wave=_WO, curl=(-1, 0.275, 3.9)),
+    'BRo5': dict(pts=[(-0.52, 11.33), (-0.8, 10.78), (-1.1, 10.15), (-1.42, 9.55), (-1.8, 8.9), (-2.15, 8.2), (-2.42, 7.5), (-2.55, 6.9), (-2.5, 6.5)],
+                 widths=[(11.33, .04), (10.15, .07), (9.55, .11), (8.9, .18), (7.5, .2), (6.5, .19)], wave=_WO, curl=(-1, 0.275, 3.5)),
+    'BRo4': dict(pts=[(-0.5, 11.35), (-0.78, 10.8), (-1.05, 10.2), (-1.35, 9.6), (-1.65, 9.0), (-1.95, 8.3), (-2.1, 7.6), (-2.2, 6.9), (-2.25, 6.4)],
+                 widths=[(11.35, .04), (10.2, .07), (9.6, .1), (9.0, .16), (7.6, .19), (6.4, .18)], wave=_WO, curl=(1, 0.288, 3.7)),
+    'BRo1': dict(pts=[(-0.62, 11.3), (-0.95, 10.75), (-1.3, 10.1), (-1.75, 9.4), (-2.2, 8.8), (-2.65, 8.2), (-3.0, 7.6), (-3.25, 7.1), (-3.3, 6.75)],
+                 widths=[(11.3, .03), (10.0, .05), (8.0, .07), (6.75, .07)], wave=_WO, curl=(1, 0.275, 3.8)),
+    'BRo7': dict(pts=[(-0.6, 11.3), (-0.92, 10.72), (-1.32, 10.02), (-1.75, 9.3), (-2.2, 8.6), (-2.65, 7.9), (-3.0, 7.25), (-3.15, 6.9)],
+                 widths=[(11.3, .03), (10.0, .06), (9.3, .1), (8.6, .16), (7.4, .17)], wave=_WO, curl=(-1, 0.3, 3.9)),
 }
+BK_STRANDS = {k: _flow_strand(**v) for k, v in BK_FLOW.items()}
+BK_SIDE = tuple(k for k in BK_STRANDS if k[2] == 'o')     # the side hair (from the braid's ends, draped: back_strands)
+BK_STRANDS['BR0'] = [(-0.42, 11.35, .055), (-0.45, 11.1, .074), (-0.47, 10.85, .055), (-0.47, 10.74, 0)]   # a short strand by the braid
 # the curls: ringlets, each a helix about an upright axis through x cx, starting where the strand's hanging part
 # ends; r0 the radius it starts at (where the strand ends at least that far from the axis across, it starts beside
 # the axis, else in front of it), r1 the radius it closes to, turns, how far it drops (about 0.6 a turn, so that the
 # turns of two strands round one axis stand apart), and the sense of the turn (seen from above: 1 anticlockwise).
 # The strands of a lock with the same cx share the axis, set back far enough for every turn to clear the skirt
-# (ringlet_axes). On her right the sheet draws the ringlet as loops from x -1.44 to -0.47 and z 7.3 down to 6.44:
-# BR3 comes in along its front, BR1 down its outside.
-BK_CURL = {
-    'BL4': dict(cx=0.55, r0=0.26, r1=0.15, turns=1.5, drop=0.85, sense=1),
-    'BL3': dict(cx=0.55, r0=0.27, r1=0.16, turns=1.75, drop=1.0, sense=1),
-    'BR3': dict(cx=-0.95, r0=0.32, r1=0.15, turns=1.5, drop=0.9, sense=-1),
-    'BR1': dict(cx=-0.95, r0=0.5, r1=0.2, turns=1.25, drop=0.75, sense=-1),
-}
+# (ringlet_axes). (The user found the corkscrew ringlets unnatural; none is used. The ringlet code is kept for a
+# strand given a curl here.)
+BK_CURL = {}
 
 
-def _under_braid(x0, sd, z_tip):
-    """A short strand under the braid at x0 (sd 1 her left, -1 her right): it starts right under the braid (back_strands
-    adds the top), runs down the back of the head moving out 0.12 a unit of height, and ends in a tip at z_tip."""
-    pts = [(x0 + sd * 0.12 * (11.5 - z), z, hw) for z, hw in zip((11.5, 11.2, 10.9, 10.6, 10.35, 10.1), (.055, .06, .06, .055, .05, .045))
+def _under_braid(x0, sd, z_tip, k=1.0):
+    """A short strand under the braid at x0 (sd 1 her left, -1 her right), k times the usual width: it starts right
+    under the braid (back_strands adds the top), runs down the back of the head moving out 0.12 a unit of height, and
+    ends in a tip at z_tip."""
+    pts = [(x0 + sd * 0.12 * (11.5 - z), z, k * hw) for z, hw in zip((11.5, 11.2, 10.9, 10.6, 10.35, 10.1), (.055, .06, .06, .055, .05, .045))
            if z > z_tip + 0.12]
     return pts + [(x0 + sd * 0.12 * (11.5 - z_tip), z_tip, 0)]
 
 
-# and short strands under the braid, over the back of the head beside the locks (the user's highlight: the crown locks
-# close in toward the middle there and left the dark under-layer showing at |x| 0.1 to 0.65, from the braid down to
-# the capelet), 0.12 apart, down the locks' outer edges, inside the traced outline, to tips on the capelet
-BK_STRANDS.update({f'BL{9 + i}': _under_braid(x0, 1, zt) for i, (x0, zt) in enumerate(((0.36, 9.95), (0.47, 10.25), (0.58, 10.5), (0.69, 10.6)))})
-BK_STRANDS.update({f'BR{8 + i}': _under_braid(x0, -1, zt) for i, (x0, zt) in enumerate(((-0.14, 9.8), (-0.26, 9.95), (-0.38, 10.2), (-0.5, 10.45), (-0.62, 10.55)))})
-# colour and thickness, in the order they are laid on
-BK_LOOK = {'BL12': (HAIR, 0.04), 'BL11': (HAIR_DK, 0.04), 'BL10': (HAIR_LT, 0.04), 'BL9': (HAIR, 0.045),
-           'BL8': (HAIR, 0.04), 'BL7': (HAIR_DK, 0.045), 'BL5': (HAIR_LT, 0.045), 'BL6': (HAIR, 0.05),
-           'BL4': (HAIR_DK, 0.05), 'BL3': (HAIR, 0.055), 'BL2': (HAIR_LT, 0.05), 'BL1': (HAIR, 0.045),
-           'BR12': (HAIR_DK, 0.04), 'BR11': (HAIR, 0.04), 'BR10': (HAIR_LT, 0.04), 'BR9': (HAIR, 0.045), 'BR8': (HAIR_DK, 0.045),
-           'BR7': (HAIR, 0.04), 'BR4': (HAIR_LT, 0.045), 'BR5': (HAIR, 0.05), 'BR6': (HAIR_DK, 0.045),
-           'BR3': (HAIR_DK, 0.05), 'BR2': (HAIR, 0.055), 'BR1': (HAIR_LT, 0.05), 'BR0': (HAIR_LT, 0.04)}
+# and short strands under the braid, over the back of the head beside the curtain (the user's highlight: the crown
+# locks close in toward the middle there and left the dark under-layer showing at |x| 0.1 to 0.65, from the braid down
+# to the capelet), two a side, wide, to tips on the capelet
+BK_STRANDS.update({f'BL{9 + i}': _under_braid(x0, 1, zt, 2.96) for i, (x0, zt) in enumerate(((0.4, 10.0), (0.62, 10.45)))})
+BK_STRANDS.update({f'BR{8 + i}': _under_braid(x0, -1, zt, 2.96) for i, (x0, zt) in enumerate(((-0.2, 9.85), (-0.48, 10.3)))})
+# colour and thickness, in the order they are laid on: the clumps under, darker (so the folds between the strands
+# read), then the strands of each group, each lying on the ones before it, in shades of their own
+BK_LOOK = {'BL10': (HAIR_DK, 0.04), 'BL9': (HAIR, 0.04), 'BR9': (HAIR_DK, 0.04), 'BR8': (HAIR, 0.04),
+           'BLu': (HAIR_DK, 0.042), 'BRu': (HAIR_DK, 0.042), 'BLou': (HAIR_DK, 0.042), 'BRou': (HAIR_DK, 0.042),
+           'BR0': (HAIR_LT, 0.04), 'BLm': (HAIR_LT, 0.042), 'BRm': (HAIR, 0.04),
+           'BLe': (HAIR, 0.04), 'BRe': (HAIR_LT, 0.04),
+           'BLb': (HAIR_LT, 0.042), 'BRb': (HAIR, 0.042), 'BLa': (HAIR, 0.045), 'BRa': (HAIR_LT, 0.045),
+           'BLd': (HAIR_DK, 0.04), 'BRd': (HAIR_DK, 0.04), 'BLc': (HAIR_LT, 0.04), 'BRc': (HAIR, 0.04),
+           'BLo3': (HAIR_DK, 0.042), 'BRo3': (HAIR, 0.042), 'BLo2': (HAIR, 0.045), 'BRo2': (HAIR_LT, 0.045),
+           'BLo6': (HAIR, 0.042), 'BRo6': (HAIR_LT, 0.042),
+           'BLo7': (HAIR_LT, 0.038), 'BRo7': (HAIR, 0.038),
+           'BLo5': (HAIR_LT, 0.04), 'BRo5': (HAIR_DK, 0.04), 'BLo4': (HAIR_LT, 0.04), 'BRo4': (HAIR, 0.04),
+           'BLo1': (HAIR_LT, 0.03), 'BRo1': (HAIR_LT, 0.03)}
+BK_LOOK = {k: (c, round(th * 2.3, 4)) for k, (c, th) in BK_LOOK.items()}
 BK_ROOT = (0.88, 11.87)     # the strands start inside the braid at the back of the head (y, z; measured: the braid's
                             # outside is at y 0.96 and z 11.84 to 11.9 in the middle)
 BK_TOP = 0.96               # how far back a strand is where it comes out under the braid
 BK_NAPE = 10.45             # the hair down the back above the two locks ends here (back locks, hairUnder)
-BK_WIDE = 1.5               # the traced lines are the strands' borders, drawn apart; the strands overlap their
-                            # neighbours so that each lock reads as one
-BK_WAVE = (0.06, 0.7, 8.6)  # below z 8.6 the strands wave back and forth by 0.06, 0.7 a wave, so they curl in 3D
-BK_NOISE = (0.025, 0.25, 0.2, 0.015)   # so that no strand is machine-smooth: each wanders across by up to 0.025, its
-                            # width and thickness vary by up to 25% and 20%, and it lifts off what it lies on by up to 0.015
-BK_TWIST = {'BL4': 0.5, 'BL3': -0.5, 'BL2': 0.6, 'BL1': -0.5, 'BR3': 0.5, 'BR2': -0.6, 'BR1': 0.5,   # turns each
-            'BL5': -0.5, 'BL6': 0.5, 'BL7': 0.4, 'BL8': -0.4, 'BR4': -0.5, 'BR5': 0.5, 'BR6': -0.5, 'BR7': 0.4}
-                            # strand twists about its own line below the nape
-BK_UNDER = ('BL9', 'BL10', 'BL11', 'BL12', 'BR8', 'BR9', 'BR10', 'BR11', 'BR12')   # the strands under the braid
-BK_SUBS = {'BL4': 3, 'BL3': 3, 'BL2': 2, 'BL1': 2, 'BR3': 3, 'BR2': 3, 'BR1': 3, 'BR0': 1,   # sub-strands, 18 a lock,
-           'BL5': 2, 'BL6': 2, 'BL7': 2, 'BL8': 2, 'BR4': 2, 'BR5': 2, 'BR6': 2, 'BR7': 2,    # and those under the braid:
-           'BL9': 2, 'BL10': 2, 'BL11': 2, 'BL12': 2, 'BR8': 2, 'BR9': 2, 'BR10': 2, 'BR11': 2, 'BR12': 2}
-                            # each strand is drawn as these, side by side across it, each with its own wander, depth,
-                            # width, thickness and shade; they fan out at a free tip and wind together in a ringlet
+BK_WIDE = 1.0               # the half-widths are as drawn (before, the traced ones were drawn 1.85 times as wide)
+BK_WAVE = (0.0, 0.7, 8.6)   # (below z 8.6 a strand may wave back and forth by the first, the second a wave: none, as
+                            # neat anime hair falls smooth)
+BK_NOISE = (0.005, 0.03, 0.03, 0.005)  # so that no strand is machine-smooth: each wanders across by up to 0.005, its
+                            # width and thickness vary by up to 3%, and it lifts off what it lies on by up to 0.005 (more
+                            # read as lumps along the big clumps)
+BK_TWIST = {}               # turns a strand twists about its own line below the nape (none: neat hair lies flat)
+BK_UNDER = ('BL9', 'BL10', 'BR8', 'BR9')   # the strands under the braid
+BK_DRAPE_Z = 10.0          # the side hair lies on what is under it above this (coming forward from the head onto the
+                            # shoulders); below it, it falls straight (never coming forward: draped down to 9.0, it
+                            # creased where it left the capelet's hem)
+BK_SUBS = {k: 1 for k in BK_STRANDS}   # sub-strands: each strand is drawn as these, side by side across it, each with
+                            # its own wander, depth, width, thickness and shade; they fan out at a free tip and wind
+                            # together in a ringlet. One each: the locks are bundles of strands, as the chest locks are
 BK_WOB = 0.02               # a ringlet's radius wanders by up to twice this
 BK_STACK = (0.03, 0.2)      # how far the strands of a lock may rise over each other: on the head and nape, and below
 
@@ -505,7 +587,19 @@ def head_back_grid():
     from haircontact import CrownContact
     HEAD_CONTACT = CrownContact(hair, zmin=10.7)
     HEAD_UNDER_CONTACT = CrownContact([s for s in hair if s[0]=='hairUnder'], zmin=10.7)
+    global LOCKS_BACK               # the long locks over the shoulders and arms, for the side hair to lie on
+    LOCKS_BACK = _back_grid(sheetfit.surfaces_from_lines(sc.out, ref=r'(back[UT]?\d+|side[LR]\d+|earBackLock\d)(Tip)?'), _LG)
     return _back_grid(hair, _HG)
+
+
+def locks_back(x, z):
+    """How far back the long locks over the shoulders and arms reach at (x, z) (arrays), -9 where there are none."""
+    if LOCKS_BACK is None:
+        return np.full(np.shape(x), -9.0)
+    x0, z0, st, nx, nz = _LG
+    i, j = np.round((np.asarray(x) - x0) / st).astype(int), np.round((np.asarray(z) - z0) / st).astype(int)
+    ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
+    return np.where(ok, LOCKS_BACK[np.clip(i, 0, nx - 1), np.clip(j, 0, nz - 1)], -9.0)
 
 
 def head_root(x, z):
@@ -591,7 +685,9 @@ def body_back(x, z, head=True):
     return np.where((z > BK_NAPE - 0.05) & (z < 11.95) & (np.abs(x) < ax), np.maximum(f, nape), f)
 
 
-_UG = (-1.6, 5.5, 0.01, 321, 621)      # the grid of how far back the back strands already laid reach
+_UG = (-3.6, 4.8, 0.01, 721, 711)      # the grid of how far back the back strands already laid reach
+_LG = (-3.6, 8.0, 0.02, 361, 181)      # and of the long locks over the shoulders and arms (LOCKS_BACK)
+LOCKS_BACK = None
 
 
 def ringlet_axes():
@@ -837,6 +933,28 @@ def _hang_pieces(n_seg, t, sig, prepared, joined, subs, end_targets=None, end_sp
     return parts, errs, prev
 
 
+def _taut(s, y, sigma=0.25):
+    """A strand's depth y along its length s hung as a taut sheet, as long hair hangs off the back of the head and the
+    shoulder blades (the user's reference: anime's long hair is a smooth mass that need not trace the body, like the
+    bangs): the least concave function above y (its upper hull: straight from where it leaves the braid to the fullest
+    point it passes over, then on down), its corners rounded over about sigma and lifted just enough to stay above y."""
+    hull = []
+    for i in range(len(s)):
+        while len(hull) >= 2:
+            a, b = hull[-2], hull[-1]
+            if (s[b] - s[a]) * (y[i] - y[a]) - (y[b] - y[a]) * (s[i] - s[a]) >= 0:    # b under the chord a-i: drop it
+                hull.pop()
+            else:
+                break
+        hull.append(i)
+    h = np.interp(s, s[hull], y[hull])
+    step = max(1e-9, float(s[1] - s[0]))
+    r = max(1, int(3 * sigma / step))
+    ker = np.exp(-0.5 * (np.arange(-r, r + 1) * step / sigma) ** 2)
+    hs = np.convolve(np.pad(h, r, mode='edge'), ker / ker.sum(), 'valid')
+    return hs + max(0.0, float(np.max(y - hs)))
+
+
 def _bk_wobble(s, n, j):
     """A smooth wobble between -1 and 1 along a strand (arc length s), its own for strand n and quantity j: three
     waves of incommensurate lengths, their phases a formula in n and j."""
@@ -847,18 +965,19 @@ def _bk_wobble(s, n, j):
 def _sub_at(sb, s, u):
     """Where a sub-strand is in its strand at arc length s (u: the fraction of the strand's length): across it, in
     the strand's half-widths (its place d, fanning out over the last fifth of a free strand, and a wander of up to
-    0.3 of the spacing); out from it, in its thicknesses (0 to 0.5, never into what the strand lies on); and its
+    0.08 of the spacing); out from it, in its thicknesses (0.17 to 0.23, never into what the strand lies on); and its
     width and thickness as fractions of the strand's. Below the end of a free strand, a sub-strand ends a little
-    early (at u = end)."""
+    early (at u = end; a strand drawn as one runs to its own point)."""
     j = sb['j']
     if sb['free']:
         f = np.clip((u - 0.8) / 0.2, 0, 1)
-        fan, tip = f * f * (3 - 2 * f), np.clip((sb['end'] - u) / 0.04, 0, 1) ** 0.6
+        e = np.clip((sb['end'] - u) / 0.04, 0, 1)
+        fan, tip = f * f * (3 - 2 * f), 1 - (1 - e) ** 2       # (smoothly: a power under 1 has an endless slope at the end)
     else:
         fan, tip = 0.0, 1.0
-    lat = sb['d'] * (1 + 0.6 * fan) + 0.3 * sb['sp'] * _bk_wobble(s, j, 5)
-    dep = 0.25 * (1 + _bk_wobble(s, j, 6))
-    return lat, dep, sb['w'] * (1 + 0.2 * _bk_wobble(s, j, 7)) * tip, (0.8 + 0.2 * _bk_wobble(s, j, 8)) * tip
+    lat = sb['d'] * (1 + 0.25 * fan) + 0.08 * sb['sp'] * _bk_wobble(s, j, 5)
+    dep = 0.2 + 0.03 * _bk_wobble(s, j, 6)                # hardly in and out: neat hair lies smooth
+    return lat, dep, sb['w'] * (1 + 0.03 * _bk_wobble(s, j, 7)) * tip, (0.9 + 0.03 * _bk_wobble(s, j, 8)) * tip
 
 
 def back_strands():
@@ -880,7 +999,8 @@ def back_strands():
     for key, (col, th) in BK_LOOK.items():
         sd, n_ = (1 if key[1] == 'L' else -1), list(BK_STRANDS).index(key)      # its noise and wave are its own
         D = np.array(BK_STRANDS[key], float) * [1, 1, BK_WIDE]
-        if key in BK_UNDER:                                  # it starts right under the braid
+        side = key in BK_SIDE
+        if key in BK_UNDER or side:                          # it starts right under the braid
             D = np.r_[[[D[0, 0], float(braid_back(D[0, 0])[2]) - 0.02, 0.8 * D[0, 2]]], D]
         d = np.r_[0, np.cumsum(np.hypot(*np.diff(D[:, :2], axis=0).T))]
         s = np.linspace(0, d[-1], 600)
@@ -906,6 +1026,8 @@ def back_strands():
         for k in np.linspace(-1, 1, 7):                      # on the head only the middle of its width rests on the hair,
             px, pz = Q[:, 0] + k * hw * N2[:, 0], Q[:, 1] + k * hw * N2[:, 1]     # its edges following it round
             fb = np.maximum(fb, body_back(px, pz, head=abs(k) < 0.4))
+            if side:                                         # the side hair lies on the long locks there too
+                fb = np.maximum(fb, locks_back(px, pz))
             i, j, ok = at_under(px, pz)
             fh = np.maximum(fh, np.where(ok, under[np.clip(i, 0, unx - 1), np.clip(j, 0, unz - 1)], 0))
         # its depth: on the clothes, and where they fall away (under the capelet's hem) it falls straight, as hair
@@ -913,8 +1035,20 @@ def back_strands():
         # onto them over its first 0.4, under the braid, where they all begin)
         first = fb[fb > -9][0] + CH_GAP if (fb > -9).any() else BK_TOP      # from the first thing it lies on
         body = np.maximum.accumulate(np.r_[first, np.where(fb > -9, fb + CH_GAP, first)])
+        fall = np.nonzero(Q[:, 1] < BK_DRAPE_Z)[0]
+        fall = fall[0] if len(fall) else len(s)
+        if side:
+            # the side hair comes forward from the head onto the shoulders and the backs of the arms, lying on what is
+            # there (where nothing is, as before), and below BK_DRAPE_Z falls straight
+            raw = np.where(fb > -9, fb + CH_GAP, np.nan)
+            raw[0] = first if not np.isfinite(raw[0]) else raw[0]
+            raw = raw[np.maximum.accumulate(np.where(np.isfinite(raw), np.arange(len(raw)), 0))]
+            raw[fall:] = np.maximum.accumulate(raw[fall:])
+            body = np.r_[first, raw]
         curl = BK_CURL.get(key)
-        tip = np.ones(len(s)) if curl else np.minimum(1, (d[-1] - s) / 0.15) ** 0.6
+        # its thickness closes to the point over the last 0.25, smoothly (a power under 1 there has an endless slope at
+        # the point, which the pieces' polynomials cannot follow)
+        tip = np.ones(len(s)) if curl else 1 - (1 - np.minimum(1, (d[-1] - s) / 0.25)) ** 2
         body = body[1:] + 0.3 * thv * tip + lift + ny * on * (1 + _bk_wobble(s, n_, 3)) / 2   # its line over the clothes
         ker = np.exp(-0.5 * (np.arange(-24, 25) / 8) ** 2)
         fh = np.where(fh > BK_TOP, BK_TOP + (fh - BK_TOP) * np.clip(s / 0.4, 0, 1) ** 2, fh)
@@ -928,7 +1062,16 @@ def back_strands():
         y = lo.copy()
         for _ in range(12):                                  # smoothed a little, so as to stay close
             y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), lo)
-        y = np.maximum.accumulate(y)                         # and past the strands beneath it, it falls straight too
+        if side:                                             # the side hair eases over the edges it drapes across
+            kd = np.exp(-0.5 * (np.arange(-60, 61) / 20) ** 2)
+            for _ in range(30):
+                y = np.maximum(np.convolve(np.pad(y, 60, mode='edge'), kd / kd.sum(), 'valid'), lo)
+        if side:                                             # past the strands beneath it, it falls straight too
+            y[fall:] = np.maximum.accumulate(y[fall:])
+        else:
+            y = np.maximum.accumulate(y)
+        if key not in BK_UNDER and not side:
+            y = _taut(s, y)                                  # and hangs as a smooth sheet, not tracing the body
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
@@ -947,7 +1090,7 @@ def back_strands():
                                                     # its line, sinking into it rather than piling up
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
-        if key in BK_UNDER:                                  # its root inside the braid, where the braid crosses it
+        if key in BK_UNDER or side:                          # its root inside the braid, where the braid crosses it
             zb, yb, _ = braid_back(0.95 * D[0, 0])
             root = [[0.95 * D[0, 0], float(yb) - 0.06, float(zb)]]
         else:
@@ -1005,7 +1148,7 @@ def back_strands():
         # the sub-strands, side by side across the strand, each with its own wander, depth, width and thickness
         n = BK_SUBS[key]
         subs = [dict(j=10 * n_ + k, d=0.8 * (2 * k - (n - 1)) / n, sp=1.6 / n if n > 1 else 0.0, w=min(1.0, 1.2 / n + 0.13),
-                     free=not curl, end=1 - 0.06 * ((0.618 * (k + n_)) % 1)) for k in range(n)]
+                     free=not curl, end=1 - 0.06 * ((0.618 * (k + n_)) % 1) if n > 1 else 1.0) for k in range(n)]
         cols = [col] + [c for c in (HAIR, HAIR_LT, HAIR_DK) if c != col]
         # Prepare contact once; trying different polynomial partitions must not
         # repeat the surface inversion or shift the material texture.
@@ -1088,30 +1231,132 @@ one minus the cosine of the head's turn times hb, and hm scales the lock with th
     sc.comment("""A lock is a tube around its own flow line. lpc is the angle of that line around the head: a starting
 angle pb+p0 (0 = straight back, + toward her left) whose part p0 closes up by sg as the hair spreads (sg = 1
 falls straight down, sg = 0 fans out over the shoulders; pb is 0 for the back and pi for the front), a drift dr, and a wave of size am that grows down the
-lock. lrc is how far the line stands off the hair surface: its layer la, and the wave again a quarter turn
-later, so the lock snakes in and out as well as side to side. Across the lock (w runs around it) lwd is
+lock. lrc is how far the line stands off the hair surface: its layer la, and a fifth of the wave, so the wave's
+plane tilts a little off the hair (a quarter turn later, as before, the lock wound like a corkscrew). Across the lock (w runs around it) lwd is
 the half-width and lth the thickness, a crescent lcs with three ridges that is flat underneath. ltp tapers
 the lock toward its end te, and lq runs 0..1 over the last stretch, where the tip turns through three
 quarters of a circle: sideways like a hook, or outward like a scroll.""")
     sc.func('ltp(t,te)', 'min(1,max(0,te-t)/0.13)^0.6')
     sc.func('lq(t,te)', 'max(0,1-max(0,te-t)/0.08)')
     sc.func('lcs(w)', '(0.65*sin(w)+0.35*abs(sin(w)))*(0.78+0.22*cos(2*pi*cos(w)))')
+    sc.comment("""The long hair down the back and over the shoulders has the bangs' ridged crescent, and tapers (ltl)
+into its curled tip, as the chest locks do.""")
+    sc.func('ltl(t,te)', 'min(1,max(0,te-t)/0.1)^0.7')
     sc.func('lpc(t,pb,p0,sg,dr,am,kk,ph)', 'pb+p0*(1-sg*(1-hdw(t)))+dr*hu(t)+am*hu(t)^1.5*sin(kk*hu(t)+ph)')
-    sc.func('lrc(t,la,am,kk,ph)', 'la*min(1,t/0.04)+0.6*am*hu(t)^1.5*cos(kk*hu(t)+ph)')
+    sc.func('lrc(t,la,am,kk,ph)', 'la*min(1,t/0.04)+0.2*am*hu(t)^1.5*sin(kk*hu(t)+ph)')
     sc.func('lwd(t,te,hw)', 'hw*ltp(t,te)*hdw(t)')
     sc.func('lth(t,w,te,th)', 'th*ltp(t,te)*lcs(w)*min(1,t/0.04)')
+    sc.func('lwl(t,te,hw)', 'hw*ltl(t,te)*hdw(t)')
+    sc.func('lts(t,w,te,th)', 'th*ltl(t,te)*lcs(w)*min(1,t/0.04)')
 
-    def lock(ref, p0, sg, dr, hw, te, la, th, am, kk, ph, col, curl=('side', 1, 0.12), start=0.012, pb=0.0):
-        """One lock: main part, then its curled tip as a second surface (so the curl gets a fine mesh)."""
-        PC = f"lpc(t,{fmt(pb)},{fmt(p0 - pb)},{fmt(sg)},{fmt(dr)},{fmt(am)},{fmt(kk)},{fmt(ph)})"
-        RC = f"lrc(t,{fmt(la)},{fmt(am)},{fmt(kk)},{fmt(ph)})"
-        WD = f"lwd(t,{fmt(te)},{fmt(hw)})"
-        TH = f"lth(t,w,{fmt(te)},{fmt(th)})"
-        end = te if curl is None else te - 0.08
+    sc.func('hzg(a)', '(2/pi)*asin(0.97*sin(a))')       # a zigzag, for the highlights' serrated edges
+    HL_SPIKES = 7.5         # the zigzag's rate across a clump (w from 0.3 to pi - 0.3): about three spikes a clump
+
+    def lock_parts(tv, pb, p0, sg, dr, hw, te, la, th, am, kk, ph, full, smooth=False):
+        """A lock's angle, standoff, half-width and thickness, as Arch expressions in the expression tv for t (smooth:
+        the long hair, tapering over a longer stretch to a sharp point)."""
+        PC = f"lpc({tv},{fmt(pb)},{fmt(p0 - pb)},{fmt(sg)},{fmt(dr)},{fmt(am)},{fmt(kk)},{fmt(ph)})"
+        GR = f"(0.55+0.45*min(1,4*hu({tv})))" if full else None
+        LA = f"({fmt(la)}*{GR})" if full and la else fmt(la)
+        THK = f"({fmt(th)}*{GR})" if full else fmt(th)
+        WD = f"{'lwl' if smooth else 'lwd'}({tv},{fmt(te)},{fmt(hw)})"
+        if am >= 0.04:          # a wavy lock (HAIR_WAVE) narrows where the wave turns it, as a ribbon does
+            WD += f"*(1-{fmt(HAIR_WAVE['narrow'])}*min(1,2*hu({tv})^1.5)*cos({fmt(kk)}*hu({tv})+{fmt(ph)})^2)"
+        return PC, f"lrc({tv},{LA},{fmt(am)},{fmt(kk)},{fmt(ph)})", WD, f"{'lts' if smooth else 'lth'}({tv},w,{fmt(te)},{THK})"
+
+    def lock_band(ref, args, full, tc, h, ph0=0.0, smooth=False):
+        """A highlight across a lock, as anime hair is lit: a band across the clump at tc whose upper and lower edges are
+        zigzags of spikes pointing along the hair, the band's half-length h (in t) at the spikes' tips; drawn twice, a
+        light peach and, half as long, a bright core (two crisp steps, as the guides draw it)."""
+        zc = ZHC + HDZ * math.cos(1.5708 * min(1, tc / T0)) - VF * max(0.0, tc - T0)
+        for k, (hk, col, lift) in enumerate(((h, HAIR_HI, 1.06), (0.45 * h, HAIR_GLOSS, 1.1))):
+            T = f"({fmt(tc)}+{fmt(hk)}*q*(0.3+0.7*abs(hzg({fmt(HL_SPIKES)}*w+{fmt(ph0)}))))"
+            PC, RC, WD, TH = lock_parts(T, *args, full, smooth)
+            R = f"({RC}+{fmt(lift)}*{TH})"
+            with sc.turned(**HEAD_TURN, blend=(f'hs({T})', f'hk({T})', f'hm({T})')):
+                sc.surface((f"(hrx({T})+{R}*sin(ha({T})))*sin({PC}+{WD}*cos(w))", f"{fmt(HY0)}+(hry({T})+{R}*sin(ha({T})))*cos({PC}+{WD}*cos(w))",
+                            f"hzz({T})+{R}*cos(ha({T}))"), ('w', 0.3, math.pi - 0.3), ('q', -1, 1), col, f'{ref}Hl{k + 1}',
+                           ('point', (0, HY0, zc - 0.3)))
+
+    RING_POLAR = 1.5708 * 0.085 / T0       # the angel ring's angle from the crown (locks' crown_shine is at t 0.085)
+    BAND_Z = 10.55          # the second ring of highlights, across the long hair where it curves over the shoulders
+    BAND_T = T0 + (ZHC - BAND_Z) / VF
+
+    def lock(ref, p0, sg, dr, hw, te, la, th, am, kk, ph, col, curl=('side', 1, 0.12), start=0.012, pb=0.0, full=None, band=False,
+             smooth=False, outline=None, paint=False):
+        """One lock: main part, then its curled tip as a second surface (so the curl gets a fine mesh).
+        full: the lock's own volume, its standoff and thickness grown by this factor where it falls (from 0.55 of it on
+        the head, so the crown keeps its size): a round clump about three times as wide as it is thick, which Arch's light
+        shades round, instead of a flat ribbon. band: a highlight across it where it curves over the shoulders. smooth:
+        the long hair's long taper (ltl). outline: its line art (HAIR_OUTLINE) this many pixels wide,
+        along both edges from where it leaves the dome (the crown stays clean). paint: strand strokes, a shadow wedge
+        and a light streak painted near its end (paint_hair)."""
+        args = (pb, p0, sg, dr, hw, te, la, th, am, kk, ph)
+        PC, RC, WD, TH = lock_parts('t', *args, full, smooth)
+        end = te if curl is None else te - (0.1 if curl[0] == 'flick' else curl[2] / VF if curl[0] == 'hook' else 0.08)
+
+        def edges(P, R, t0, t1, tag):
+            if not outline or t1 <= t0:
+                return
+            RR = f"({R}+{fmt(OUTLINE_LIFT)})"
+            for sgn_, nm in ((1, 'A'), (-1, 'B')):        # the edges at w = 0 and pi, where the section's thickness is 0
+                ang = f"({P}{'+' if sgn_ > 0 else '-'}{WD})"
+                sc.curve((f"(hrx(t)+{RR}*sin(ha(t)))*sin({ang})", f"{fmt(HY0)}+(hry(t)+{RR}*sin(ha(t)))*cos({ang})",
+                          f"hzz(t)+{RR}*cos(ha(t))"), ('t', t0, t1), HAIR_OUTLINE, f'{ref}{tag}Line{nm}', thickness=outline)
         with sc.turned(**HEAD_TURN, blend=HB):
             sc.surface((f"(hrx(t)+({RC}+{TH})*sin(ha(t)))*sin({PC}+{WD}*cos(w))", f"{fmt(HY0)}+(hry(t)+({RC}+{TH})*sin(ha(t)))*cos({PC}+{WD}*cos(w))",
                         f"hzz(t)+({RC}+{TH})*cos(ha(t))"), ('t', start, end), ('w', 0, '2*pi'), col, ref, ('tube', 'u'))
+            edges(PC, RC, max(start, T0), end, '')
+        if paint:
+            PAINT.append(dict(kind='lock', ref=ref, p0=p0, seed=3.7 * p0 + 11 * te))
+        if band and te > BAND_T + 0.03:
+            lock_band(ref + 'Band', args, full, BAND_T + 0.011 * math.sin(3.1 * p0 + 0.7), 0.022, ph0=2.3 * p0, smooth=smooth)    # staggered a little
         if curl is None:
+            return
+        if curl[0] == 'hook':
+            # the tip ends in a small hook, as anime draws long hair's ends (HAIR_CURL): over its last lc of length the
+            # line bends ever tighter round the body (in the sheet the lock lies in), the way its wave was already
+            # bending there (else in toward the back); the lock's width turns with it so it stays a ribbon, and the
+            # taper makes the hook fine. Written in sg, from 0 to 1 along the hook: its heading th = turn sg^(p+1) and its
+            # offsets across and along, polynomials fitted to the hook (_hook).
+            _, turn, lc = curl
+            dT = lc / VF
+            t0 = te - dT
+            hu0 = (t0 - T0) / (1 - T0)
+            bend = -math.sin(kk * hu0 + ph) if am >= 0.04 else 0.0
+            sgn = (1.0 if bend > 0 else -1.0) if abs(bend) > 0.35 else -math.copysign(1, p0)
+            hs_, th_, lat_, fwd_ = _hook(turn, lc)
+            cl = np.round(np.polynomial.polynomial.polyfit(hs_ / lc, lat_ / lc, 7), 6)
+            cf = np.round(np.polynomial.polynomial.polyfit(hs_ / lc, fwd_ / lc, 7), 6)
+            SG = f"min(1,max(0,(t-{fmt(t0)})/{fmt(dT)}))"
+            TT = f"({fmt(turn)}*{SG}^{fmt(HAIR_CURL['p'] + 1)})"
+            rr = f"(0.5*(hrx(t)+hry(t))+{RC})"
+            PH_ = f"{PC}+{fmt(sgn * lc)}*({horner(list(cl), SG)})/{rr}"
+            DZ = f"{fmt(lc)}*({SG}-({horner(list(cf), SG)}))"
+
+            def hook_xyz(cw, R):
+                ang = f"({PH_}+{WD}*{cw}*cos{TT})"
+                return (f"(hrx(t)+{R}*sin(ha(t)))*sin({ang})", f"{fmt(HY0)}+(hry(t)+{R}*sin(ha(t)))*cos({ang})",
+                        f"hzz(t)+{R}*cos(ha(t))+{DZ}+{fmt(sgn)}*{WD}*{rr}*{cw}*sin{TT}")
+            with sc.turned(**HEAD_TURN, blend=HB):
+                sc.surface(hook_xyz('cos(w)', f"({RC}+{TH})"), ('t', t0, te), ('w', 0, '2*pi'), col, ref + 'Tip', ('tube', 'u'))
+                if outline:
+                    for cw, nm in (('1', 'A'), ('(-1)', 'B')):
+                        sc.curve(hook_xyz(cw, f"({RC}+{fmt(OUTLINE_LIFT)})"), ('t', t0, te), HAIR_OUTLINE, f'{ref}TipLine{nm}', thickness=outline)
+            return
+        if curl[0] == 'flick':
+            # the tip: the lock tapers to a point and flicks gently aside and out over its last stretch, as anime hair
+            # ends (in its own surface so that the point gets a fine mesh)
+            _, sgn, dpsi, dout = curl
+            if sgn == 0:        # in toward the back
+                sgn = -math.copysign(1, p0) if p0 else 0
+            LF = f"max(0,1-({fmt(te)}-t)/0.1)^2"
+            PF = f"{PC}+{fmt(sgn * dpsi)}*{LF}"
+            RF = f"{RC}+{fmt(dout)}*{LF}"
+            with sc.turned(**HEAD_TURN, blend=HB):
+                sc.surface((f"(hrx(t)+({RF}+{TH})*sin(ha(t)))*sin({PF}+{WD}*cos(w))", f"{fmt(HY0)}+(hry(t)+({RF}+{TH})*sin(ha(t)))*cos({PF}+{WD}*cos(w))",
+                            f"hzz(t)+({RF}+{TH})*cos(ha(t))"), ('t', te - 0.1, te), ('w', 0, '2*pi'), col, ref + 'Tip', ('tube', 'u'))
+                edges(PF, RF, te - 0.1, te, 'Tip')
             return
         AL = f"(4.712*lq(t,{fmt(te)}))"
         ZC = f"hzz(t)+{fmt(VF * 0.08)}*lq(t,{fmt(te)})"
@@ -1127,68 +1372,244 @@ quarters of a circle: sideways like a hook, or outward like a scroll.""")
                    f"{ZC}-{fmt(rc)}*sin{AL}+{TH}*sin{AL}")
         sc.surface(xyz, ('t', te - 0.08, te), ('w', 0, '2*pi'), col, ref + 'Curl', ('tube', 'u'))
 
+    def poly_at(cs, t, d=0):
+        return np.array([np.polynomial.polynomial.polyval(t, np.polynomial.polynomial.polyder(np.asarray(c, float), d) if d else c) for c in cs])
+
+    def poly_cross(C, zc, lo=-1.0, hi=1.0):
+        """The first t in [lo, hi] where the strand's centre line comes down through height zc, or None."""
+        ts = np.linspace(lo, hi, 801)
+        z = np.polynomial.polynomial.polyval(ts, np.asarray(C[2], float))
+        k = np.nonzero((z[:-1] - zc) * (z[1:] - zc) <= 0)[0]
+        if not len(k):
+            return None
+        a, b = ts[k[0]], ts[k[0] + 1]
+        za, zb = z[k[0]], z[k[0] + 1]
+        return float(a + (b - a) * (za - zc) / (zb - za)) if zb != za else float(a)
+
+    def poly_band(ref, C, U, V, tc, h_len, ph0=0.0, outward=None, sec='lcs'):
+        """A highlight across a strand drawn as polynomials C + cos(w) U + lcs(w) V (as lock_band, for the traced
+        strands): a band across it at tc with zigzag edges, h_len long at the spikes' tips. It is short, so it is laid
+        on the strand's tangent plane there: small expressions, the error far below the strand's own thickness."""
+        P0, dP, U0, V0 = poly_at(C, tc), poly_at(C, tc, 1), poly_at(U, tc), poly_at(V, tc)
+        ht = h_len / max(1e-9, float(np.linalg.norm(dP)))
+        for k, (hk, col, lift) in enumerate(((1.0, HAIR_HI, 1.07), (0.45, HAIR_GLOSS, 1.11))):
+            Sw = f"q*(0.3+0.7*abs(hzg({fmt(HL_SPIKES)}*w+{fmt(ph0)})))"
+            xyz = tuple(f"{fmt(P0[i])}+{fmt(dP[i] * ht * hk)}*{Sw}+{fmt(0.96 * U0[i])}*cos(w)+{fmt(lift * V0[i])}*{sec}(w)" for i in range(3))
+            sc.surface(xyz, ('w', 0.3, math.pi - 0.3), ('q', -1, 1), col, f'{ref}Hl{k + 1}', ('dir', tuple(outward if outward is not None else V0)))
+
+    def paint_plan(seed):
+        """A clump's painting, as blade() paints the bangs, its own a little: strand lines as (place across, as cos w,
+        from -1 at one edge to 1 at the other; from, to: fractions of its length from the tip), and its sheen (place
+        across, from, to)."""
+        h = [(math.sin(12.9898 * seed + 78.233 * k) * 43758.5453) % 1 for k in range(5)]
+        lines = ((-0.42 + 0.08 * h[0], 0.03, 0.42 + 0.12 * h[1]), (0.38 - 0.08 * h[2], 0.06, 0.52 + 0.1 * h[3]),
+                 (0.04 + 0.12 * (h[4] - 0.5), 0.16 + 0.08 * h[0], 0.34 + 0.08 * h[2]))
+        return lines, (0.12 * (h[1] - 0.5), 0.5 + 0.06 * h[4], 0.8 + 0.06 * h[3])
+
+    PAINT = []          # the clumps to paint (paint_hair), as they are drawn
+
+    def paint_hair():
+        """Paint the clumps in PAINT as blade() paints the bangs: two or three thin dark strand lines (HAIR_LINE) down the
+        lower part of the clump, each widest in its middle and closing to the centre at both ends; a light peach sheen
+        lens (HAIR_HI) in its middle above them; and on the curtain the translucent shade under the braid, full width at
+        the top and closing to a point (HAIR_SHADE, in two steps). Cheaply: each shape is sampled on its clump as drawn (a
+        lock's surfaces read back from the scene, a back strand's polynomials evaluated), lifted a little off it, and
+        written as short polynomials (the surface between its two edges, bowed through its middle). Written as the
+        clump's own formulas with the place across put in, they made the scene too slow to build."""
+        import re, sheetfit
+        refs = [p['ref'] for p in PAINT if p['kind'] == 'lock']
+        S = {}
+        if refs:
+            pat = '|'.join(re.escape(r) + '(Tip)?' for r in refs)
+            S = {nm: (f, lim) for nm, _, f, lim in sheetfit.surfaces_from_lines(sc.out, ref=pat)}
+
+        def poly_eval(polys):
+            def E(tau, w):              # tau from 0 to len(polys), each piece over a unit of it
+                i = np.clip(np.floor(tau).astype(int), 0, len(polys) - 1)
+                t = 2 * (tau - i) - 1
+                out = np.zeros(tau.shape + (3,))
+                for k, (C, U, V) in enumerate(polys):
+                    m = i == k
+                    if m.any():
+                        ev = lambda cs: np.stack([np.polynomial.polynomial.polyval(t[m], c) for c in cs], -1)
+                        sw = (0.65 * np.sin(w[m]) + 0.35 * np.abs(np.sin(w[m]))) * (0.78 + 0.22 * np.cos(2 * np.pi * np.cos(w[m])))
+                        cw, sw = np.cos(w[m])[:, None], sw[:, None]      # lcs, the bangs' section
+                        out[m] = ev(C) + cw * ev(U) + sw * ev(V)
+                return out
+            return E, 0.0, float(len(polys))
+
+        def lock_eval(ref):
+            fm, lm = S[ref]
+            ft, lt = S.get(ref + 'Tip', (None, None))
+            t1 = lt[1] if ft else lm[1]
+
+            def E(tau, w):
+                out = np.zeros(tau.shape + (3,))
+                for f, lim in ((fm, lm), (ft, lt)):
+                    if f is None:
+                        continue
+                    m = (tau >= lim[0] - 1e-9) & (tau <= lim[1] + 1e-9)
+                    if m.any():
+                        out[m] = np.stack([np.broadcast_to(np.asarray(c, float), tau[m].shape) for c in f(tau[m], w[m])], -1)
+                return out
+            return E, lm[0], t1
+
+        def fit_poly(P):
+            """Short polynomials in t (-1..1) through the points P (n, 3), within 0.003 if it can."""
+            tt = np.linspace(-1, 1, len(P))
+            for deg in (8, 11, 14):
+                cs = [np.polynomial.polynomial.polyfit(tt, P[:, i], deg) for i in range(3)]
+                err = max(float(np.max(np.abs(np.polynomial.polynomial.polyval(tt, c) - P[:, i]))) for i, c in enumerate(cs))
+                if err < 0.003:
+                    break
+            return [horner(list(np.round(c, 6)), 't') for c in cs]
+
+        for req in PAINT:
+            E, ta, tb = lock_eval(req['ref']) if req['kind'] == 'lock' else poly_eval(req['polys'])
+            name = req['ref']
+            # distance from the tip along the crest (w = pi/2), and the clump's length
+            tg = np.linspace(ta, tb, 600)
+            crest = E(tg, np.full_like(tg, math.pi / 2))
+            dtip = np.r_[0, np.cumsum(np.linalg.norm(np.diff(crest[::-1], axis=0), axis=1))][::-1]
+            L = float(dtip[0])
+            t_at = lambda d: np.interp(d, dtip[::-1], tg[::-1])
+            lines, (sc0, s0, s1) = paint_plan(req['seed'])
+
+            def lifted(tt, ww, lift):
+                P = E(tt, ww)
+                mid = 0.5 * (E(tt, np.zeros_like(tt)) + E(tt, np.full_like(tt, math.pi)))
+                up = E(tt, np.full_like(tt, math.pi / 2)) - mid
+                up /= np.maximum(np.linalg.norm(up, axis=1), 1e-9)[:, None]
+                return P + lift * up, mid
+
+            def strip(d0, d1, ca, cb, color, ref, opacity=None, lift=0.006, n=48):
+                """The shape between the places ca(d) and cb(d) across the clump (as cos w) from d0 to d1 from the tip."""
+                dd = np.linspace(d1, d0, n)
+                tt = t_at(dd)
+                wa, wb = np.arccos(np.clip(ca(dd), -1, 1)), np.arccos(np.clip(cb(dd), -1, 1))
+                A, mid = lifted(tt, wa, lift)
+                B, _ = lifted(tt, wb, lift)
+                M, _ = lifted(tt, 0.5 * (wa + wb), lift)
+                L_, R_, Mb = fit_poly(A), fit_poly(B), fit_poly(M - 0.5 * (A + B))
+                xyz = tuple(f"({l})*(1-q)+({r})*q+4*q*(1-q)*({m})" for l, r, m in zip(L_, R_, Mb))
+                c = mid[len(mid) // 2]
+                sc.surface(xyz, ('t', -1, 1), ('q', 0, 1), color, ref, ('point', tuple(float(v) for v in c)), opacity=opacity)
+            if req['kind'] == 'poly':       # the shade under the braid, as under the crown's overhang on the bangs
+                for k, (ln, op) in enumerate(((0.95, 0.32), (0.65, 0.32))):     # just below the braid (by length, not a
+                    d0 = max(0.0, L - ln)                                       # share of it: the long hair's ran down the back)
+                    tp = lambda d, d0=d0: np.minimum(1, np.maximum(0, d - d0) / (0.45 * (L - d0))) ** 0.7
+                    strip(d0, L - 0.01, lambda d, tp=tp: 0.96 * tp(d), lambda d, tp=tp: -0.96 * tp(d), HAIR_SHADE,
+                          f'{name}Shade{k + 1}', op, lift=0.004 + 0.001 * k)
+            # the sheen: a lens 0.22 of the half-width either side of its place, pointed at both ends
+            tp = lambda d: np.maximum(0, np.sin(np.pi * (d / L - s0) / (s1 - s0))) ** 1.2
+            strip(s0 * L, s1 * L, lambda d: sc0 * tp(d) + 0.22 * tp(d), lambda d: sc0 * tp(d) - 0.22 * tp(d), HAIR_HI,
+                  f'{name}Sheen', lift=0.007)
+            # the strand lines, closing to the centre at both ends (as the bangs' max(0, sin(...))^0.7)
+            for k, (a_, f0, f1) in enumerate(lines):
+                tl = lambda d, f0=f0, f1=f1: np.maximum(0, np.sin(np.pi * (d / L - f0) / (f1 - f0))) ** 0.7
+                strip(f0 * L, f1 * L, lambda d, a_=a_, tl=tl: (a_ + 0.045) * tl(d), lambda d, a_=a_, tl=tl: (a_ - 0.045) * tl(d),
+                      HAIR_LINE, f'{name}Line{k + 1}', lift=0.009)
+
+    def crown_shine(ref, p0, sg, dr, hw, te, la, th, am, kk, ph, pb=0.0, smooth=False):
+        """The ring of light across the crown (anime's 'angel ring'): a zigzag highlight band across the lock where it
+        crosses the upper dome, at the same height as on every other clump so that they read as one ring."""
+        lock_band(ref + 'Ring', (pb, p0, sg, dr, hw, te, la, th, am, kk, ph), None, 0.085, 0.011, ph0=1.7 * p0, smooth=smooth)
+
     sc.comment("""A dark cap and an inner sheet under the locks, so no gap shows skin. The cap stops higher above her left
 eye and a little higher above her right eye, where the forehead shows between the bangs as on the sheet.""")
     CAPM = "(1.75-0.42*exp(-((v+1.3)/0.1)^2)-0.2*exp(-((v+1.15)/0.15)^2)-0.1*exp(-((v+2.12)/0.12)^2))"
     with sc.turned(**HEAD_TURN):
         sc.surface((f"{fmt(HDX * 0.98)}*sin(u*{CAPM})*cos(v)", f"{fmt(HY0)}+{fmt(HDY * 0.98)}*sin(u*{CAPM})*sin(v)", f"{fmt(ZHC)}+{fmt(HDZ * 0.98)}*cos(u*{CAPM})"),
-               ('u', 0, 1), ('v', '-pi', 'pi'), HAIR_DK, 'hairCap', ('point', (0, HY0, ZHC)))
+               ('u', 0, 1), ('v', '-pi', 'pi'), HAIR, 'hairCap', ('point', (0, HY0, ZHC)))
     # Arch lights one side of a surface, so the under-layer is two sheets 0.005 apart: the outer one lit from behind
     # (where it shows between the back locks), the inner one from the front (where it shows beside her face and neck)
     with sc.turned(**HEAD_TURN, blend=HB):
         for ref_, d_, ori_ in (('hairUnder', 0.03, ('point', (0, 0, 9))), ('hairUnderIn', 0.035, ('tube', 'u', 'in'))):
             sc.surface((f"(hrx(t)-{fmt(d_)})*sin(k*(1-0.64*(1-hdw(t))))", f"{fmt(HY0)}+(hry(t)-{fmt(d_)})*cos(k*(1-0.64*(1-hdw(t))))", "hzz(t)"),
-                       ('t', T0 * 0.9, t_of_z(BK_NAPE) - 0.03), ('k', -1.2, 1.2), HAIR_DK, ref_, ori_)
+                       ('t', T0 * 0.9, t_of_z(BK_NAPE) - 0.03), ('k', -1.2, 1.2), HAIR_DK if ref_ == 'hairUnder' else HAIR, ref_, ori_)
 
     rng = np.random.default_rng(11)
     R = rng.random
     def cdir(rc):
-        return ('out', rc) if R() < 0.3 else ('side', 1 if R() < 0.5 else -1, rc)
+        """How a long lock ends: in a small hook that tightens toward its point, as the user's reference draws long
+        hair's ends (HAIR_CURL; the earlier hooks and scrolls of a fixed three quarters of a turn read as unnatural)."""
+        R()
+        return ('hook', HAIR_CURL['turn'] * (0.85 + 0.3 * R()), HAIR_CURL['length'] * (0.9 + 0.2 * R()))
     T_NAPE = t_of_z(BK_NAPE)
 
     def nape_lock(ref, p0, sg, hw, la, th, am, kk, ph, col):
         """A lock from the crown that ends at the nape, closing in as it falls so that it ends under the two back locks."""
         p_c = p0 * (1 - sg * (1 - hdw_py(T_NAPE)))
         dr = (math.copysign(min(abs(p_c), 0.42), p0) - p_c) / hu_py(T_NAPE)
-        lock(ref, p0, sg, dr, hw, T_NAPE, la, th, am, kk, ph, col, curl=None)
+        lock(ref, p0, sg, dr, hw, T_NAPE, la, th, am, kk, ph, col, curl=None, smooth=True, outline=OUTLINE_W)
 
-    sc.comment(f"""Long locks. On the sheet's back view two locks (drawn below) are nearly all the hair down the middle of
-her back, with the corset showing between them and the capelet's back beside them. So the locks from the crown
-down the back (three layers: wide ones underneath, the main layer, thin lighter strands on top) end at the
-nape (z {fmt(BK_NAPE)}), closing in under those two, except the outermost of each layer, which fall over the
-arms with the locks at the sides that fan out over the shoulders.""")
+    sc.comment(f"""Long locks. The hair down the middle of her back is one curtain from under the braid (drawn below). So
+the locks from the crown down the back (three layers: wide ones underneath, the main layer, thin lighter strands
+on top) end at the nape (z {fmt(BK_NAPE)}), closing in under it, except the outermost of each layer, which fall
+over the arms with the locks at the sides that fan out over the shoulders. Each long lock falls in one gentle
+curve and ends in a point that turns in toward the back.""")
     # the random draws are made as before the back was parted, so the side locks keep theirs. The outermost locks of
     # each layer stay long and are moved out over the arms, at least 1.32 from the back so they pass outside the
     # capelet's back emblems (which the sheet shows), where the sheet's back view shows the rest of the hair falling.
+    W_KK = 2 * math.pi * VF * (1 - T0) / HAIR_WAVE['lam']      # the long hair's shared wave (HAIR_WAVE), in hu
+    W_AM = 0.0                  # radians round the body (none: the long hair falls in one smooth curve, as the bangs)
+    # the long locks at her sides end over the upper arm (z 9.2 to 9.7), under the side hair from the braid's ends,
+    # which carries the hair down behind the arms facing back, as the user's picture draws it (round her sides the
+    # long locks were seen edge-on from behind, as tentacles); the outermost locks of the back layers end at the nape
+    SIDE_TE = (T0 + (ZHC - 9.7) / VF, 0.5 / VF)
+
+    def wave_ph(p0):
+        return HAIR_WAVE['phase'] + 0.15 * p0       # drifting a little round the body, as across the curtain
+
     def back_layer(tag, p0s, sg, hw, la, th, col, draw, arms):
         for i, p0 in enumerate(p0s):
             dr_, te_, am_, kk_, ph_, cd_ = draw()
             rank = sorted((abs(p) for p in p0s if p * p0 > 0), reverse=True).index(abs(p0)) if p0 != 0 else 99
             if rank < len(arms):        # the outermost: long, out over the arms (beyond the capelet's back emblems)
-                lock(f'{tag}{i + 1}', math.copysign(arms[rank], p0), 0.3, dr_, hw, te_, la, th, am_, kk_, ph_, col, curl=cd_)
+                # one big smooth clump a layer and side (the user asked for fewer, bigger clumps), as thick as a third of
+                # its width where it falls, waving with the rest of the long hair
+                pa = math.copysign(arms[rank], p0)
+                lock(f'{tag}{i + 1}', pa, 0.3, dr_, hw * 1.25, te_, la * 1.8, max(th, 0.105), W_AM, W_KK, wave_ph(pa), col,
+                     curl=cd_, full=True, band=False, smooth=True, outline=OUTLINE_W, paint=True)
             else:
                 nape_lock(f'{tag}{i + 1}', p0, sg, hw, la, th, am_, kk_, ph_, col)
     back_layer('backU', (-1.0, -0.68, -0.34, 0.0, 0.34, 0.68, 1.0), 0.66, 0.28, 0.0, 0.05, HAIR_DK,
-               lambda: (0.05 * (R() - 0.5), 0.86 + 0.1 * R(), 0.07 + 0.04 * R(), 8 + 3 * R(), 6.28 * R(), cdir(0.11)), (1.5, 1.36))
+               lambda: (0.05 * (R() - 0.5), 0.86 + 0.1 * R(), 0.015 + 0.01 * R(), 3 + 1.5 * R(), 6.28 * R(), cdir(0.11)), ())
     back_layer('back', (-0.85, -0.51, -0.17, 0.17, 0.51, 0.85), 0.68, 0.24, 0.04, 0.055, HAIR,
-               lambda: (0.06 * (R() - 0.5), 0.9 + 0.1 * R(), 0.09 + 0.05 * R(), 9 + 4 * R(), 6.28 * R(), cdir(0.13)), (1.44, 1.32))
-    back_layer('backT', (-0.7, -0.3, 0.1, 0.45, 0.8), 0.68, 0.1, 0.085, 0.04, HAIR_LT,
-               lambda: (0.12 * (R() - 0.5), 0.8 + 0.18 * R(), 0.12 + 0.06 * R(), 10 + 5 * R(), 6.28 * R(), cdir(0.12)), (1.4,))
-    side = [  # p0 (her right; mirrored for her left), layer, half-width, colour
-        (1.3, 'U', 0.3, HAIR_DK), (1.62, 'U', 0.28, HAIR_DK), (1.18, 'M', 0.24, HAIR), (1.5, 'M', 0.24, HAIR), (1.8, 'M', 0.2, HAIR),
-        (1.35, 'T', 0.1, HAIR_LT), (1.68, 'T', 0.1, HAIR_LT)]
-    for sd, tag in ((-1, 'R'), (1, 'L')):
-        for i, (p0, lay, hw_, col) in enumerate(side):
-            if sd > 0 and p0 > 1.25:
-                # her left ear shows: the hair above it is swept back under the ornament
-                lock(f'tuck{i + 1}', p0, 0.0, -1.2, hw_, T0 + 0.05, {'U': 0.0, 'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0, col, curl=None)
-                continue
-            la_, th_ = {'U': (0.0, 0.05), 'M': (0.04, 0.055), 'T': (0.085, 0.04)}[lay]
-            lock(f'side{tag}{i + 1}', sd * p0, 0.25, -sd * (0.1 + 0.1 * R()), hw_, 0.74 + 0.16 * R(), la_, th_, 0.1 + 0.06 * R(), 9 + 4 * R(), 6.28 * R(), col, curl=cdir(0.13))
-    # behind her left ear, below the swept-back hair: locks falling past the ear, as the portrait shows them
-    for i, (p0, lay, hw_, col) in enumerate(((1.52, 'M', 0.22, HAIR), (1.7, 'M', 0.2, HAIR), (1.6, 'T', 0.1, HAIR_LT))):
-        la_, th_ = {'M': (0.04, 0.055), 'T': (0.085, 0.04)}[lay]
-        lock(f'earBackLock{i + 1}', p0, 0.25, -(0.05 + 0.05 * i), hw_, 0.72 + 0.06 * i, la_, th_, 0.1 + 0.03 * i, 9 + 2 * i, 1.3 + 2.1 * i, col, curl=('side', 1, 0.12))
+               lambda: (0.06 * (R() - 0.5), 0.9 + 0.1 * R(), 0.018 + 0.01 * R(), 3 + 1.5 * R(), 6.28 * R(), cdir(0.13)), ())
+    back_layer('backT', (-0.6, 0.0, 0.6), 0.68, 0.17, 0.085, 0.04, HAIR_LT,
+               lambda: (0.12 * (R() - 0.5), 0.8 + 0.18 * R(), 0.02 + 0.012 * R(), 3 + 1.5 * R(), 6.28 * R(), cdir(0.12)), ())
+    # the long locks at her sides, over the shoulders and arms: a few big smooth clumps in three layers (the user asked
+    # for fewer, bigger clumps: ten narrow ones a side read as stripes). p0 (her right), layer, half-width, colour.
+    side = [(1.28, 'U', 0.36, HAIR_DK), (1.72, 'U', 0.34, HAIR_DK),
+            (1.15, 'M', 0.3, HAIR), (1.5, 'M', 0.3, HAIR), (1.85, 'M', 0.27, HAIR),
+            (1.35, 'T', 0.22, HAIR_LT)]
+    side_left = [(1.2, 'U', 0.36, HAIR_DK), (0.98, 'M', 0.3, HAIR), (1.1, 'T', 0.22, HAIR_LT)]    # her left: the few
+                        # long locks behind the ear, spread round instead of overlapping
+    # her left ear shows: the hair above it is swept back under the ornament (as many as before, so the head is covered)
+    tucks = [(2, 1.5, 'U', 0.26, HAIR_DK), (3, 1.78, 'U', 0.25, HAIR_DK), (5, 1.36, 'M', 0.21, HAIR), (6, 1.6, 'M', 0.21, HAIR),
+             (7, 1.85, 'M', 0.19, HAIR), (9, 1.5, 'T', 0.15, HAIR_LT), (10, 1.74, 'T', 0.14, HAIR_LT)]
+    for n, p0, lay, hw_, col in tucks:
+        lock(f'tuck{n}', p0, 0.0, -1.2, hw_, T0 + 0.05, {'U': 0.0, 'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0, col, curl=None)
+        if lay != 'U':
+            crown_shine(f'tuck{n}', p0, 0.0, -1.2, hw_, T0 + 0.05, {'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0)
+    for sd, tag, locks in ((-1, 'R', side), (1, 'L', side_left)):
+        for i, (p0, lay, hw_, col) in enumerate(locks):
+            la_, th_ = {'U': (0.0, 0.105), 'M': (0.08, 0.105), 'T': (0.16, 0.085)}[lay]
+            dr_, te_, am_ = -sd * (0.1 + 0.1 * R()), SIDE_TE[0] + SIDE_TE[1] * R(), W_AM * (0.9 + 0.2 * R())
+            R(), R()            # (the wave's rate and phase are shared now; still drawn, so the later draws stay the same)
+            args_ = (sd * p0, 0.25, dr_, hw_, te_, la_, th_, am_, W_KK, wave_ph(sd * p0))
+            cdir(0.13)          # (its draws, so the later ones stay the same; it ends in a point under the side hair)
+            lock(f'side{tag}{i + 1}', *args_, col, curl=None, full=True, band=False, smooth=True, outline=OUTLINE_W, paint=True)
+            if lay != 'U':
+                crown_shine(f'side{tag}{i + 1}', *args_[:5], la_ * 0.55, th_ * 0.55, *args_[7:], smooth=True)      # on the head the lock is 0.55 as full
+    # behind her left ear, below the swept-back hair: locks falling past the ear, as the portrait shows them (two big
+    # round clumps, staggered in depth)
+    for i, (p0, lay, hw_, col) in enumerate(((1.45, 'M', 0.28, HAIR), (1.72, 'M', 0.26, HAIR))):
+        la_, th_ = 0.08 + 0.05 * i, 0.105
+        lock(f'earBackLock{i + 1}', p0, 0.25, -(0.05 + 0.05 * i), hw_, SIDE_TE[0] + 0.04 * i, la_, th_, W_AM, W_KK, wave_ph(p0), col,
+             curl=None, full=True, band=False, smooth=True,
+             outline=OUTLINE_W, paint=True)
     sc.comment("""The two locks that fall over the chest, from under the jaw to curled tips at the top of the corset, as
 traced on the sheet's portrait: each is several strands, a centre line with side and thickness vectors written
 as polynomials in t (-1..1) and the crescent section lcs(w) (fitted by the generator: they lie on the capelet
@@ -1201,13 +1622,14 @@ a separate surface so that its curl gets a fine mesh.""")
         xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
         sc.surface(xyz, ('t', -1, 0), ('w', 0, '2*pi'), col, f'chestLock{key}', ('tube', 'u'))
         sc.surface(xyz, ('t', 0, 1), ('w', 0, '2*pi'), col, f'chestLock{key}Tip', ('tube', 'u'))
-    sc.comment("""The two locks down the back, from under the braid, as traced on the sheet's back view: on her left four
-strands, two spreading out at the bottom and two winding together into a ringlet; on her right strands that
-sweep out and wind into a second ringlet; four more strands in each lock fill the gaps between these and end in
-free tips. Each strand is drawn as two or three sub-strands side by side, 18 a lock. Their hanging parts are written like the chest locks (in pieces); each strand wanders a little, varies in
-width and thickness, and twists about its own line below the nape, and each sub-strand has its own wander, depth,
-width and shade, fanning out at a free tip. A ringlet is a helix about an upright axis written as it is, in its
-angle th = Th (t + 1) / 2, its radius closing as it turns and dropping as it goes, one surface a turn.""")
+        tc = poly_cross(C, BAND_Z + 0.08 * math.sin(1.9 * len(key) + ord(key[-1])))     # the ring at the shoulders, staggered
+        if tc is not None:
+            poly_band(f'chestLock{key}', C, U, V, tc, 0.18, ph0=1.3 * len(key) + (0.7 if key[0] == 'L' else 0.0))
+    sc.comment("""The hair down the back, from under the braid, laid out as the chest locks are: three locks, each a
+bundle of a wide strand, a narrower one on it and a thin one beside it, that sweep together, part toward their
+ends and curl in toward the middle of the back at their own heights, with wide darker clumps under the gaps.
+Short strands under the braid cover the back of the head beside them. Each is written like the chest locks (in
+pieces); each wanders and varies in width and thickness a little, so that none is machine-smooth.""")
     global HEAD_BACK
     HEAD_BACK = head_back_grid()
     BK = back_strands()
@@ -1226,6 +1648,21 @@ angle th = Th (t + 1) / 2, its radius closing as it turns and dropping as it goe
                 for j in range(n):
                     tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
                     sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), cols[k], f'{name}{tag}', ('tube', 'u'))
+                    if part[0] == 'poly' and OUTLINE_W:     # its line art: both edges (w = 0 and pi, where lcs is 0), lifted a little
+                        for sgn_, nm in ((1, 'A'), (-1, 'B')):
+                            lv = OUTLINE_LIFT / max(1e-6, BK_LOOK[key][1])
+                            exy = tuple(horner(list(np.round(np.polynomial.polynomial.polyadd(np.polynomial.polynomial.polyadd(C[i], sgn_ * np.asarray(U[i], float)),
+                                                                                                lv * np.asarray(V[i], float)), 6)), 't')
+                                        for i in range(3))      # (one polynomial: C + U + lift V summed)
+                            sc.curve(exy, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), HAIR_OUTLINE, f'{name}{tag}Line{nm}', thickness=OUTLINE_W)
+        # painted as the bangs are (strand lines, a sheen, the shade under the braid: paint_hair)
+        if key not in BK_UNDER and max(w for _, _, w in BK_STRANDS[key]) * BK_WIDE >= 0.1:     # (not the short or thin strands)
+            for k, parts in enumerate(subparts):
+                polys = [p[1] for p in parts if p[0] == 'poly']
+                PAINT.append(dict(kind='poly', ref=f'backLock{key[2:]}{key[1]}{k + 1}', polys=polys,
+                                  seed=5.1 * list(BK_STRANDS).index(key) + 1.7 * k))
+
+    paint_hair()
 
     # ---------- bangs and the locks that frame the face ----------
     sc.blank()
@@ -1236,7 +1673,7 @@ Across it (w) the blade has the same crescent section as the long locks; its wid
 vectors are polynomials too.""")
     fyf = sc.ns['fy']
 
-    def blade(ref, pts, nrms, wid, thk, color, sheen=None, lines=(-0.42, 0.38)):
+    def blade(ref, pts, nrms, wid, thk, color, sheen=None, lines=(0.3,), crown=(0.16, 0.36), shade=None):
         """sheen=(t0, t1): a lighter streak down the front of the blade between t0 and t1, as anime hair is shaded.
         lines: dark strand lines down its front, at these fractions of its half-width, as the portrait draws hair."""
         n = len(pts) - 1
@@ -1257,7 +1694,23 @@ vectors are polynomials too.""")
             lx = tuple(f"{horner(C[i], 't')}+({fmt(a)}+0.045*cos(w))*{tl}*({horner(U[i], 't')})+{fmt(1.06 * math.sqrt(1 - a * a))}*({horner(Vv[i], 't')})" for i in range(3))
             FRONT_BLADES.append((f'{ref}Line{k + 1}', lx))
             with sc.turned(**HEAD_TURN):
-                sc.surface(lx, ('t', 0.42, 0.97), ('w', 0, 'pi'), HAIR_SH, f'{ref}Line{k + 1}', ('dir', (0, -1, 0.3)))
+                sc.surface(lx, ('t', 0.42, 0.97), ('w', 0, 'pi'), HAIR_LINE, f'{ref}Line{k + 1}', ('dir', (0, -1, 0.3)))
+        if shade:       # the shade where the lock passes under the crown's overhang at the hairline, painted on
+            t0, t1 = shade
+            # full width where it comes from under the crown, narrowing to a point toward the tip; translucent, in two steps
+            for k, (te, op) in enumerate(((t1, 0.32), (t0 + 0.6 * (t1 - t0), 0.32))):
+                tp = f"min(1,({fmt(te)}-t)/{fmt(0.45 * (te - t0))})^0.7"
+                sx = tuple(f"{horner(C[i], 't')}+0.96*cos(w)*{tp}*({horner(U[i], 't')})+{fmt(1.08 + 0.02 * k)}*({horner(Vv[i], 't')})" for i in range(3))
+                with sc.turned(**HEAD_TURN):
+                    sc.surface(sx, ('t', t0, te), ('w', 0, 'pi'), HAIR_SHADE, f'{ref}Shade{k + 1}', ('dir', (0, -1, 0.3)), opacity=op)
+        if crown:       # the angel ring: a zigzag band across the blade where it crosses the ring's height on the dome
+            ts = np.linspace(0.0, 0.7, 141)
+            Pc = np.array([poly_at(C, t_) for t_ in ts])
+            polar = np.arccos(np.clip(((Pc[:, 2] - ZHC) / HDZ) / np.linalg.norm(np.c_[Pc[:, 0] / HDX, (Pc[:, 1] - HY0) / HDY, (Pc[:, 2] - ZHC) / HDZ], axis=1), -1, 1))
+            k = np.nonzero(polar >= RING_POLAR)[0]
+            if len(k) and k[0] > 0:
+                with sc.turned(**HEAD_TURN):
+                    poly_band(ref, C, U, Vv, float(ts[k[0]]), 0.07, ph0=3.1 * pts[0][0])
         if sheen:
             t0, t1, col = sheen
             tp = f"max(0,sin(pi*(t-{fmt(t0)})/{fmt(t1 - t0)}))^1.2"
@@ -1279,7 +1732,7 @@ vectors are polynomials too.""")
         blade(ref, [p0, p1, p2, p3, p4], [dome_normal(p0), dome_normal(p1), dome_normal(p2), n3, n4],
               [wp[0] * w0, wp[1] * w0, wp[2] * w0, wp[3] * w0, 0.0], [0.008 * tk, 0.04 * tk, 0.045 * tk, 0.03 * tk, 0.0], color)
 
-    def strand(ref, xtop, mid, tip, hw, color, lift=0.0, tk=0.75, off=0.04, sweep=-0.12, sheen=None, hug=False):
+    def strand(ref, xtop, mid, tip, hw, color, lift=0.0, tk=0.75, off=0.04, sweep=-0.12, sheen=None, hug=False, crown=(0.16, 0.36)):
         """One strand of the bangs: from the crown over the dome to the hairline at x = xtop, then through mid and
         down to a pointed tip (face x, height above the pupils) just in front of the face. hw: half-widths at the
         hairline and at mid. It is narrow and round in section, so the light runs across it like hair. hug keeps
@@ -1290,9 +1743,10 @@ vectors are polynomials too.""")
         p4 = (xt, fyf(xt, zt) - off - 0.5 * lift, zt)
         y3 = fyf(x3, z3) - 0.05 if hug else min(0.5 * (p2[1] + p4[1]) - 0.03, fyf(x3, z3) - 0.07)
         p3 = (x3, y3 - lift, z3)
+        k_ = 1.0 if ref.startswith('wisp') or ref == 'bangUnder' else 1.4      # clumps, not strips (the wisps stay fine)
         blade(ref, [p0, p1, p2, p3, p4], [dome_normal(p0), dome_normal(p1), dome_normal(p2), unit((0.4 * x3, -1, 0.15)), unit((0.4 * xt, -1, 0.0))],
-              [0.2 * hw[0], 0.9 * hw[0], hw[0], hw[1], 0.0], [0.008 * tk, 0.038 * tk, 0.042 * tk, 0.034 * tk, 0.0], color,
-              sheen=None if sheen is None else (0.47, sheen, HAIR_HI))
+              [0.2 * hw[0] * k_, 0.9 * hw[0] * k_, hw[0] * k_, hw[1] * k_, 0.0], [0.008 * tk, 0.05 * tk, 0.055 * tk, 0.045 * tk, 0.0], color,
+              sheen=None if sheen is None else (0.52, sheen, HAIR_HI), crown=crown, shade=None if k_ == 1.0 else (0.37, 0.62))
 
     # As on the sheet's portrait: one wide lock sweeps down to a point at the bridge of the nose, the forehead
     # shows in a tall triangle above her left eye, a lock sweeps over her left temple, and above her right eye a
@@ -1300,7 +1754,7 @@ vectors are polynomials too.""")
     # strands along the strand lines drawn on the sheet, with staggered pointed tips; a thin dark layer under the
     # wide lock keeps the forehead from showing between its strands. Strands are stacked (lift) so that they lie
     # on each other, and the main ones carry a lighter streak (sheen).
-    strand('bangUnder', -0.08, (-0.09, 0.25), (-0.05, -0.03), (0.23, 0.16), HAIR_SH, tk=0.3)
+    strand('bangUnder', -0.08, (-0.09, 0.25), (-0.05, -0.03), (0.23, 0.16), HAIR_SH, tk=0.3, crown=None)
     strand('bang1', -0.23, (-0.23, 0.25), (-0.14, -0.08), (0.07, 0.055), HAIR, lift=0.018, sheen=0.8)
     strand('bang2', -0.31, (-0.34, 0.3), (-0.36, 0.17), (0.045, 0.035), HAIR_DK, lift=0.03, sheen=0.8)
     strand('bang3', -0.13, (-0.12, 0.25), (-0.06, -0.09), (0.065, 0.05), HAIR_LT, lift=0.032, sheen=0.78)
@@ -1314,6 +1768,7 @@ vectors are polynomials too.""")
     strand('bang7', 0.3, (0.4, 0.3), (0.55, 0.07), (0.07, 0.05), HAIR, sweep=-0.1, sheen=0.8)
     strand('bang9', 0.42, (0.51, 0.3), (0.62, 0.0), (0.08, 0.065), HAIR_LT, lift=0.02, sweep=-0.1, sheen=0.8)
     strand('bang14', 0.52, (0.55, 0.38), (0.53, 0.14), (0.05, 0.035), HAIR_DK, lift=0.04, sweep=-0.1)
+    strand('bang15', -0.43, (-0.47, 0.32), (-0.5, 0.06), (0.08, 0.06), HAIR, lift=0.022, sheen=0.8)
     bang('bang8', (1.0, 1.26, 1.42), (0.66, ZE + 0.1), 0.16, HAIR_LT, lift=0.03)
     for sd, tag in ((1, 'L'), (-1, 'R')):
         pts = [dome(0.3, 1.5 * sd, 1.005), dome(1.15, 1.62 * sd, 1.04), (0.71 * sd, -0.07, ZE + 0.06), (0.69 * sd, -0.13, ZE - 0.2)]
@@ -1324,16 +1779,21 @@ vectors are polynomials too.""")
         nr = [dome_normal(pts[0]), dome_normal(pts[1]), unit((sd, -0.25, 0)), unit((sd, -0.3, 0)), unit((sd, -0.5, 0))]
         blade(f'frame{tag}', pts, nr, [0.04, 0.15, 0.14, 0.1, 0.0], [0.008, 0.04, 0.04, 0.03, 0.0], HAIR)
 
+    # her right: a wide lock from the temple down past the jaw, outside the cheek locks, so the side of her head is front
+    # hair (as drawn), not the inside of the long hair seen edgewise
+    pts = [dome(0.35, -1.6, 1.01), dome(1.1, -1.7, 1.05), (-0.8, -0.02, ZE - 0.05), (-0.82, -0.06, ZE - 0.45), (-0.8, -0.1, ZE - 0.88)]
+    nr = [dome_normal(pts[0]), dome_normal(pts[1]), unit((-0.35, -1, 0)), unit((-0.3, -1, 0)), unit((-0.3, -1, 0))]
+    blade('templeR', pts, nr, [0.04, 0.16, 0.17, 0.15, 0.0], [0.008, 0.04, 0.045, 0.035, 0.0], HAIR, lines=(-0.45, 0.0, 0.4))
     sc.comment("""Thin wisps from the bangs that cross the eyes, and locks that fall from the temples to below the jaw:
 beside the face on her right, so the jaw line shows, and over the outer cheek on her left, as in the portrait.""")
     bang('wisp1', (0.22, 0.02, -0.14), (-0.25, ZE - 0.07), 0.035, HAIR_LT, off=0.042, tk=0.45)
     bang('wisp2', (0.3, 0.22, 0.16), (0.2, ZE + 0.02), 0.03, HAIR_LT, off=0.042, tk=0.45)
     bang('wisp3', (-0.45, -0.78, -0.98), (-0.5, ZE - 0.1), 0.032, HAIR, off=0.042, tk=0.45)
     # thin strands that fall past her left cheek and flick inward, and one beside her right cheek, as drawn on the sheet
-    strand('wisp4', 0.62, (0.56, -0.1), (0.4, -0.34), (0.04, 0.03), HAIR_LT, lift=0.02, off=0.03, sweep=-0.05, hug=True)
-    strand('wisp5', 0.63, (0.54, -0.24), (0.31, -0.47), (0.035, 0.026), HAIR, lift=0.025, off=0.03, sweep=-0.05, hug=True)
-    strand('wisp6', 0.62, (0.5, -0.4), (0.35, -0.56), (0.03, 0.022), HAIR_LT, lift=0.03, off=0.03, sweep=-0.05, hug=True)
-    strand('wisp7', -0.6, (-0.62, 0.2), (-0.63, -0.22), (0.05, 0.04), HAIR_LT, lift=0.03, sweep=0.05, hug=True)
+    strand('wisp4', 0.62, (0.56, -0.1), (0.4, -0.34), (0.04, 0.03), HAIR_LT, lift=0.02, off=0.03, sweep=-0.05, hug=True, crown=None)
+    strand('wisp5', 0.63, (0.54, -0.24), (0.31, -0.47), (0.035, 0.026), HAIR, lift=0.025, off=0.03, sweep=-0.05, hug=True, crown=None)
+    strand('wisp6', 0.62, (0.5, -0.4), (0.35, -0.56), (0.03, 0.022), HAIR_LT, lift=0.03, off=0.03, sweep=-0.05, hug=True, crown=None)
+    strand('wisp7', -0.6, (-0.62, 0.2), (-0.63, -0.22), (0.05, 0.04), HAIR_LT, lift=0.03, sweep=0.05, hug=True, crown=None)
 
     def face_normal(x, z, e=1e-4):
         return unit(((fyf(x + e, z) - fyf(x - e, z)) / (2 * e), -1, (fyf(x, z + e) - fyf(x, z - e)) / (2 * e)))
@@ -1360,6 +1820,17 @@ beside the face on her right, so the jaw line shows, and over the outer cheek on
         nr = [dome_normal(p0), dome_normal(p1), face_normal(p2[0], z2), face_normal(p3[0], z3), unit((0.6 * sd, -1, 0))]
         blade(ref, pts, nr, [0.035, 0.9 * w0, w0, 0.85 * w0, 0.0], [0.008, 0.03, 0.028, 0.024, 0.0], color)
 
+    # her left: the hair over the temple swept back above the ear under the ornament, as drawn (from her left the side of
+    # her forehead showed bare between the bangs and the ornament): three strands one above another, on the skin over
+    # the temple, then round the side of the head above the ear
+    for k, (dz, w_, col) in enumerate(((0.1, 0.075, HAIR_LT), (0.0, 0.085, HAIR), (-0.09, 0.075, HAIR_DK))):
+        za, zb = ZE + 0.42 + dz, ZE + 0.28 + dz
+        pts = [(0.55, fyf(0.55, za) - 0.035, za), (0.615, fyf(0.615, zb) - 0.035, zb), (0.675, -0.06, ZE + 0.19 + dz),
+               (0.725, 0.14, ZE + 0.13 + 0.6 * dz), (0.7, 0.36, ZE + 0.08 + 0.5 * dz)]
+        nr = [face_normal(0.55, za), face_normal(0.615, zb), unit((1, -0.3, 0.15)), unit((1, 0.05, 0.1)), unit((0.85, 0.45, 0.1))]
+        nr = [unit((-n_[0], -n_[1], -n_[2])) if n_[1] > 0 else n_ for n_ in nr[:2]] + nr[2:]
+        blade(f'sweptL{k + 1}', pts, nr, [0.035, 0.85 * w_, w_, 0.9 * w_, 0.03], [0.008, 0.03, 0.035, 0.03, 0.012], col,
+              sheen=(0.15, 0.55, HAIR_HI), crown=None)
     for sd, tag in ((1, 'L'), (-1, 'R')):
         if sd < 0:      # her right: the hair falls beside the face, so the whole jaw line shows
             cheek_lock(f'cheekLock{tag}1', sd, 0.0, 0.63, 0.6, 0.5, ZE - 0.86, 0.075, HAIR)

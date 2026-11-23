@@ -138,4 +138,7 @@ async function main() {
 main().then(code => { process.exitCode = code; }, error => {
     console.error(error.code === 'ENOENT' ? `File not found: ${error.path}` : (error.stack || error.message));
     process.exitCode = 2;
+}).finally(() => {
+    // A browser that would not close keeps Node running; once the report is out, leave anyway.
+    setTimeout(() => process.exit(), 5000).unref();
 });
