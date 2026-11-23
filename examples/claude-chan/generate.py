@@ -22,6 +22,7 @@ ap.add_argument('--parts', default='all')
 ap.add_argument('--view', default='full')
 ap.add_argument('--prec', type=float, default=10, help='implicitPrecision saved in the file (Arch default 4)')
 ap.add_argument('--expansion', type=int, default=0, metavar='N', help="list the N objects whose formulas Arch expands most (expansion.py)")
+ap.add_argument('--no-compact', action='store_true', help='leave the heavy surfaces as written (compact.py rewrites them)')
 args = ap.parse_args()
 PARTS = set(args.parts.split(','))
 def want(p): return 'all' in PARTS or p in PARTS
@@ -68,6 +69,8 @@ BROWN_DK = '#3a1f16'
 LACE = '#9a5a2e'
 
 sc = Scene('Claude Chan')
+# surfaces to rewrite as short polynomials at the end (compact.py), so that the file opens faster: {ref or regex: spec}
+COMPACT = {}
 
 sc.comment("""Claude Chan (Claude娘, orange hair and chrysanthemum motif) as a static 3D figure.
 Built from her design sheet: front/side/back views, outfit pieces and accessories.
@@ -370,6 +373,27 @@ st = '@set showAxes=false gridStyle=hidden'
 if args.prec:
     st += f' implicitPrecision={fmt(args.prec)}'
 sc.raw(st)
+if not args.no_compact:
+    import compact
+    # The face's surfaces paste in the face's depth (fy) and the head's turn: each costs about as much to open as a
+    # whole lock. Each may move by no more than a quarter of the gap above what it lies on: the layered lip decals
+    # lie 0.0004 apart (0.0001), the lashes, nose and smile decals and the skin under them at least 0.0014 above or
+    # below one another (0.0003), the translucent shades 0.0056 above the skin (0.001).
+    COMPACT.update({
+        r'lip\w*': dict(tol=0.0001, deg=(24, 24), split=4),
+        r'(lash\w*|smile\w*|nose\w*|flush\w*|cheek(Left|Right)|faceEye\w*|faceBrow\w*)': dict(tol=0.0003, deg=(24, 24), split=4),
+        r'(shade\w*|lidShadow\w*|blush\w*)': dict(tol=0.001, deg=(24, 24), split=4),
+    })
+    if want('hair'):
+        # the locks on the head (each pastes the head's turn and its lock functions in at every use): as its section
+        # (cos w and the crescent lcs w) times polynomials along it, cut where the lock's formula creases (t 0.04,
+        # where it reaches full thickness, and T0, where it leaves the dome), within 0.001 (seams under 0.002); the
+        # long ones gain too little that way and stay as they are
+        COMPACT.update({
+            r'(tuck|side[LR]|back|backU|backT|earBackLock)\d+': dict(tol=0.001, basis=('w', 'cos(w)', 4, 'lcs(w)', 1), split=6,
+                                                                      cuts={'t': [0.04, T0]}),
+        })
+    compact.compact_lines(sc.out, COMPACT, log=lambda s: print(s, file=sys.stderr))
 open(args.o, 'w').write(sc.text())
 import expansion
 expansion.report(sc.text(), args.expansion)

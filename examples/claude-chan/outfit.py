@@ -609,7 +609,10 @@ its front edge, p down it.""")
                 w0, w1, kz, ls = emblem_sector(j)
                 ea = ','.join(['w', str(kz)] + [fmt(v) for v in ls])
                 rr = f"(emi({ea})*(1-r)+emo({ea})*r)"
-                sc.surface(place((f"{rr}*cos(w)", f"{rr}*sin(w)", "0"), C, fr), ('r', 0, 1), ('w', w0, w1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
+                # (placed as C + rr (cos w e_bk + sin w e_up), not through fw, which pastes rr in twice: the petal
+                # outlines are long, and each costs the open time)
+                sc.surface(tuple(f"{fmt(C[i])}+{rr}*({fmt(fr[0][i])}*cos(w)+{fmt(fr[1][i])}*sin(w))" for i in range(3)),
+                           ('r', 0, 1), ('w', w0, w1), PANEL_GOLD, f'sideEmblem{tag}{k + 1}s{j + 1}', ('dir', n_))
             for nm_, rad, lift, col in (('Mid', EMB_CENTRE, 0.004, PANEL_GOLD), ('Dot', EMB_DOT, 0.008, PANEL_PALE)):
                 sc.surface(place((f"{fmt(rad)}*r*cos(w)", f"{fmt(rad)}*r*sin(w)", fmt(lift)), C, fr), ('r', 0, 1), ('w', 0, '2*pi'), col, f'sideEmblem{tag}{k + 1}{nm_}', ('dir', n_))
             for nm_, (X, H) in emblem_fills():

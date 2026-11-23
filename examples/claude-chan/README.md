@@ -6,18 +6,21 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1873 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1915 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `hairflow.py` | Builds a long-hair strand in the back view from its sweep, widths, wave and curl (the back hair's `BK_FLOW`), and draws it in 2D for comparing with a picture. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `ornament_drape.py` | Lays the hair ornament's ribbons, tails and tassel on the hair, keeping where the hi-res portrait's view sees them; rewrites their positions in `generate.py`. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
+| `compact.py` | Rewrites the surfaces that cost most to open (the hair's ring highlights, the face's decals, the short locks on the head) as short polynomials in their own parameters, within a tolerance of how they are drawn; `generate.py` runs it last (`--no-compact` leaves them as written). |
+| `opentime.mjs` | Times opening a save file in the bundled Arch, and what each family of surfaces costs (`--drop`). |
 
-Opening the file takes a few minutes. It is about 6.7 MB: it is built with `--lean`, and Arch rebuilds the
+Opening the file takes a while: about 27 s in the bundled Arch on an Apple M4 (`opentime.mjs`), 40 s before
+`compact.py` rewrote its costliest surfaces. It is about 7.5 MB: it is built with `--lean`, and Arch rebuilds the
 expanded formulas left out of it as it opens it. It is saved with `implicitPrecision=10`, so
-each surface is meshed on a 125 x 125 grid instead of Arch's default 50 x 50, and the turned head's
-surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
+each surface is meshed on a 32 x 32 grid instead of Arch's default 13 x 13 (and each point is evaluated five times,
+for the lighting), and the turned head's surfaces are about three times as long to evaluate. That computing is the wait: rotating and zooming reuse the
 meshes and redraw in about a second. The *low-precision buffer* (低精度缓冲) setting makes no difference in Arch
 2.0.0, whose background drawing (异步绘图) skips it (measured). Lowering the *equation, inequality and
 parametric surface precision* slider recomputes the scene faster and coarser.
@@ -82,7 +85,10 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   upper arms, under the side hair. All the long hair is made as the bangs are: each clump hangs in one smooth curve,
   tapers to a sharp point or curls, and has the bangs' ridged section. The hair down the middle of her back hangs
   as a smooth sheet, straight out from under the braid over the shoulder blades and down, not tracing the body; the
-  side hair lies on the capelet and falls straight from its back edge.
+  side hair lies on the capelet and falls from its back edge. In depth the long hair wraps round her back and
+  arms, coming forward as it fans out, so that from above it curves round her instead of hanging in one flat
+  plane; each strand waves gently in depth as well as across, and each curl turns back out of the sheet, so that
+  from the side the hair has volume and its curls show as loops.
   It is painted as the bangs are, without outlines: thin dark strand lines down the lower part of each clump,
   closing to its centre at both ends, a light peach sheen in its middle, and a soft shade under the braid. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
   the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
@@ -203,6 +209,7 @@ given a ringlet keeps its original entrance when the hanging surfaces are refitt
 
 ```sh
 python3 -B -W error::RuntimeWarning -m unittest discover -s examples/claude-chan -p 'test_hair*.py'
+python3 -B -W error::RuntimeWarning -m unittest discover -s examples/claude-chan -p 'test_compact.py'
 ```
 
 ### Checking against the sheet

@@ -428,6 +428,8 @@ BK_FLOW = {
 }
 BK_STRANDS = {k: _flow_strand(**v) for k, v in BK_FLOW.items()}
 BK_SIDE = tuple(k for k in BK_STRANDS if k[2] == 'o')     # the side hair (from the braid's ends, draped: back_strands)
+# where each curl starts (the index of its first point in BK_STRANDS, the sweep's last) and its sense
+BK_CURL_AT = {k: (len(_flow_strand(**{**v, 'curl': None})) - 1, v['curl'][0]) for k, v in BK_FLOW.items() if v.get('curl')}
 BK_STRANDS['BR0'] = [(-0.42, 11.35, .055), (-0.45, 11.1, .074), (-0.47, 10.85, .055), (-0.47, 10.74, 0)]   # a short strand by the braid
 # the curls: ringlets, each a helix about an upright axis through x cx, starting where the strand's hanging part
 # ends; r0 the radius it starts at (where the strand ends at least that far from the axis across, it starts beside
@@ -482,6 +484,18 @@ BK_UNDER = ('BL9', 'BL10', 'BR8', 'BR9')   # the strands under the braid
 BK_DRAPE_Z = 10.0          # the side hair lies on what is under it above this (coming forward from the head onto the
                             # shoulders); below it, it falls straight (never coming forward: draped down to 9.0, it
                             # creased where it left the capelet's hem)
+BK_WRAP = (0.1, 10.4, 9.4)   # in 3D the long hair wraps round her back and arms (the user: drawn from the back view
+                            # alone, every strand lay in one plane, which was unnatural): below z 10.4, fully by 9.4, a
+                            # strand comes forward by 0.1 (x^2 - x0^2) from where it would hang, x0 where it starts down,
+                            # so that it curves round as it fans out (the side hair's ends at |x| 3, 0.75 forward), and
+                            # faces out from the curve
+BK_DWAVE = (0.07, 2.1, 9.4, 8.6)   # and it waves in depth too: by up to 0.07 either way, a wave 2.1 long, from z 9.4,
+                            # full by 8.6; a phase to each group (BK_DPHASE) and 0.7 more to each strand in it, so that
+                            # the strands of a group cross over and under each other (never into the ones beneath)
+BK_DPHASE = {'BL': 0.3, 'BR': 2.1, 'BLo': 1.2, 'BRo': 4.0}
+BK_CURL_TILT = math.radians(45)    # the curls turn out of the sheet, back and away from her, by this (from the side,
+                            # loops; from the back, still C-curls): from 0.3 above the curl over 0.5, turning about the
+                            # upright through that point
 BK_SUBS = {k: 1 for k in BK_STRANDS}   # sub-strands: each strand is drawn as these, side by side across it, each with
                             # its own wander, depth, width, thickness and shade; they fan out at a free tip and wind
                             # together in a ringlet. One each: the locks are bundles of strands, as the chest locks are
@@ -775,15 +789,18 @@ def _poly_fit(t, V, deg, start_derivative=None):
     return fit_c1(t, V, deg, start_derivative=start_derivative)
 
 
-def _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig):
-    """Build finite sections from a native crown root onto the actual hair base.
+def _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig, psi=None):
+    """Build finite sections from a native crown root onto the actual hair base (psi: how far each section turns
+    about the upright from facing straight back, +y; none if not given).
 
     As the new section gains thickness its centre moves into the old section's
     depth, rather than piling another layer on top. Whole-section contact with
     hairUnder prevents a tangent crest from leaving bare patches underneath.
     """
     T = TS / np.linalg.norm(TS, axis=1)[:, None]
-    nrm = np.array([0., 1., 0.]) - T[:, 1:2]*T
+    psi = np.zeros(len(T)) if psi is None else np.asarray(psi, float)
+    ref = np.c_[-np.sin(psi), np.cos(psi), np.zeros(len(T))]
+    nrm = ref - np.sum(ref*T, axis=1)[:, None]*T
     nrm /= np.linalg.norm(nrm, axis=1)[:, None]
     # W is a traced back-view (XZ) half-width, not a geodesic width on the
     # tilted crown. Preserve its projection; using T x native_normal here
@@ -1034,17 +1051,25 @@ def back_strands():
         # does (how far back it is never decreases going down); and on the strands beneath where they are (easing
         # onto them over its first 0.4, under the braid, where they all begin)
         first = fb[fb > -9][0] + CH_GAP if (fb > -9).any() else BK_TOP      # from the first thing it lies on
-        body = np.maximum.accumulate(np.r_[first, np.where(fb > -9, fb + CH_GAP, first)])
+        # the wrap (BK_WRAP): how far forward of where it would hang straight it comes, so that wherever this says it
+        # falls straight below, it falls straight on the wrap's curve instead
+        kw, zw0, zw1 = BK_WRAP
+        wrapped = key not in BK_UNDER and key != 'BR0'
+        rw = np.clip((zw0 - Q[:, 1]) / (zw0 - zw1), 0, 1)
+        rw = rw * rw * (3 - 2 * rw)
+        x_ref = Q[int(np.argmax(Q[:, 1] < zw0)), 0] if (Q[:, 1] < zw0).any() else Q[-1, 0]
+        wsh = -kw * (Q[:, 0] ** 2 - x_ref ** 2) * rw if wrapped else np.zeros(len(s))
+        body = np.r_[0, wsh] + np.maximum.accumulate(np.r_[first, np.where(fb > -9, fb + CH_GAP - wsh, -np.inf)])
         fall = np.nonzero(Q[:, 1] < BK_DRAPE_Z)[0]
         fall = fall[0] if len(fall) else len(s)
         if side:
             # the side hair comes forward from the head onto the shoulders and the backs of the arms, lying on what is
             # there (where nothing is, as before), and below BK_DRAPE_Z falls straight
-            raw = np.where(fb > -9, fb + CH_GAP, np.nan)
+            raw = np.where(fb > -9, fb + CH_GAP, np.nan) - wsh     # (measured from the wrap's curve)
             raw[0] = first if not np.isfinite(raw[0]) else raw[0]
             raw = raw[np.maximum.accumulate(np.where(np.isfinite(raw), np.arange(len(raw)), 0))]
             raw[fall:] = np.maximum.accumulate(raw[fall:])
-            body = np.r_[first, raw]
+            body = np.r_[first, raw + wsh]
         curl = BK_CURL.get(key)
         # its thickness closes to the point over the last 0.25, smoothly (a power under 1 there has an endless slope at
         # the point, which the pieces' polynomials cannot follow)
@@ -1067,14 +1092,29 @@ def back_strands():
             for _ in range(30):
                 y = np.maximum(np.convolve(np.pad(y, 60, mode='edge'), kd / kd.sum(), 'valid'), lo)
         if side:                                             # past the strands beneath it, it falls straight too
-            y[fall:] = np.maximum.accumulate(y[fall:])
+            y[fall:] = wsh[fall:] + np.maximum.accumulate(y[fall:] - wsh[fall:])
         else:
-            y = np.maximum.accumulate(y)
+            y = wsh + np.maximum.accumulate(y - wsh)
         if key not in BK_UNDER and not side:
-            y = _taut(s, y)                                  # and hangs as a smooth sheet, not tracing the body
+            y = wsh + _taut(s, y - wsh)                      # and hangs as a smooth sheet, not tracing the body
         amp, lam, zw = BK_WAVE
         ramp = np.clip((zw - Q[:, 1]) / 0.5, 0, 1)
         y = y + amp * ramp * np.sin(2 * math.pi * s / lam + 2.4 * n_)      # each strand its own phase
+        if wrapped:
+            # the wave in depth (BK_DWAVE), kept out of the strands beneath (as far as they may pile: BK_STACK) and the
+            # clothes, and smoothed where it rests on them
+            a_, lam_, zd0, zd1 = BK_DWAVE
+            grp = key[:3] if side else key[:2]
+            members = [k for k in BK_FLOW if (k in BK_SIDE) == side and k[1] == key[1]]
+            ph_ = BK_DPHASE[grp] + 0.7 * (members.index(key) if key in members else 0)
+            rd = np.clip((zd0 - Q[:, 1]) / (zd0 - zd1), 0, 1)
+            y = y + a_ * rd * rd * (3 - 2 * rd) * np.sin(2 * math.pi * s / lam_ + ph_)
+            cap = BK_STACK[0] + (BK_STACK[1] - BK_STACK[0]) * f * f * (3 - 2 * f)
+            floor = np.maximum(np.where(fh > 0, np.minimum(g, body + cap), -9.0),
+                               np.where(fb > -9, fb + CH_GAP + 0.3 * thv * tip, -9.0))
+            y = np.maximum(y, floor)
+            for _ in range(6):
+                y = np.maximum(np.convolve(np.pad(y, 24, mode='edge'), ker / ker.sum(), 'valid'), floor)
         if curl:
             # where the ringlet starts: beside its axis if the strand ends at least r0 from it across, else in front
             ox, oy = axes[key]
@@ -1088,6 +1128,21 @@ def back_strands():
             i, j, ok = at_under(px, pz)
             np.maximum.at(under, (i[ok], j[ok]), (y + 0.1 * thv * tip)[ok])    # the strands over it lie just above
                                                     # its line, sinking into it rather than piling up
+        # it faces out from the wrap's curve (psi: how far its section turns about the upright, from facing straight
+        # back), and its curl turns out of the sheet (BK_CURL_TILT: about the upright through a point 0.3 above the
+        # curl, back and away from her; the strands over it lie on the sheet, as written to `under` above)
+        psi = -np.arctan(2 * kw * Q[:, 0] * rw) if wrapped else np.zeros(len(s))
+        if wrapped and key in BK_CURL_AT:
+            ic, sense = BK_CURL_AT[key]
+            ic += len(D) - len(BK_STRANDS[key])              # (the point added under the braid)
+            sp = max(0.0, d[ic] - 0.3)
+            ip = int(np.searchsorted(s, sp))
+            bt = np.clip((s - sp) / 0.5, 0, 1)
+            tl = sense * BK_CURL_TILT * bt * bt * (3 - 2 * bt)
+            dx_, dy_ = Q[:, 0] - Q[ip, 0], y - y[ip]
+            Q[:, 0] = np.where(s >= sp, Q[ip, 0] + dx_ * np.cos(tl) - dy_ * np.sin(tl), Q[:, 0])
+            y = np.where(s >= sp, y[ip] + dx_ * np.sin(tl) + dy_ * np.cos(tl), y)
+            psi = psi + tl
         # the hanging part: a natural spline from the root inside the braid through the traced part every 0.05
         idx = np.unique(np.r_[np.arange(0, len(s), max(1, int(0.05 / (s[1] - s[0])))), len(s) - 1])
         if key in BK_UNDER or side:                          # its root inside the braid, where the braid crosses it
@@ -1096,7 +1151,7 @@ def back_strands():
         else:
             root = [[0.5 * D[0, 0], BK_ROOT[0], BK_ROOT[1]]] if key != 'BR0' else [[sd * 0.36, 0.7, 11.7]]
         K = np.c_[np.r_[root, np.c_[Q[idx, 0], y[idx], Q[idx, 1]]], np.r_[hw[0], hw[idx]], np.r_[th, (thv * tip)[idx]],
-                  np.r_[0, phi[idx]]]
+                  np.r_[0, phi[idx]], np.r_[0, psi[idx]]]
         dk = np.r_[0, np.cumsum(np.linalg.norm(np.diff(K[:, :3], axis=0), axis=1))]
         Kd = _nat_spline(dk, K, np.linspace(0, dk[-1], 4000))
         old_values = Kd.copy()
@@ -1114,7 +1169,7 @@ def back_strands():
         root_z = float(braid_back(D[0, 0])[2]) + 0.06
         anchor, root_tangent, root_normal, root_ref, root_uv = head_root(D[0, 0], root_z)
         Kd, old_end, tangent = attach_root(Kd, anchor, root_tangent)
-        P, W, TH, PH = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0), Kd[:, 5]
+        P, W, TH, PH, PSI = Kd[:, :3], np.maximum(Kd[:, 3], 0), np.maximum(Kd[:, 4], 0), Kd[:, 5], Kd[:, 6]
         sig = np.r_[0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
         bridge_end = len(Kd) - (4000-old_end)
         root_length = sig[bridge_end]
@@ -1152,7 +1207,7 @@ def back_strands():
         cols = [col] + [c for c in (HAIR, HAIR_LT, HAIR_DK) if c != col]
         # Prepare contact once; trying different polynomial partitions must not
         # repeat the surface inversion or shift the material texture.
-        prepared = _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig)
+        prepared = _back_sections(sig, P, W, TH, PH, TS, subs, root_normal, root_length, material_sig, PSI)
         end_targets, end_span = None, 1.
         if curl:
             # Reconstruct the original fitted ringlet entrance from the unchanged
@@ -1277,6 +1332,9 @@ into its curled tip, as the chest locks do.""")
                 sc.surface((f"(hrx({T})+{R}*sin(ha({T})))*sin({PC}+{WD}*cos(w))", f"{fmt(HY0)}+(hry({T})+{R}*sin(ha({T})))*cos({PC}+{WD}*cos(w))",
                             f"hzz({T})+{R}*cos(ha({T}))"), ('w', 0.3, math.pi - 0.3), ('q', -1, 1), col, f'{ref}Hl{k + 1}',
                            ('point', (0, HY0, zc - 0.3)))
+            # written out again as a polynomial in w and the band's own t (compact.py): pasting the whole lock in at T
+            # made each of these the costliest object to open (about 180 KB of formula)
+            COMPACT[f'{ref}Hl{k + 1}'] = dict(sub=(T, tc, hk, 'w'), tol=0.0003)
 
     RING_POLAR = 1.5708 * 0.085 / T0       # the angel ring's angle from the crown (locks' crown_shine is at t 0.085)
     BAND_Z = 10.55          # the second ring of highlights, across the long hair where it curves over the shoulders

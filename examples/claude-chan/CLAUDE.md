@@ -153,8 +153,18 @@ rest, the side hair (`BK_SIDE`, keys `B?o*`), starts under the braid's ends behi
 a few thin strands and widens behind the puffs into masses that fan out beyond the forearms, waving (one wave a
 group: `_WL`, `_WR`, `_WO`) and curling at different heights, one loop on each mass's outer edge at mid-height. It
 lies on the head, the capelet and the long side locks (`locks_back`, `LOCKS_BACK`: those locks sampled into a grid)
-above `BK_DRAPE_Z` and falls straight below it (draped lower, it creased where it left the capelet's hem), so it hangs
-facing back from the capelet's back edge. The long side locks round her sides now end over the upper arm
+above `BK_DRAPE_Z` and falls straight below it (draped lower, it creased where it left the capelet's hem). The
+picture is only a back view, and laid out in it alone every strand hung in one plane, facing back (the user, seeing it
+from the side: not natural; plotted from above, the side hair ran straight out to |x| 3.3 at one depth, 1 behind the
+arms). So in depth (`back_strands`): the hair wraps round her back and arms, coming forward by `BK_WRAP` 0.1 (x^2 -
+x0^2) as it fans out and facing out from that curve (psi, the section's turn about the upright, an extra column through
+`attach_root` into `_back_sections`); "falls straight" means straight on that curve (the accumulations and `_taut`
+work on the depth less the wrap; filling where nothing is under it must too, or the wrap is undone); each strand waves
+in depth (`BK_DWAVE`, a phase a group, `BK_DPHASE`, and 0.7 more a strand), floored on the strands beneath and the
+clothes; and each curl turns out of the sheet by `BK_CURL_TILT` 45 degrees, back and away from her, about the upright
+through a point 0.3 above it (`BK_CURL_AT`), so it is a loop from the side and still a C from the back (the strands
+laid after it lie on the sheet, not over the curl). Plot the strands from the side and from above (a dump of each
+strand's line) before rendering. The long side locks round her sides now end over the upper arm
 (`SIDE_TE`, in a point), under the side hair: seen from behind they were edge-on, as tentacles. Design a strand in 2D
 first: draw `hairflow.flow_ribbon` over the picture at the same scale and compare. The fit needs smooth widths: a
 power under 1 at a tip (`tip`, `_sub_at`) or two control points almost together gave pieces that missed 0.006. Waves of a strand's own phase
@@ -336,3 +346,28 @@ object count down.
 
 In generated expressions never write a minus before a negative number (`a--2` is a decrement to Arch and fails
 with "Assigning to rvalue"): parenthesise it.
+
+## Keep the file quick to open
+
+Opening the save file is Arch meshing every surface (`getParametricSurfaceResolution`, `buildParametricSurfaceMesh`
+in `index.html`): at precision 10 a 32 x 32 grid, each point evaluated five times (four more for its normal) and
+each cell once more, about 6,100 evaluations a surface, in its drawing worker. Surfaces are nearly all of it (the
+figure took 37.6 s to mesh, 4.8 s without its surfaces). Measure with `opentime.mjs` (the whole file, then each
+`--drop` family left out: what it costs), not by formula size alone: `^` is a function call in Arch, so a formula
+full of powers costs several times more per KB, and a very long one costs more again in the worker (the 22 ring
+highlights, 4 MB, cost 5.7 s; the 407 back strands, polynomials, 1.6 s).
+
+`compact.py` rewrites the heaviest surfaces, after everything is drawn (`COMPACT` in `generate.py`, and `hair.py`'s
+ring highlights), as polynomials in their own parameters: the same grid and side lit, within a tolerance, and only
+where Arch then evaluates at most 0.6 of what it did. Set each family's tolerance from what it lies on: a quarter
+of the gap (the layered lip decals 0.0004 apart: 0.0001; the lashes, nose and smile decals at least 0.0014 above
+the skin: 0.0003; the shades 0.0056 above it: 0.001; the locks on the head: 0.001, so seams between pieces stay
+under 0.002). A surface whose formula creases or ends in a power under 1 does not fit whole: give it `cuts` where
+it creases, or `split` it, or a form that keeps the crease exact (`sub`: a highlight band whose zigzag edges stay
+in the formula, the lock fitted in w and the band's own t). Surfaces with holes, or running into the face's
+vertical edge (the big skin patches, two lash wings), stay as written. Compare a precision-10 head render before
+and after (`--no-compact`): pixel differences, not a look. It took the open from 39.9 s to 27.1 s and the
+expanded formulas from 23.0 MB to 14.9 MB; `test_compact.py` covers it.
+
+Rewrite exactly where the algebra allows, first: a placement `fw(p, q, 0, o, i, j, k)` pastes p and q into each
+coordinate, so `o + r*(i*cos w + j*sin w)` halves a petal's formula (the side emblems).
