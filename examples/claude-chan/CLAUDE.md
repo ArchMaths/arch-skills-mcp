@@ -214,6 +214,33 @@ All the modules run in one namespace (generate.py execs them), so a module-level
 same name in another: `boots.py` once reused `_tz`, which broke `outfit.py`'s `torso_ab` for anything that
 called it after the boots were built. Give module-level helpers names that are unique to their file.
 
+## The half-up style (current)
+
+The user then asked for the hairstyle of a back-view anime reference (a band round the back of the head, the hair
+under it gathered into a small tie at the nape, long wavy locks out of the tie) in her orange, keeping the bangs, the
+face-framing locks, the chest locks and the braid (in place of the reference's band), and removing the shoulder locks
+(they show from behind), the long side locks and the curtain. `HAIR_STYLE` in `hair.py` switches between it and the
+curtain, which is still drawn when selected. The long hair is `halfup.py`: pure numpy, called by `draw_halfup`.
+
+- Design it outside Arch: dump the scene's surfaces once (`sheetfit.surfaces_from_lines` on the generator's lines,
+  sampled into grids), then preview the new strands over them with a painter's-algorithm render in numpy and cv2,
+  lit as Arch lights (seconds a view). Then one Arch check at `--prec 3`, and the head alone at `--prec 10`.
+- The crown's back locks (`backU`, `back`, `backT`) are `tie_lock`s: they close in to angle 0 at the tie and end there
+  in a point, which makes the V under the braid. The swept-back tucks over her left temple are mirrored on her right.
+- Depth as for the curtain: a taut sheet (`taut_depth`, the upper hull of the root and the floor) and a wrap. Lift a
+  strand over the floor smoothly (`lift_over`); clamped to it, it took the grid's steps and eight polynomial pieces
+  still missed by 0.018 (smoothly: two pieces, within 0.003). End the tips along a quarter sine, not a power under 1.
+- The loose layer must lie between the dark sheet under the hair (`hairUnder`) and the V: they were 0.03 apart, and
+  laid on the sheet it covered the V. In this style the sheet is 0.12 deeper. Its locks start under the braid's lower
+  edge (`braid_back`) so that the braid hides their tops; started below it, they stood beside the V like organ pipes.
+- Behind the ears: three locks a side, narrow (half-width 0.16 to 0.2), rounder (thickness 0.42 of the width) and
+  facing out to her side, about 60 degrees from facing back. Wide and facing back, they showed from the front as flat
+  panels beside the neck; started outside the hair, they stood up beside the head like wings.
+- The locks out of the tie have no sheen lenses (side by side at one height they read as rays from the tie): their
+  light is the reference's zigzag band below the tie (`HALFUP_BAND`, `poly_band`).
+- `ornament_drape.py` runs the generator with `--no-compact`: `sheetfit` cannot read back the face decals that
+  `compact.py` rewrites. Rerun it (`--write`) after changing the locks behind her left ear.
+
 ## Patterns from close-up photos
 
 Embroidery and woven borders are measured on the user's close-ups with Python: threshold the thread's colour,

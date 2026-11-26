@@ -10,6 +10,7 @@ design sheet with nothing but parametric surfaces and a few curves.
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `hairflow.py` | Builds a long-hair strand in the back view from its sweep, widths, wave and curl (the back hair's `BK_FLOW`), and draws it in 2D for comparing with a picture. |
+| `halfup.py` | The half-up hairstyle's long hair (the current style, `HAIR_STYLE` in `hair.py`): the locks out of the tie, the loose layer from under the braid and behind the ears, and wisps, hung as taut sheets over the capelet and fitted as polynomial strands. Pure numpy, so it can be designed outside Arch. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `ornament_drape.py` | Lays the hair ornament's ribbons, tails and tassel on the hair, keeping where the hi-res portrait's view sees them; rewrites their positions in `generate.py`. |
 | `expansion.py` | Estimates how large Arch's expanded formulas are (what it evaluates at every point); `generate.py` prints the total. |
@@ -71,6 +72,17 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   has a soft darker strip under it (its outline seen from the front, widened and moved down a little, in
   two steps), which shows as a rim along its edges and a point under its tip; and a band on the neck,
   whose lower edge follows the turned jaw, shades it under the chin in four steps.
+- **Hairstyle: half-up** (`HAIR_STYLE = 'halfup'` in `hair.py`, after the user's back-view reference). The bangs,
+  the locks framing the face, the two locks over the chest and the braid crown are as described below. The locks
+  from the crown pass under the braid and close in to a small gold tie at the nape (z 11.45), so that below the
+  braid they form a gathered V; the hair over her right temple is swept back as on her left. Out of the tie, eleven
+  long wavy locks fan out over the capelet to about her hips, each ending in a point that flicks outward, with a
+  zigzag band of shine across them just below the tie. Under them a looser, darker layer falls from under the braid
+  and from behind both ears (three rounder locks a side, facing out to her side, that the ornament's ribbons lie
+  on), and six thin wisps peel off the top locks. All of it hangs as a taut sheet over the capelet and then
+  straight down, wrapping round her a little, and is painted as the bangs are (strand lines, and the shade under
+  the tie). The shoulder locks, the long side locks and the curtain down her back described below belong to the
+  earlier style, `HAIR_STYLE = 'curtain'`, which the generator still draws when it is selected.
 - **Hair**: matched to the hi-res portrait from its viewpoint: the crown as low and the dome as wide as drawn;
   thin dark strand lines and light streaks on the strands around the
   face; the dark sheet under the hair turned so that it is lit where it shows between the locks; her left

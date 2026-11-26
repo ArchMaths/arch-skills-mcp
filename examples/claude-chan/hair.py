@@ -8,6 +8,14 @@ HDX, HDY, HDZ = 0.79, 0.815, 0.76       # the dome of the hair around the craniu
 HY0 = 0.14
 ZBOT = 5.3                               # where the longest locks end
 TB = 0.09                                # how far down a lock eases from turning with the head to hanging straight
+# The hairstyle: 'halfup', after the user's back-view reference (the hair under the braid gathered into a tie at the
+# nape, long wavy locks out of the tie over a looser layer from behind the ears: halfup.py, draw_halfup), or 'curtain'
+# (before: long side locks, shoulder locks, and a curtain of strands down her back from under the braid).
+HAIR_STYLE = 'halfup'
+HALFUP = HAIR_STYLE == 'halfup'
+HALFUP_TIE_Z = 11.45                     # the tie, at the nape: a third of the way from the braid's lower edge (11.77 at
+                                         # the back) to the chin, as the reference puts its tie under the band
+HALFUP_BAND = True                       # the reference's zigzag highlight across the locks just below the tie
 T0 = 1 / (1 + (ZHC - ZBOT) / (HDZ * math.pi / 2))   # part of a lock's length that lies on the dome
 VF = HDZ * math.pi / 2 / T0              # how fast z falls with t below the dome
 
@@ -1666,10 +1674,12 @@ into its curled tip, as the chest locks do.""")
                     tp = lambda d, d0=d0: np.minimum(1, np.maximum(0, d - d0) / (0.45 * (L - d0))) ** 0.7
                     strip(d0, L - 0.01, lambda d, tp=tp: 0.96 * tp(d), lambda d, tp=tp: -0.96 * tp(d), HAIR_SHADE,
                           f'{name}Shade{k + 1}', op, lift=0.004 + 0.001 * k)
-            # the sheen: a lens 0.22 of the half-width either side of its place, pointed at both ends
+            # the sheen: a lens 0.22 of the half-width either side of its place, pointed at both ends (not on the half-up
+            # style's locks out of the tie, whose light is the band across them: side by side, the lenses read as rays)
             tp = lambda d: np.maximum(0, np.sin(np.pi * (d / L - s0) / (s1 - s0))) ** 1.2
-            strip(s0 * L, s1 * L, lambda d: sc0 * tp(d) + 0.22 * tp(d), lambda d: sc0 * tp(d) - 0.22 * tp(d), HAIR_HI,
-                  f'{name}Sheen', lift=0.007)
+            if req.get('sheen', True):
+                strip(s0 * L, s1 * L, lambda d: sc0 * tp(d) + 0.22 * tp(d), lambda d: sc0 * tp(d) - 0.22 * tp(d), HAIR_HI,
+                      f'{name}Sheen', lift=0.007)
             # the strand lines, closing to the centre at both ends (as the bangs' max(0, sin(...))^0.7)
             for k, (a_, f0, f1) in enumerate(lines):
                 tl = lambda d, f0=f0, f1=f1: np.maximum(0, np.sin(np.pi * (d / L - f0) / (f1 - f0))) ** 0.7
@@ -1690,7 +1700,8 @@ eye and a little higher above her right eye, where the forehead shows between th
     # Arch lights one side of a surface, so the under-layer is two sheets 0.005 apart: the outer one lit from behind
     # (where it shows between the back locks), the inner one from the front (where it shows beside her face and neck)
     with sc.turned(**HEAD_TURN, blend=HB):
-        for ref_, d_, ori_ in (('hairUnder', 0.03, ('point', (0, 0, 9))), ('hairUnderIn', 0.035, ('tube', 'u', 'in'))):
+        # (the half-up style lays its loose layer between this sheet and the gathered locks: 0.12 deeper there)
+        for ref_, d_, ori_ in (('hairUnder', 0.03 + 0.12 * HALFUP, ('point', (0, 0, 9))), ('hairUnderIn', 0.035 + 0.12 * HALFUP, ('tube', 'u', 'in'))):
             sc.surface((f"(hrx(t)-{fmt(d_)})*sin(k*(1-0.64*(1-hdw(t))))", f"{fmt(HY0)}+(hry(t)-{fmt(d_)})*cos(k*(1-0.64*(1-hdw(t))))", "hzz(t)"),
                        ('t', T0 * 0.9, t_of_z(BK_NAPE) - 0.03), ('k', -1.2, 1.2), HAIR_DK if ref_ == 'hairUnder' else HAIR, ref_, ori_)
 
@@ -1708,6 +1719,13 @@ eye and a little higher above her right eye, where the forehead shows between th
         p_c = p0 * (1 - sg * (1 - hdw_py(T_NAPE)))
         dr = (math.copysign(min(abs(p_c), 0.42), p0) - p_c) / hu_py(T_NAPE)
         lock(ref, p0, sg, dr, hw, T_NAPE, la, th, am, kk, ph, col, curl=None, smooth=True, outline=OUTLINE_W)
+    T_TIE = t_of_z(HALFUP_TIE_Z)
+
+    def tie_lock(ref, p0, sg, hw, la, th, am, kk, ph, col):
+        """The half-up style: a lock from the crown that passes under the braid and closes in to the tie, where it ends
+        in a point, so that below the braid the locks form the gathered V of the reference."""
+        p_c = p0 * (1 - sg * (1 - hdw_py(T_TIE)))
+        lock(ref, p0, sg, -p_c / hu_py(T_TIE), hw, T_TIE, la, th, am, kk, ph, col, curl=None, outline=OUTLINE_W)
 
     sc.comment(f"""Long locks. The hair down the middle of her back is one curtain from under the braid (drawn below). So
 the locks from the crown down the back (three layers: wide ones underneath, the main layer, thin lighter strands
@@ -1738,7 +1756,7 @@ curve and ends in a point that turns in toward the back.""")
                 lock(f'{tag}{i + 1}', pa, 0.3, dr_, hw * 1.25, te_, la * 1.8, max(th, 0.105), W_AM, W_KK, wave_ph(pa), col,
                      curl=cd_, full=True, band=False, smooth=True, outline=OUTLINE_W, paint=True)
             else:
-                nape_lock(f'{tag}{i + 1}', p0, sg, hw, la, th, am_, kk_, ph_, col)
+                (tie_lock if HALFUP else nape_lock)(f'{tag}{i + 1}', p0, sg, hw, la, th, am_, kk_, ph_, col)
     back_layer('backU', (-1.0, -0.68, -0.34, 0.0, 0.34, 0.68, 1.0), 0.66, 0.28, 0.0, 0.05, HAIR_DK,
                lambda: (0.05 * (R() - 0.5), 0.86 + 0.1 * R(), 0.015 + 0.01 * R(), 3 + 1.5 * R(), 6.28 * R(), cdir(0.11)), ())
     back_layer('back', (-0.85, -0.51, -0.17, 0.17, 0.51, 0.85), 0.68, 0.24, 0.04, 0.055, HAIR,
@@ -1755,10 +1773,14 @@ curve and ends in a point that turns in toward the back.""")
     # her left ear shows: the hair above it is swept back under the ornament (as many as before, so the head is covered)
     tucks = [(2, 1.5, 'U', 0.26, HAIR_DK), (3, 1.78, 'U', 0.25, HAIR_DK), (5, 1.36, 'M', 0.21, HAIR), (6, 1.6, 'M', 0.21, HAIR),
              (7, 1.85, 'M', 0.19, HAIR), (9, 1.5, 'T', 0.15, HAIR_LT), (10, 1.74, 'T', 0.14, HAIR_LT)]
-    for n, p0, lay, hw_, col in tucks:
-        lock(f'tuck{n}', p0, 0.0, -1.2, hw_, T0 + 0.05, {'U': 0.0, 'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0, col, curl=None)
-        if lay != 'U':
-            crown_shine(f'tuck{n}', p0, 0.0, -1.2, hw_, T0 + 0.05, {'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0)
+    # the half-up style: her right side is swept back the same way (it had the long side locks), mirrored
+    tuck_sides = ((1, ''), (-1, 'R')) if HALFUP else ((1, ''),)
+    for sd, tg in tuck_sides:
+        for n, p0, lay, hw_, col in tucks:
+            lock(f'tuck{tg}{n}', sd * p0, 0.0, -1.2 * sd, hw_, T0 + 0.05, {'U': 0.0, 'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0, col,
+                 curl=None)
+            if lay != 'U':
+                crown_shine(f'tuck{tg}{n}', sd * p0, 0.0, -1.2 * sd, hw_, T0 + 0.05, {'M': 0.035, 'T': 0.07}[lay], 0.05, 0.0, 1, 0)
     for sd, tag, locks in ((-1, 'R', side), (1, 'L', side_left)):
         for i, (p0, lay, hw_, col) in enumerate(locks):
             la_, th_ = {'U': (0.0, 0.105), 'M': (0.08, 0.105), 'T': (0.16, 0.085)}[lay]
@@ -1766,12 +1788,14 @@ curve and ends in a point that turns in toward the back.""")
             R(), R()            # (the wave's rate and phase are shared now; still drawn, so the later draws stay the same)
             args_ = (sd * p0, 0.25, dr_, hw_, te_, la_, th_, am_, W_KK, wave_ph(sd * p0))
             cdir(0.13)          # (its draws, so the later ones stay the same; it ends in a point under the side hair)
+            if HALFUP:          # the half-up style has no long side locks (its draws are still made, as above)
+                continue
             lock(f'side{tag}{i + 1}', *args_, col, curl=None, full=True, band=False, smooth=True, outline=OUTLINE_W, paint=True)
             if lay != 'U':
                 crown_shine(f'side{tag}{i + 1}', *args_[:5], la_ * 0.55, th_ * 0.55, *args_[7:], smooth=True)      # on the head the lock is 0.55 as full
     # behind her left ear, below the swept-back hair: locks falling past the ear, as the portrait shows them (two big
-    # round clumps, staggered in depth)
-    for i, (p0, lay, hw_, col) in enumerate(((1.45, 'M', 0.28, HAIR), (1.72, 'M', 0.26, HAIR))):
+    # round clumps, staggered in depth; not in the half-up style, whose loose layer falls from behind the ears)
+    for i, (p0, lay, hw_, col) in enumerate(() if HALFUP else ((1.45, 'M', 0.28, HAIR), (1.72, 'M', 0.26, HAIR))):
         la_, th_ = 0.08 + 0.05 * i, 0.105
         lock(f'earBackLock{i + 1}', p0, 0.25, -(0.05 + 0.05 * i), hw_, SIDE_TE[0] + 0.04 * i, la_, th_, W_AM, W_KK, wave_ph(p0), col,
              curl=None, full=True, band=False, smooth=True,
@@ -1784,6 +1808,8 @@ a separate surface so that its curl gets a fine mesh.""")
     CH = chest_strands()
     print(f"  chest locks: degree {CH_DEG}, largest fit error {max(v[1] for v in CH.values()):.4f}", file=sys.stderr)
     for key, (polys, err, col, _, _) in CH.items():
+        if HALFUP and key[:2] in ('RS', 'LS'):      # the shoulder locks show from behind: not in the half-up style
+            continue
         C, U, V = polys
         xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
         sc.surface(xyz, ('t', -1, 0), ('w', 0, '2*pi'), col, f'chestLock{key}', ('tube', 'u'))
@@ -1791,42 +1817,106 @@ a separate surface so that its curl gets a fine mesh.""")
         tc = poly_cross(C, BAND_Z + 0.08 * math.sin(1.9 * len(key) + ord(key[-1])))     # the ring at the shoulders, staggered
         if tc is not None:
             poly_band(f'chestLock{key}', C, U, V, tc, 0.18, ph0=1.3 * len(key) + (0.7 if key[0] == 'L' else 0.0))
-    sc.comment("""The hair down the back, from under the braid, laid out as the chest locks are: three locks, each a
+    def draw_halfup():
+        """The half-up style's long hair (halfup.py): locks out of the tie at the nape over a looser layer from behind
+        the ears and the nape, written as the chest locks are and painted as the bangs are; and the tie."""
+        import halfup
+        ty = HY0 + hry_py(T_TIE) + 0.045        # where the gathered locks meet (their layers stand 0 to 0.085 off the hair)
+        tie = (0.0, ty, HALFUP_TIE_Z)
+
+        # the loose layer lies on the dark sheet under the hair (hairUnder: its depth as drawn, a grid) and starts under the
+        # braid's lower edge, round the back of the head and behind the ears, where the braid hides its top
+        import sheetfit
+        HU = _back_grid(sheetfit.surfaces_from_lines(sc.out, ref=r'hairUnder(In)?'), _HG)
+
+        def head_fn(x, z):
+            x0, z0, st_, nx, nz = _HG
+            i, j = np.round((np.asarray(x) - x0) / st_).astype(int), np.round((np.asarray(z) - z0) / st_).astype(int)
+            ok = (i >= 0) & (i < nx) & (j >= 0) & (j < nz)
+            return np.where(ok, HU[np.clip(i, 0, nx - 1), np.clip(j, 0, nz - 1)], -9.0)
+
+        def under_root(s):
+            x = 0.64 * s
+            zc, yb, _ = (float(v[0]) for v in braid_back(np.array([x])))
+            y = max(float(head_fn(np.array([x]), np.array([zc]))[0]), yb - 0.12) + 0.03
+            return (x, y, zc), (x, y - HY0, 0.0)
+        # and behind each ear, two locks down the side of the head (where the long locks behind her left ear were: the
+        # portrait shows them, and the ornament's ribbons lie on them), out on the hair under the swept-back tucks
+        tE = t_of_z(12.05)
+        ears = []
+        for sd in (-1, 1):
+            for p0, out in ((1.36, -0.05), (1.55, -0.035), (1.74, -0.02)):   # (inside the hair, so that they come out from under the tucks)
+                ph_ = sd * p0
+                rx, ry = hrx_py(tE) + out, hry_py(tE) + out
+                ears.append(((rx * math.sin(ph_), HY0 + ry * math.cos(ph_), 12.05), (math.sin(ph_), math.cos(ph_), 0.0)))
+        S = halfup.strands(tie, clothes_y, under_root, head_fn, ear_roots=ears)
+        print(f"  half-up locks: {len(S)}, largest fit error {max(s['err'] for s in S):.4f}", file=sys.stderr)
+        sc.comment(f"""The half-up style (the user's back-view reference). Under the braid the locks from the crown close in to
+a tie at the nape (z {fmt(HALFUP_TIE_Z)}), forming a V; out of the tie long wavy locks fan out over the capelet, over a
+looser, darker layer that falls from behind the ears and the nape, and a few thin wisps peel off them. Each hangs as a
+taut sheet over the capelet and then straight down, wrapping round her a little, and ends in a point that flicks
+outward. Each is written as the chest locks are, C(t) + cos(w) U(t) + lcs(w) V(t) with polynomials in t, in pieces.""")
+        look = {'under': (HAIR_DK, HAIR_DK), 'fan': (HAIR, HAIR_LT), 'wisp': (HAIR_LT, HAIR_LT)}
+        for k, st in enumerate(S):
+            col = (HAIR, HAIR_DK)[k % 2] if st['name'][0] == 'E' else look[st['layer']][k % 2]     # (behind the ears: seen from the front too)
+            ref = f"hairLong{st['name']}"
+            for p, (C, U, V) in enumerate(st['pieces']):
+                xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
+                for j, (a, b) in enumerate(((-1, 0), (0, 1))):
+                    sc.surface(xyz, ('t', a, b), ('w', 0, '2*pi'), col, f"{ref}{'abcdefgh'[p]}{j + 1}", ('tube', 'u'))
+            if st['layer'] != 'wisp':           # painted as the bangs are: strand lines, the shade under the tie, a sheen (not on the fan)
+                PAINT.append(dict(kind='poly', ref=ref, polys=list(st['pieces']), seed=3.3 * k + 0.7, sheen=st['layer'] != 'fan'))
+            if HALFUP_BAND and st['layer'] == 'fan':    # the reference's highlight across the locks below the tie, staggered
+                zc = HALFUP_TIE_Z - 0.62 + 0.07 * math.sin(2.3 * k + 0.4)
+                for p, (C, U, V) in enumerate(st['pieces']):
+                    tc = poly_cross(C, zc)
+                    if tc is not None:
+                        poly_band(f"{ref}{'abcdefgh'[p]}", C, U, V, tc, 0.16, ph0=1.1 * k)
+                        break
+        # the tie: a small gold cuff round the gathered hair, with a darker ring at each end
+        capsule((0.0, ty, HALFUP_TIE_Z + 0.07), (0.0, ty, HALFUP_TIE_Z - 0.07), 0.085, 0.08, GOLD, 'hairTie')
+        for k, dz in enumerate((0.045, -0.045)):
+            torus((0.0, ty, HALFUP_TIE_Z + dz), ((1, 0, 0), (0, 1, 0), (0, 0, 1)), 0.088, 0.012, GOLD_DK, f'hairTieRing{k + 1}')
+
+    if HALFUP:
+        draw_halfup()
+    else:
+        sc.comment("""The hair down the back, from under the braid, laid out as the chest locks are: three locks, each a
 bundle of a wide strand, a narrower one on it and a thin one beside it, that sweep together, part toward their
 ends and curl in toward the middle of the back at their own heights, with wide darker clumps under the gaps.
 Short strands under the braid cover the back of the head beside them. Each is written like the chest locks (in
 pieces); each wanders and varies in width and thickness a little, so that none is machine-smooth.""")
-    global HEAD_BACK
-    HEAD_BACK = head_back_grid()
-    BK = back_strands()
-    print(f"  back locks: largest fit error {max(v[1] for v in BK.values()):.4f}", file=sys.stderr)
-    for key, (subparts, err, cols, _) in BK.items():
-        for k, parts in enumerate(subparts):
-            letters = iter('abcdefghijklmnop')
-            for part in parts:
-                if part[0] == 'poly':
-                    _, (C, U, V), n = part
-                    xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
-                    name = f'backLock{key[2:]}{key[1]}{k + 1}'
-                else:
-                    _, xyz, n = part
-                    name = f'backLock{key[2:]}{key[1]}{k + 1}Curl'
-                for j in range(n):
-                    tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
-                    sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), cols[k], f'{name}{tag}', ('tube', 'u'))
-                    if part[0] == 'poly' and OUTLINE_W:     # its line art: both edges (w = 0 and pi, where lcs is 0), lifted a little
-                        for sgn_, nm in ((1, 'A'), (-1, 'B')):
-                            lv = OUTLINE_LIFT / max(1e-6, BK_LOOK[key][1])
-                            exy = tuple(horner(list(np.round(np.polynomial.polynomial.polyadd(np.polynomial.polynomial.polyadd(C[i], sgn_ * np.asarray(U[i], float)),
-                                                                                                lv * np.asarray(V[i], float)), 6)), 't')
-                                        for i in range(3))      # (one polynomial: C + U + lift V summed)
-                            sc.curve(exy, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), HAIR_OUTLINE, f'{name}{tag}Line{nm}', thickness=OUTLINE_W)
-        # painted as the bangs are (strand lines, a sheen, the shade under the braid: paint_hair)
-        if key not in BK_UNDER and max(w for _, _, w in BK_STRANDS[key]) * BK_WIDE >= 0.1:     # (not the short or thin strands)
+        global HEAD_BACK
+        HEAD_BACK = head_back_grid()
+        BK = back_strands()
+        print(f"  back locks: largest fit error {max(v[1] for v in BK.values()):.4f}", file=sys.stderr)
+        for key, (subparts, err, cols, _) in BK.items():
             for k, parts in enumerate(subparts):
-                polys = [p[1] for p in parts if p[0] == 'poly']
-                PAINT.append(dict(kind='poly', ref=f'backLock{key[2:]}{key[1]}{k + 1}', polys=polys,
-                                  seed=5.1 * list(BK_STRANDS).index(key) + 1.7 * k))
+                letters = iter('abcdefghijklmnop')
+                for part in parts:
+                    if part[0] == 'poly':
+                        _, (C, U, V), n = part
+                        xyz = tuple(f"{horner(C[i], 't')}+cos(w)*({horner(U[i], 't')})+lcs(w)*({horner(V[i], 't')})" for i in range(3))
+                        name = f'backLock{key[2:]}{key[1]}{k + 1}'
+                    else:
+                        _, xyz, n = part
+                        name = f'backLock{key[2:]}{key[1]}{k + 1}Curl'
+                    for j in range(n):
+                        tag = next(letters) if part[0] == 'poly' else 'abcd'[j]
+                        sc.surface(xyz, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), ('w', 0, '2*pi'), cols[k], f'{name}{tag}', ('tube', 'u'))
+                        if part[0] == 'poly' and OUTLINE_W:     # its line art: both edges (w = 0 and pi, where lcs is 0), lifted a little
+                            for sgn_, nm in ((1, 'A'), (-1, 'B')):
+                                lv = OUTLINE_LIFT / max(1e-6, BK_LOOK[key][1])
+                                exy = tuple(horner(list(np.round(np.polynomial.polynomial.polyadd(np.polynomial.polynomial.polyadd(C[i], sgn_ * np.asarray(U[i], float)),
+                                                                                                    lv * np.asarray(V[i], float)), 6)), 't')
+                                            for i in range(3))      # (one polynomial: C + U + lift V summed)
+                                sc.curve(exy, ('t', -1 + 2 * j / n, -1 + 2 * (j + 1) / n), HAIR_OUTLINE, f'{name}{tag}Line{nm}', thickness=OUTLINE_W)
+            # painted as the bangs are (strand lines, a sheen, the shade under the braid: paint_hair)
+            if key not in BK_UNDER and max(w for _, _, w in BK_STRANDS[key]) * BK_WIDE >= 0.1:     # (not the short or thin strands)
+                for k, parts in enumerate(subparts):
+                    polys = [p[1] for p in parts if p[0] == 'poly']
+                    PAINT.append(dict(kind='poly', ref=f'backLock{key[2:]}{key[1]}{k + 1}', polys=polys,
+                                      seed=5.1 * list(BK_STRANDS).index(key) + 1.7 * k))
 
     paint_hair()
 

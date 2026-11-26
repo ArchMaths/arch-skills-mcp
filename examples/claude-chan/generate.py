@@ -319,11 +319,11 @@ if want('head') and not want('hair'):
 # The ornament's hanging parts lie on the hair: their centre lines (Bezier control points in the head's frame; the
 # tails with their half-widths) and the tassel's top (world). ornament_drape.py works them out from the hair as drawn,
 # keeping where the portrait's view sees them, and rewrites these lines: run it after changing the hair under them.
-ORN_TAILS = ((((1.04, -0.18, 11.73), (1.019, -0.172, 11.633), (1.011, -0.354, 11.572), (0.981, -0.131, 11.422), (0.976, -0.305, 11.352), (0.958, -0.216, 11.223), (0.95, -0.234, 11.114)), 0.08),
-             (((1.04, -0.18, 11.73), (1.077, -0.258, 11.655), (1.107, -0.161, 11.54), (1.169, -0.545, 11.52), (1.177, 0.003, 11.304), (1.224, -0.081, 11.216), (1.268, -0.059, 11.103)), 0.075))
-ORN_RIBBONS = (((1.04, -0.13, 11.71), (1.028, -0.156, 11.552), (1.027, -0.155, 11.415), (1.013, -0.209, 11.224), (0.992, -0.057, 10.988), (1.014, -0.148, 10.854), (1.041, -0.181, 10.64)),
-               ((1.04, -0.13, 11.71), (1.061, -0.086, 11.558), (1.083, -0.317, 11.408), (1.072, 0.252, 11.143), (1.15, -0.447, 11.129), (1.148, 0.207, 10.747), (1.206, 0.191, 10.483)))
-ORN_TASSEL_TOP = (0.9203, -0.2988, 11.354)
+ORN_TAILS = ((((1.04, -0.18, 11.73), (1.027, -0.308, 11.661), (0.993, -0.063, 11.512), (0.945, 0.471, 11.298), (0.962, -0.072, 11.304), (0.93, 0.237, 11.129), (0.925, 0.19, 11.026)), 0.08),
+             (((1.04, -0.18, 11.73), (1.082, -0.331, 11.67), (1.11, -0.202, 11.549), (1.13, 0.103, 11.386), (1.164, 0.231, 11.257), (1.186, 0.548, 11.086), (1.233, 0.529, 10.981)), 0.075))
+ORN_RIBBONS = (((1.04, -0.13, 11.71), (0.978, 0.669, 11.381), (1.037, -0.321, 11.45), (0.959, 0.68, 11.04), (0.981, 0.117, 10.952), (0.98, 0.415, 10.737), (1.008, 0.356, 10.529)),
+               ((1.04, -0.13, 11.71), (1.012, 0.733, 11.388), (1.09, -0.428, 11.431), (1.024, 1.054, 10.977), (1.105, 0.301, 10.974), (1.122, 0.63, 10.659), (1.175, 0.691, 10.379)))
+ORN_TASSEL_TOP = (0.9374, 0.1909, 11.2499)
 RIBBON_FACE = (0.55, -0.8, 0.1)     # the cream ribbons lie on the hair behind her ear, facing out and forward (head frame)
 RIBBON_W = 0.11          # the cream ribbons' half-width: wide chiffon, showing beside and below the black tails as drawn
 
@@ -390,7 +390,7 @@ if not args.no_compact:
         # where it reaches full thickness, and T0, where it leaves the dome), within 0.001 (seams under 0.002); the
         # long ones gain too little that way and stay as they are
         COMPACT.update({
-            r'(tuck|side[LR]|back|backU|backT|earBackLock)\d+': dict(tol=0.001, basis=('w', 'cos(w)', 4, 'lcs(w)', 1), split=6,
+            r'(tuckR?|side[LR]|back|backU|backT|earBackLock)\d+': dict(tol=0.001, basis=('w', 'cos(w)', 4, 'lcs(w)', 1), split=6,
                                                                       cuts={'t': [0.04, T0]}),
         })
     compact.compact_lines(sc.out, COMPACT, log=lambda s: print(s, file=sys.stderr))

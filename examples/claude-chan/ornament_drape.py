@@ -31,7 +31,9 @@ DEG = 6                             # degree of the Bezier written for each
 def run_generator():
     sys.path.insert(0, HERE)
     argv, cwd = sys.argv, os.getcwd()
-    sys.argv = ['generate.py', '--parts', 'head,hair,ornament,earrings,body,cape', '--prec', '3', '-o', os.devnull]
+    # (--no-compact: compact.py's rewritten face decals are not read back by sheetfit, and the depth is the same within
+    # its tolerance)
+    sys.argv = ['generate.py', '--parts', 'head,hair,ornament,earrings,body,cape', '--prec', '3', '--no-compact', '-o', os.devnull]
     os.chdir(HERE)
     try:
         with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
