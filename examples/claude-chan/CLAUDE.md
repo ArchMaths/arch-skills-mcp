@@ -73,12 +73,9 @@ beside the shoulder; at 0 it would hang behind her back); it draws the forearm a
 front view, so `arms.py` takes each landmark height as the mean over the five drawn arms; the back view
 draws the arms 0.1 to 0.2 closer to the body; the lacing is drawn facing whichever view it is in.
 
-The capelet: unlike the arms, the side view draws it as a true profile (its front edge reaches the bust where
-the front view's front edge, on a section hugging the chest, puts it), but it draws its upper front edge at
-the side of the neck and cuts its lower front higher than the front view; its emblem there (y 0.8) fits no
-single place on it, so the emblems follow the front and back views. On the back view the hair parts down the
-middle and leaves the capelet's sides and back emblems visible; the model follows it (`back_strands`, the back
-locks ending at the nape).
+The capelet is no longer the sheet's: it is the user's own design (see "The capelet (current)" below). On the
+sheet's back view the hair parts down the middle; the curtain style followed it (`back_strands`, the back locks
+ending at the nape).
 
 The dress, traced: the side view draws the overskirt's hem as if turned too (high at the front, low at the
 back, where the front and back views put it low at the side), so the hem was fitted on the front and back
@@ -111,7 +108,7 @@ take its borders where the visible surface changes, and match each stroke pixel 
 
 Strokes traced over an expression portrait (the chest locks): find the portrait on the sheet by template
 matching (the marked-up crop was panel 3 at 4.2x), and put it into model units by landmarks the model already
-has: the capelet's emblems across (x +-1.10), the chin, brooch and emblems down (z 10.96, 10.5, 9.67, which
+has: the first capelet's emblems across (x +-1.10), the chin, brooch and emblems down (z 10.96, 10.5, 9.67, which
 agree to 0.01). The portraits draw the chest about 9% wider than the full-body front view, so the scales
 across and down differ; parts placed this way sit right against the emblems and the jabot. Hair drawn this
 way only gives x and z: `chest_strands` in `hair.py` works out the depth so a strand hangs on what is under it.
@@ -241,6 +238,33 @@ curtain, which is still drawn when selected. The long hair is `halfup.py`: pure 
 - `ornament_drape.py` runs the generator with `--no-compact`: `sheetfit` cannot read back the face decals that
   `compact.py` rewrites. Rerun it (`--write`) after changing the locks behind her left ear.
 
+## The capelet (current)
+
+The user replaced the sheet's capelet with their own design: a reference drawing, which they had modelled in Blender
+first (`clients/capelet/capelet.py`, in metres; the drawing's views and proportions are there). `cape.py` is that
+model at about 4.6 units a metre (the side tips' reach, 0.344 m, to the old capelet's 1.58), fitted to her body,
+with the front opened round the ascot, jabot and brooch (the user's choice: closed as drawn, it covered them).
+
+- Design it in numpy and preview it in the scene before writing Arch (as for the half-up hair: dump the scene's
+  surfaces, swap the capelet's for the design's grid, render with the painter's preview). Check its clearance as
+  numbers: the front edge against the extent of the ascot, jabot and brooch by height (`CK_EDGE_XZ` keeps 0.05 clear).
+- Each piece is fitted as a polynomial in its own u and v (`ck_fit`), so every kink of the shape must lie on a piece
+  boundary: the creases, the sides (where the hem's superellipse changes and the side tips are pointed) and the rows
+  where the front edge turns. Inside a piece the shape must be smooth: a fillet of arcs and lines, a clipped ramp, a
+  power under 1 or a fold whose depth jumps at a crease (that last one also left a crack between pieces) would not
+  fit below 0.0015 at degree 20. The profile is a cubic Bezier, the folds are -cos across each sector, the ramps are
+  polynomials or Gaussians. The mesh's columns follow the creases (`ck_phi`), so each crease runs along a piece edge.
+- Rows of the same s are at very different heights round the cloth, so the front edge is solved by height for the edge
+  column itself (`_ck_edge_solve`), not as an |x| per row (that put it on the side of the cloth half-way down). The hem's
+  drop belongs to the column (its angle at the hem), not to each point's own angle, or the front rows tilt.
+- The lining is the cloth's own polynomials drawn 1.2% toward the axis and 0.006 lower: exact, no second fit. (An offset
+  along the normals needed three times the terms.)
+- The gold lines are offsets in the cloth's tangent plane, mitred where two edges meet (`ck_inset_path`), written as
+  polynomial pieces joined by conditions in one curve (`(t<1?A:(t<2?B:C))`). Keep each coordinate under about 2000
+  characters: the hem is two curves.
+- `hair.py` hangs the hair on it (`cape_samples`, `cape_env`, and the clothes grid): after changing the capelet, rerun
+  `ornament_drape.py --write` (the locks behind her left ear lie on it; the new capelet moved the ribbons up to 0.18).
+
 ## Patterns from close-up photos
 
 Embroidery and woven borders are measured on the user's close-ups with Python: threshold the thread's colour,
@@ -295,9 +319,9 @@ The user prefers judging the look by eye, on renders beside the portrait, over t
 cheap, and the fixes:
 
 - Repeats round a ring alias on Arch's mesh (31 steps a side at precision 10): petals came out as spiky starbursts, the
-  neck ruffle as a metal crown, the capelet's frill and the jabot as grey shards. Give each repeat about eight steps:
-  sectors of a few petals or flutes, each starting and ending in a notch (`copper_flower` in `generate.py`; the
-  ruffles in `outfit.py`; the frill in `cape.py`).
+  neck ruffle as a metal crown, the first capelet's frill and the jabot as grey shards. Give each repeat about eight
+  steps: sectors of a few petals or flutes, each starting and ending in a notch (`copper_flower` in `generate.py`; the
+  ruffles in `outfit.py`; the sunburst in `cape.py`).
 - A funnel's outside faces down and away from Arch's light, so a frill flaring out under the chin drew grey: frills
   stand up and flare only a little, and their orientation point is chosen so that the side the viewer sees is the
   lit one (the ruffle's is above it).
@@ -360,10 +384,11 @@ evaluates that expansion at every point of every object; it also saves it in the
 each level, and `a^b` becomes a function call. `generate.py` prints the total expansion
 (`expansion.py`, within a few percent of Arch's); `--expansion 20` lists the worst objects. Cut it by:
 
-- passing what a body uses several times as an argument computed once outside (the capelet's `kpx(u,p,w,s)` take
-  the angle and the fold value; `kpp(u,q)` uses the front edge `kpe` once);
+- passing what a body uses several times as an argument computed once outside (the first capelet's section
+  functions took the angle and the fold value as arguments, so its front edge was worked out once a point);
 - writing fitted curves as polynomials in a variable scaled to [-1, 1], in Horner form, rather than splines of
-  `max(0,u-k)^3` terms when a curve's parameter is pasted into them (`_xpoly` in `cape.py`, the sleeve's `SL_PUFF`);
+  `max(0,u-k)^3` terms when a curve's parameter is pasted into them (the sleeve's `SL_PUFF`; the capelet is all
+  polynomials, `ck_fit` in `cape.py`);
 - smooth forms instead of `min`/`max` (`tanh` fades and ramps; `((1+cos x)/2)^400` for a peak at whole numbers);
 - passing a sector's own numbers as arguments instead of a lookup over all of them (the emblem's `emi(w,kz,la,lb,lc)`);
 - giving the layers inside a small part their own small fit of the face and short local versions of the curves

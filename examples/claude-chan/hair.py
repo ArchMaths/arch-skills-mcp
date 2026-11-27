@@ -226,8 +226,7 @@ def _nat_spline(d, P, s):
 
 # how far forward (-y) the capelet reaches, on a 0.01 grid of (x, z), from its point model (folds included)
 _CG = (-1.5, 8.5, 0.01)
-_cu, _cq = np.meshgrid(np.linspace(0, 1, 320), np.linspace(0, 1, 1400), indexing='ij')
-_cx, _cy, _cz = kp_point(_cu, kp_q(_cu, _cq))
+_cx, _cy, _cz = cape_samples()
 CAPE_FWD = np.zeros((301, 301))
 _ok = (_cy < CP_Y0) & (np.abs(_cx) < 1.5) & (_cz > 8.5) & (_cz < 11.5)
 np.maximum.at(CAPE_FWD, (np.round((_cx[_ok] - _CG[0]) / _CG[2]).astype(int), np.round((_cz[_ok] - _CG[1]) / _CG[2]).astype(int)), -_cy[_ok])

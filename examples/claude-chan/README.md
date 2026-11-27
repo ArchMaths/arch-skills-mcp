@@ -103,11 +103,10 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   from the side the hair has volume and its curls show as loops.
   It is painted as the bangs are, without outlines: thin dark strand lines down the lower part of each clump,
   closing to its centre at both ends, a light peach sheen in its middle, and a soft shade under the braid. Two locks fall from under the jaw over the capelet and the bust to curled tips at the top of
-  the corset, between the capelet's emblems and the jabot, as traced on the sheet's portrait: on her right
+  the corset, beside the jabot, as traced on the sheet's portrait: on her right
   a band that fans into four strands, the inner one hooking in toward the jabot; on her left a narrower
   band that fans into three that curl inward. Outside them, as the hi-res portrait draws her, three more locks a side
-  come from behind the jaw, fall forward over the collarbone and the shoulder and down the capelet outside its
-  emblems, framing the neck. The hair is built as anime 3D figures build it, from round clumps about three times as wide as they are thick, with painted shading as anime hair is drawn: rings of zigzag-edged highlights across the hair, one on the crown and one where the long hair curves over the shoulders, and a deeper orange where the bangs pass under the crown. The bangs follow the
+  come from behind the jaw, fall forward over the collarbone and the shoulder and down the capelet, framing the neck. The hair is built as anime 3D figures build it, from round clumps about three times as wide as they are thick, with painted shading as anime hair is drawn: rings of zigzag-edged highlights across the hair, one on the crown and one where the long hair curves over the shoulders, and a deeper orange where the bangs pass under the crown. The bangs follow the
   portrait: one wide lock sweeps down to the bridge of the nose, the forehead shows in a tall triangle
   above her left eye, a lock sweeps over her left temple, and a smaller gap above her right eye is
   framed by the locks at the side. The wide lock and the temple lock are made of narrow, rounded strands
@@ -126,22 +125,21 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   that side falls behind it.
 - **Outfit**: a blouse shaped over the bust with fine tucks, high collar with two gathered tiers of soft lace standing up to just under her chin, a jabot of four ruffled tiers showing beside the ascot,
   a black ascot of two fan-pleated tails with gold lines under a large chrysanthemum brooch (rebuilt from a
-  close-up of the chest), a frill along the capelet's turned-back facing, drawn pleat lines down the blouse
+  close-up of the chest), drawn pleat lines down the blouse
   front and fold lines on the sleeves' puffs (soft grey-beige), black corset with
   gold buttons, piping, chain, ring and tassel.
-- **Capelet** (`cape.py`): measured on outlines traced over the sheet's three views, with the collar,
-  lining, trim, folds and emblem colour from its detail panel (披肩). A short bell over the shoulders, open in
-  a wide V at the front: each front edge runs from the collar down across the bust (x 0.6 at z 9.7) and
-  round to an outer corner at the side (1.44, 9.12), with a turned-back facing marked by a gold fold line
-  along its upper part. It reaches 1.58 out at the sides and stands 1.25 out at the back; its hem is highest
-  at the back corners (9.28) and lowest at the centre back (9.09), where a lace frill hangs to 8.84. Double
-  gold lines follow the front edges and the hem, 8 folds fan out from the shoulders across the cloth into deep flutes at the hem (the hem lifting a
-  little on each crest; the folds fade out at the front edges, and a crest runs under each emblem), drawn fold
-  lines in soft grey-beige run down the hollows and crests, short lines gather into the collar's front corners, a beige lining
-  shows at the edges, and a standing collar, open at the front, rises round the neck. Four embroidered
-  chrysanthemums sit where the sheet circles them: two on the front panels (x ±1.10, z 9.67), two at the
-  back (x ±1.23, z 9.66). Its sections are ovals whose half-width, front depth and back depth are splines
-  in the level, fitted within 0.024 of the measured tables.
+- **Capelet** (`cape.py`): the user's Blender capelet (made after their reference drawing of it), fitted to
+  her at about 4.6 units a metre, its front opened round the ascot and jabot (closed as drawn, it hid them).
+  A short stand collar, open at the front in a V and edged in gold; shoulders that slope gently to a corner
+  at |x| 0.81 and flare out in a bell to pointed tips over the arms (1.58 out at z 9.65); the back hanging
+  longest (to z 9.06), so that from the front its beige lining shows under the side flares. Godet folds deepen
+  toward the hem, the front ones running diagonally from beside the collar to a step in the hem; drawn fold
+  lines run down the creases. Each front edge passes beside the brooch and round the jabot (0.05 clear of
+  them), then cuts out to a point (|x| 0.93 at z 9.63, the drawing's notch) and back to a pointed tab at
+  z 9.22. Double gold lines follow the front edges, the hem and the collar, mitred at the corners, and an
+  orange sunburst of twenty pointed petals with a gold button sits on her left front panel. The shape is
+  designed in numpy (`ck_surface`) and each of its 15 pieces (between the creases and sides; the front
+  panels cut where the edge turns) is written as a polynomial in its own parameters, within 0.0015.
 - **Sleeves and arms** (`arms.py`): measured on arm outlines traced over the sheet's front, side and back
   views, where the hair hides much of them. A balloon puff from under the capelet to the elbow (0.86 across
   and as deep, widest at z 8.47, its inner side straight), gathered into a small frilled band at 8.3-8.15; a
@@ -241,9 +239,8 @@ each colour overlaps, and with `--map 3` both maps printed as text. On the dress
 bows) 84% of the pixels agree. The arms are mostly hidden by hair on the sheet, so they were measured on
 outlines traced over it by hand; against those the model's edges are off by 0.03 to 0.05 on average in the
 front and side views (puff 0.01 to 0.02, forearm under 0.04, cuff and hand 0.03 to 0.08), while the back
-view draws the arms 0.1 to 0.2 closer to the body. The capelet was measured the same way: its outline is within 0.03 of the
-front and back views' average (the two traced sides differ by up to 0.12), its front edge within 0.015,
-its back edge on the side view within 0.014, and its hem and lace heights within 0.03. The dress was refined the same way: the
+view draws the arms 0.1 to 0.2 closer to the body. (The first capelet was measured the same way; it has since been
+replaced by the user's own design.) The dress was refined the same way: the
 model's borders were drawn as a surface-id map in each view and every traced stroke matched to its nearest
 border; the tabs, the overskirt's hem, the pleat count, the facing on her right and the emblems were
 changed where the two disagreed. The traced hem is now a median 0.09 from the
@@ -290,8 +287,8 @@ listed in `generate.py`.
   margin). Each lock has its own angle, drift, wave, layer, width and length. Its tip tapers to a point and flicks gently aside and out, and is a separate surface so the point gets a fine
   mesh.
 - **The chest locks** (`chest_strands` in `hair.py`) are drawn from the user's tracing over the third
-  expression portrait, registered on the sheet and put into model units by the capelet's emblems (across)
-  and the chin, brooch and emblems (down). Each strand's centre line and half-width follow the tracing in
+  expression portrait, registered on the sheet and put into model units by the first capelet's emblems
+  (across: x ±1.10) and the chin, brooch and those emblems (down). Each strand's centre line and half-width follow the tracing in
   the front view; its depth is worked out so it hangs: it lies on the capelet, blouse, corset and collar
   (and on the strands laid before it) and, below the fullest point, falls straight. Above the tracing it
   rises from under the jaw into the head. Centre line, side and thickness vectors are one polynomial each
