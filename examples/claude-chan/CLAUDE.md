@@ -345,11 +345,18 @@ cheap, and the fixes:
   low one, a few sparkles), the lashes gathered toward the outer corner and longest there, and the lower lid line over
   the outer two-thirds only (drawn whole, it boxed the eye in).
 - Design the face by eye, as an artist would, not by tracing or measuring the portrait (the user's direction): traced
-  shapes that matched the drawing's projection looked gaunt or odd in 3D. So the cheeks are fuller and rounder than
-  traced (`fws`, `fq`, the cheek's round in `fr`), the lower face longer (`lowstretch`: she looked tipped forward with a
-  short chin), the eyes' outlines are designed on the usual anime pattern (`EYES`), and the irises are turned toward
-  the viewer inside the lids (`GAZE_DX`, `GAZE_DZ`): painted eyes look along the face, which passed under the portrait's
-  camera 12 degrees above.
+  shapes that matched the drawing's projection looked gaunt or odd in 3D. The eyes' outlines are designed on the usual
+  anime pattern (`EYES`), and the irises are turned toward the viewer inside the lids (`GAZE_DX`, `GAZE_DZ`): painted
+  eyes look along the face, which passed under the portrait's camera 12 degrees above.
+- The face's shape is the user's Blender face (`bface.py`, a numpy copy of the design in
+  `clients/claude_chan_face/face.py`; change it there first, then here). `face.py` scales it by `BF_S` (8.53 units a
+  metre: as wide across the eyes as the head the hair was laid round) with its irises at the old eye height and its side
+  plane at `Y0`, writes its curves as splines in h (`design_fn`: `fpl`, `fws`, `fds`, rounded into the chin by `fcr`),
+  `fq` and the bumps in `fr` as designed, and prints its error against the design (0.0025). Round the spline knots before
+  fitting: the truncated-power terms cancel, and knots rounded afterwards by `fmt` missed by 0.02. Arch lights the real
+  surface, so the nose bridge shows more than in Blender (which lit the face with an ellipsoid's normals). The rounder
+  cheek brought `cheekLockL3` within 0.018 of it between its cheekbone point and p3; the clearance loop now moves the
+  cheekbone point forward too when the lock touches above p3.
 - Shading is painted on, as anime 3D figures paint theirs (studied on a CC0 VRoid sample: its skin's shade colour is a
   light rose, its hair's a hue-shifted tone, and the hair's shine is painted, unlit). Translucent layers (`opacity`) blend
   cleanly in Arch and tint whatever lies under them, so shades are two or three translucent layers in rose or mauve on

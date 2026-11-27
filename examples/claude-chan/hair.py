@@ -2062,14 +2062,17 @@ beside the face on her right, so the jaw line shows, and over the outer cheek on
         p3 = (x3 * sd, fyf(min(x3, fw_(z3) - 0.02) * sd, z3) - gap, z3)     # beside the jaw where it is outside it
         p4 = (x4 * sd, -0.3, z4)
         # keep clear of the face: wherever the centre line is over the face it stays gap/2 in front of it;
-        # if it does not, bring the lower part of the lock forward
+        # if it does not, bring the lower part of the lock forward (and, where it touches above p3, the face's
+        # round cheek bulging between p2 and p3, the point at the cheekbone too)
         for _ in range(12):
             pts = [p0, p1, p2, p3, p4]
             Cb = interp_bezier(pts)
-            worst = min([fyf(P[0], P[2]) - P[1] for P in (bezier_eval(Cb, u) for u in np.linspace(0, 1, 300))
-                         if HC + 0.01 < P[2] < ZE + 0.6 and abs(P[0]) < sc.ns['fwd'](P[2])] or [1])
+            worst, wz = min([(fyf(P[0], P[2]) - P[1], P[2]) for P in (bezier_eval(Cb, u) for u in np.linspace(0, 1, 300))
+                             if HC + 0.01 < P[2] < ZE + 0.6 and abs(P[0]) < sc.ns['fwd'](P[2])] or [(1, 0)])
             if worst > gap * 0.5:
                 break
+            if wz > p3[2]:
+                p2 = sub(p2, (0, 0.004, 0))
             p3, p4 = sub(p3, (0, 0.006, 0)), sub(p4, (0, 0.012, 0))
         assert worst > gap * 0.5, (ref, worst)
         nr = [dome_normal(p0), dome_normal(p1), face_normal(p2[0], z2), face_normal(p3[0], z3), unit((0.6 * sd, -1, 0))]

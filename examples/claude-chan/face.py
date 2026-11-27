@@ -4,20 +4,31 @@ import numpy as np
 sc.blank()
 sc.note('Head')
 
+import bface as BF
+
 ZE = 11.73          # height of the pupils
-HC = ZE - 0.82      # underside of the chin (the lower face is long and V-shaped, as on the hi-res portrait)
-# Against the hi-res portrait the face read as tipped forward, looking down: the chin was short (the mouth too close
-# to it) and the eyes low under the forehead. So the face below the nose is stretched to put the chin 0.05 lower
-# (lowstretch maps the heights the profile and outline were measured at), the mouth sits 0.025 higher, nearer the
-# nose, and the eyes, brows and blush 0.02 higher (EYE_UP). Eyes to nose, nose to mouth, mouth to chin are then about
-# 0.35 : 0.25 : 0.40 of the eyes-to-chin distance, as drawn.
-EYE_UP = 0.02
-
-
-def lowstretch(dz, top=-0.25, old=-0.77, new=-0.82):
-    """A height below the pupils (dz) on the old, shorter lower face, moved to the stretched one."""
-    return dz if dz >= top else top + (dz - top) * (new - top) / (old - top)
+EYE_UP = 0.02       # the eyes, brows and blush sit this much above where they were first drawn
 Y0 = 0.10           # the plane just in front of the ears, where the face meets the side of the head
+# The face's shape is the one designed in Blender (bface.py, from clients/claude_chan_face/face.py), in metres: scaled by
+# BF_S and placed so that its irises are at this head's eye height and its side plane at Y0. At this scale it is as wide
+# across the eyes as the earlier face (within 0.01 from the cheeks up), so the hair laid round the face still fits.
+BF_S = 8.53         # Arch units per Blender metre
+BF_ZB = ZE - 0.01 - BF_S * BF.EYE['cz']     # Blender's eye line (its z = 0)
+BF_YB = Y0 - BF_S * BF.YS
+
+
+def bf_h(z):
+    """The height on this head of a Blender height z."""
+    return BF_ZB + BF_S * z
+
+
+def bf_z(h):
+    return (np.asarray(h, float) - BF_ZB) / BF_S
+
+
+HC = bf_h(BF.ZC)    # underside of the chin
+NT = bf_h(BF.NOSE_TIP)      # height of the tip of the nose
+MZ = bf_h(BF.MOUTH_Z)       # the line of the mouth
 
 
 def spline_fn(name, pts, var='h'):
@@ -40,48 +51,63 @@ def spline_fn(name, pts, var='h'):
 
 
 sc.comment("""The head is sculpted from parts: a face mask, the cranium under the hair, the underside of the jaw,
-the neck and the ears. The face mask is a stack of horizontal arcs, one per height h. Each arc runs from the
-side of the head around the front to the other side: half-width fwd(h), depth fd(h), and a superellipse
-exponent fq(h) that makes it boxy across the eyes (a flat front that turns quickly at the cheekbones) and
-rounder along the jaw. fpl(h) is the profile of the face seen from the side (forehead, the dip between the
-eyes, the plane of the cheeks and mouth, chin), and fws(h) the outline seen from the front: a blunt chin,
-straight jaw lines up to the cheekbones, level sides. fr adds what is narrower than the whole face: the nose, lips, chin, the
-round of each cheek, brow and eye sockets. fy(p,h) is the y of the skin at x=p, z=h.""")
+the neck and the ears. The face mask is the face designed in Blender (bface.py), a stack of horizontal arcs, one per
+height h. Each arc runs from the side of the head around the front to the other side: half-width fwd(h), depth fd(h),
+and a superellipse exponent fq(h) that makes it flat in front and turn quickly at the cheeks. fpl(h) is the profile of
+the face seen from the side (forehead, the dip between the eyes, the plane of the cheeks and mouth, a small chin),
+fws(h) the outline seen from the front (level across the eyes and cheekbones, a soft V to a small, rounded chin), and
+fcr(h) rounds both into the chin. fr adds the small features: the nose, the hollows under the brows, the cheeks, the
+lips, the line of the mouth and the chin. fy(p,h) is the y of the skin at x=p, z=h.""")
 sc.func('smn(a,b,c)', '(a+b-sqrt((a-b)^2+c^2))/2')
-R = lambda dz, y: (ZE + lowstretch(dz), y)
-spline_fn('fpl', [R(-0.77, -0.44), R(-0.749, -0.478), R(-0.701, -0.515), R(-0.633, -0.54), R(-0.545, -0.56),
-                 R(-0.47, -0.585), R(-0.38, -0.607), R(-0.265, -0.618), R(-0.15, -0.6),
-                 R(-0.05, -0.583), R(0.03, -0.578), R(0.12, -0.592), R(0.22, -0.607), R(0.38, -0.613),
-                 R(0.52, -0.596), R(0.66, -0.555), R(0.82, -0.48)])
-T_ = lambda t, w: (ZE + lowstretch(t - 0.77), w)
-# Seen from the front the outline swells softly below the eyes (full, rounded cheeks) and curves into a small, softly
-# rounded chin: drawn by eye rather than traced (straight jaw lines traced from the portrait looked gaunt in 3D).
-spline_fn('fws', [T_(0, 0.05), T_(0.03, 0.135), T_(0.07, 0.212), T_(0.12, 0.29), T_(0.17, 0.36), T_(0.22, 0.42), T_(0.27, 0.47),
-                  T_(0.32, 0.512), T_(0.37, 0.547), T_(0.42, 0.578), T_(0.48, 0.607), T_(0.58, 0.636),
-                  T_(0.68, 0.65), T_(0.77, 0.651), T_(0.96, 0.655), T_(1.26, 0.645), T_(1.55, 0.56), T_(1.62, 0.525)])
-sc.func('fwd(h)', f"fws(h)*sqrt(max(0,h-{fmt(HC)})/(h-{fmt(HC - 0.035)}))")
-sc.func('fd(h)', f"smn({fmt(Y0)}-fpl(h),1.18*fwd(h),0.08)")
-# fq: boxy across the eyes (0.19) and, below them, flatter still across the cheeks than a real face (0.23), turning
-# quickly at the outline as anime faces are drawn; Arch's light (from the camera) then stays even over the cheeks
-# and falls off only near the edge (measured from the portrait's viewpoint: 0.93 of full at f 0.8, from 0.85)
-sc.func('fq(h)', f"0.27-0.07*exp(-((h-{fmt(ZE)})/0.14)^2)+0.03/(1+exp((h-{fmt(ZE - 0.3)})/0.07))")
-NT = ZE - 0.255     # height of the tip of the nose
-sc.func('fno(h)', f"0.036*exp(-(max(0,h-{fmt(NT)})/0.07)^1.5-(max(0,{fmt(NT)}-h)/0.035)^2)")
-sc.func('fr(p,h)',
-        f"-fno(h)*exp(-(p/(0.034+0.024*exp(-((h-{fmt(NT - 0.01)})/0.05)^2)))^2)"
-        f"-0.008*exp(-((h-{fmt(NT - 0.015)})/0.06)^2-(p/0.1)^2)"
-        f"-0.008*exp(-((h-{fmt(ZE - 0.4)})/0.03)^2-(p/0.085)^2)"
-        f"+0.006*exp(-((h-{fmt(ZE - 0.435)})/0.012)^2-(p/0.08)^2)"
-        f"-0.008*exp(-((h-{fmt(ZE - 0.475)})/0.028)^2-(p/0.065)^2)"
-        f"-0.006*exp(-((h-{fmt(ZE + lowstretch(-0.66))})/0.07)^2-(p/0.1)^2)"
-        f"+0.02*exp(-((abs(p)-0.33)/0.17)^2-((h-{fmt(ZE + 0.02 + EYE_UP)})/0.1)^2)"
-        f"-0.008*exp(-((abs(p)-0.3)/0.2)^2-((h-{fmt(ZE + 0.24 + EYE_UP)})/0.07)^2)"
-        f"-0.058*exp(-((abs(p)-0.3)/0.21)^2-((h-{fmt(ZE - 0.24)})/0.18)^2)"
-        f"-0.02*exp(-((abs(p)-0.26)/0.18)^2-((h-{fmt(ZE + lowstretch(-0.44))})/0.13)^2)")
+HT = ZE + 0.78
+_BF_TOP = ZE + 0.86
+_bf_r = lambda h: np.sqrt(np.maximum(bf_z(h) - BF.ZC, 1e-9) / (np.maximum(bf_z(h) - BF.ZC, 1e-9) + BF.CHIN_ROUND))
+
+
+def design_fn(name, f, n=26):
+    """A design curve of the Blender face as an Arch spline in h (knots closer toward the chin, where it bends most;
+    closer at both ends, the spline's basis is too ill-conditioned), with its fit error."""
+    ks = HC + 1e-6 + (_BF_TOP - HC) * np.linspace(0, 1, n) ** 1.3
+    ks = np.round(ks, 4)       # as written: the terms cancel, so a knot rounded after the fit misses by up to 0.02
+    spline_fn(name, [(float(k), float(f(k))) for k in ks])
+    hh = np.linspace(HC + 1e-6, HT, 2000)
+    err = np.max(np.abs(np.array([sc.ns[name](v) for v in hh]) - f(hh)))
+    print(f'  design curve {name}: max error {err:.4f}', file=sys.stderr)
+
+
+design_fn('fpl', lambda h: BF_YB + BF_S * BF.head_pf(bf_z(h)))
+design_fn('fws', lambda h: BF_S * BF.head_ws(bf_z(h)))
+design_fn('fds', lambda h: BF_S * BF.head_fd(bf_z(np.maximum(h, HC + 1e-7))) / _bf_r(np.maximum(h, HC + 1e-7)))
+sc.func('fcr(h)', f"sqrt(max(0,h-{fmt(HC)})/(h-{fmt(HC - BF_S * BF.CHIN_ROUND)}))")
+sc.func('fwd(h)', 'fws(h)*fcr(h)')
+sc.func('fd(h)', 'fds(h)*fcr(h)')
+# fq: flatter across the eyes, rounder down the cheeks, a quick step to rounder still under them, and round up into the
+# dome; written as designed, in Blender's height zd (the lower face squeezed by LOWER)
+_zd = f"((h-{fmt(BF_ZB)})/{fmt(BF_S)}+{fmt(1 / BF.LOWER - 1)}*min(0,(h-{fmt(BF_ZB)})/{fmt(BF_S)}))"
+_st = f"max(0,(h-{fmt(bf_h(BF.Z1))})/{fmt(BF_S * (BF.ZT - BF.Z1))})"
+sc.func('fdz(h)', _zd)
+sc.func('fdt(h)', f"{_st}^2*(3-2*{_st})")
+sc.func('fq(h)', f"(0.36-0.08*exp(-(fdz(h)/0.022)^2)+0.06/(1+exp((fdz(h)+0.05)/0.01)))*(1-fdt(h))+0.5*fdt(h)")
+# the nose: its height and width change down it (fnc: 0 at its root, 1 at the tip and below)
+sc.func('fnc(h)', f"min(1,max(0,({fmt(bf_h(0.008))}-h)/{fmt(BF_S * (0.008 - BF.NOSE_TIP))}))")
+sc.func('fno(h)', f"{fmt(BF_S * 0.0064)}*fnc(h)^1.4*exp(-(min(0,h-{fmt(NT)})/{fmt(BF_S * 0.0042)})^2)")
+sc.func('fns(h)', f"{fmt(BF_S * 0.003)}+{fmt(BF_S * 0.0036)}*fnc(h)^1.5")
+_bumps = ''.join(
+    f"{'-' if a > 0 else '+'}{fmt(BF_S * abs(a))}*exp(-(({'abs(p)-' + fmt(BF_S * cx) if cx else 'p'})/{fmt(BF_S * sx)})^2"
+    f"-((h-{fmt(bf_h(cz))})/{fmt(BF_S * sz)})^2)" for a, cx, cz, sx, sz in BF.BUMPS)
+sc.func('fr(p,h)', f"-fno(h)*exp(-(p/fns(h))^2){_bumps}")
 sc.func('fy(p,h)', 'fpl(h)+fd(h)*(1-max(0,1-(p/fwd(h))^2)^fq(h))+fr(p,h)')
+# check against the design (the bare face plus its features, as Blender adds them)
+_hh, _pp = np.meshgrid(np.linspace(HC + 0.02, HT, 60), np.linspace(-1, 1, 41), indexing='ij')
+_err = 0.0
+for h_, f_ in zip(_hh.ravel(), _pp.ravel()):
+    p_ = 0.97 * f_ * sc.ns['fwd'](h_)
+    bz_, bx_ = bf_z(h_), p_ / BF_S
+    want_ = BF_YB + BF_S * (BF.front_y(bx_, bz_) - BF.bumps(bx_, bz_))
+    _err = max(_err, abs(sc.ns['fy'](p_, h_) - want_))
+print(f'  face: max error against the Blender design {_err:.4f}', file=sys.stderr)
 
 HN = ZE + 0.14      # the lower patches (nose, mouth, chin) end here
-HT = ZE + 0.78
 FS = 0.36
 MASK = ('fwd(h)*sin(f)', 'fpl(h)+fd(h)*(1-abs(cos(f))^(2*fq(h)))+fr(fwd(h)*sin(f),h)', 'h')
 HK = ZE - 0.07      # the cheek patches end here, just under the eyes
@@ -692,7 +718,6 @@ highlight above the tip, and a gentle closed smile whose corners turn up, her le
 fdec('-0.024-0.012*t^1.5+0.0028*q', f"{fmt(NT + 0.075)}-0.083*t", 0.0016, ('t', 0, 1), ('q', -1, 1), unlit('#dba79b'), 'noseLine')
 fdec('-0.034+0.044*t', f"{fmt(NT - 0.012)}-0.008*t+0.006*t^2+0.0028*q*(1-0.6*t)", 0.0016, ('t', 0, 1), ('q', -1, 1), unlit('#d09a8e'), 'noseUnder')
 fdec('0.004+0.009*r*cos(w)', f"{fmt(NT + 0.035)}+0.028*r*sin(w)", 0.0015, ('r', 0, 1), ('w', 0, '2*pi'), unlit('#fff6f0'), 'noseShine')
-MZ = ZE - 0.435
 sc.comment("""Lips, as on the hi-res portrait: a soft pink lower lip just under the smile (fading in three ovals), a
 faint tint above it and a small gloss highlight; the smile itself is a warm red-brown.""")
 LIP = unlit('#efb5ab')

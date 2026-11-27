@@ -6,10 +6,11 @@ design sheet with nothing but parametric surfaces and a few curves.
 | File | |
 |---|---|
 | `claude-chan-3d.txt` | The Arch save file. Open it with Arch's *Open file*. |
-| `claude-chan-3d.arch` | The scene script (1925 objects); the save file is built from it. |
+| `claude-chan-3d.arch` | The scene script (1942 objects); the save file is built from it. |
 | `generate.py` | Writes the scene script. `face.py`, `outfit.py`, `motifs.py`, `cape.py`, `arms.py`, `hair.py`, `boots.py` and `scene.py` are its parts. |
 | [haircontact.py](<haircontact.py>), [hairjoin.py](<hairjoin.py>) | Query the existing hair surfaces and fit tangent-continuous posterior roots while preserving the original curl entrances. |
 | `hairflow.py` | Builds a long-hair strand in the back view from its sweep, widths, wave and curl (the back hair's `BK_FLOW`), and draws it in 2D for comparing with a picture. |
+| `bface.py` | The face designed in Blender (`clients/claude_chan_face/face.py`) as pure numpy: the head's design curves and small features, and the drawn features as front-view shapes. `face.py` maps it onto the head. |
 | `halfup.py` | The half-up hairstyle's long hair (the current style, `HAIR_STYLE` in `hair.py`): the locks out of the tie, the loose layer from under the braid and behind the ears, and wisps, hung as taut sheets over the capelet and fitted as polynomial strands. Pure numpy, so it can be designed outside Arch. |
 | `sheetfit.py` | Measures the design sheet and checks the model against it. |
 | `ornament_drape.py` | Lays the hair ornament's ribbons, tails and tassel on the hair, keeping where the hi-res portrait's view sees them; rewrites their positions in `generate.py`. |
@@ -34,14 +35,15 @@ parametric surface precision* slider recomputes the scene faster and coarser.
   wide as the sheet's at every height, and ends high enough to show the lace-up boots.
 - **Head**: sculpted from parts, tilted toward her right shoulder and turned a little to her right, which
   gives her a lively pose. The tilt is 7 degrees at the eyes, between the sheet's calm portraits (7 to 9
-  degrees) and its full-body front view (about 3). The face is a
-  stack of horizontal arcs whose width, depth and roundness change with height, so it has a real profile:
-  forehead, the dip between the eyes, a small pointed nose, lips, a receding chin, and a jawline that
-  runs up to the ear. Seen from the front the jaw runs nearly straight from the cheekbones to a blunt,
-  rounded chin: the portrait's V-shaped jaw, a little softer so it reads well in 3D. Across the cheeks the face is flatter than a real
-  one and turns quickly at the outline, as anime faces are drawn, so the light stays even over them. The round of each
-  cheek, the brow and the eye sockets are shallow bumps and hollows on top. Under the jaw, the neck,
-  and ears with helix, fold, concha, tragus and lobe.
+  degrees) and its full-body front view (about 3). The face's shape is the one the user approved in Blender
+  (`bface.py`, from `clients/claude_chan_face/face.py`), scaled by 8.53 units a metre so that it is as wide
+  across the eyes as the head the hair was laid round, with its irises at the eyes' height. It is a stack of
+  horizontal arcs whose width, depth and roundness change with height, so it has a real profile: forehead,
+  the dip between the eyes, a small nose, lips, a small chin. Seen from the front it is level across the eyes
+  and cheekbones and comes down in a short, soft V to a small rounded chin, with full cheeks; across them it is
+  flat and turns quickly at the outline, as anime faces are drawn. The nose, the hollows under the brows, the
+  cheeks, the lips, the line of the mouth and the chin are Gaussian bumps on top. The design curves are
+  splines within 0.003 of the design. Under the jaw, the neck, and ears with helix, fold, concha, tragus and lobe.
 - **Face**: the expression of the natural-smile portrait. Long, heavy-lidded almond eyes, each with its own
   shape as in the drawing, re-traced on the hi-res portrait as she is seen from its viewpoint: the upper lid
   covers the top third of the iris and sweeps down at both ends to meet the lower lid in a point, so both
